@@ -1,6 +1,6 @@
 # ARSENAL — Les industries de guerre
 
-Version 0.1 jouable d'un idle game industriel, en français, dans une ambiance 1914–1945. HTML, CSS et JavaScript natifs, sans dépendance, compte ni clé API.
+Version 0.2 jouable d'un idle game industriel, en français, dans une ambiance 1914–1945. HTML, CSS et JavaScript natifs, sans dépendance, compte ni clé API.
 
 ## Jouer immédiatement
 
@@ -37,7 +37,7 @@ Ouvrez http://localhost:8000. Sur Windows, remplacez `python` par `py` si néces
 | Allemagne | Fabrication 15 % plus rapide | Karabiner 98k | Panzer IV |
 | URSS | Récolte +20 % | Mosin-Nagant | T-34 |
 
-La campagne est fictive : le millésime 1936 est une ambiance de départ et non une simulation chronologique exacte. Les icônes des équipements sont schématiques et partagées entre nations. Les valeurs, recettes et brevets sont des mécaniques ludiques, pas des instructions techniques historiques.
+La campagne est fictive : le millésime 1936 est une ambiance de départ et non une simulation chronologique exacte. Les neuf équipements disposent de sprites pixel art spécifiques à leur nation ; ces illustrations restent des interprétations artistiques. Les valeurs, recettes et brevets sont des mécaniques ludiques, pas des instructions techniques historiques.
 
 ## Sauvegarde
 
@@ -54,7 +54,9 @@ Le jeu utilise des chemins relatifs : il fonctionne aussi sous `https://votre-co
 ## Structure
 
 - `dist/index.html` : entrée web.
-- `dist/style.css` : interface et adaptation aux petits écrans.
+- `dist/style.css` : structure de l’interface.
+- `dist/pixel-skin.css` : identité pixel art, matériaux, cadres et adaptation aux petits écrans.
+- `dist/assets/arsenal-pixel.ttf` : police originale intégrée ; source dans `tools/build-pixel-font.py` (fonttools requis uniquement pour la régénérer).
 - `dist/engine.js` : données, économie et simulation déterministe.
 - `dist/app.js` : interface, sauvegardes et événements.
 - `dist/assets/` : illustrations locales, aucune dépendance distante.
