@@ -1,0 +1,2 @@
+ImageGen intégré ; transparent_background=true ; référence : dist/assets/harvest-atlas.png.
+Extraire et nettoyer uniquement les quatre icônes charbon, bois, minerai de fer et caoutchouc. Supprimer tous les fonds, textes et cadres. Conserver leur identité pixel art, leurs matières et leurs couleurs. Grille transparente 2 × 2 : charbon, bois, fer, pneu, avec transparence également dans le pneu.

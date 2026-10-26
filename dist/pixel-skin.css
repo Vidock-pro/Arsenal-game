@@ -22,3 +22,120 @@ button:hover:not(:disabled),a:hover{filter:brightness(1.12)}button:active:not(:d
 .resource-card header h2{font-size:20px}.sidebar nav button{font-size:18px}.management-card h3{font-size:16px}.resource-card .card-actions .upgrade{font-size:18px}.resource-card .card-actions .secondary{font:bold 12px 'Courier New',monospace}.management-card button{font-size:16px}.card-actions button,.tech-card .upgrade,.paper-button,.secondary.full{font-family:'Courier New',monospace;font-weight:bold;font-size:13px}.primary,.upgrade,.paper-button,.sidebar nav button.active{background-image:linear-gradient(#e6b94278,#c6a24f70),url('assets/materials-atlas.png')}.country strong{font-size:12px;line-height:1.5}.choose-label{font-size:13px}.title-actions .start{font-size:20px}.title-actions .secondary{font:bold 13px 'Courier New',monospace}.title-body>.eyebrow{font-size:12px}.management-stat strong{font-size:20px}.status{font:bold 11px 'Courier New',monospace}.date-badge{font:9px/1.5 'Courier New',monospace}.tech-card h2{font-size:20px}.tech-requirements{font-size:10px}.done-label,.license-active{font:bold 12px/1.6 'Courier New',monospace}
 @media(max-width:1250px){.sidebar nav button{font-size:16px}.management-card h3{font-size:14px}.management-card button{font:bold 12px 'Courier New',monospace}.management-stat strong{font-size:18px}}
 @media(max-width:760px){.sidebar nav button{font:bold 11px 'Courier New',monospace}.resource-card header h2{font-size:18px}.resource-card .card-actions .upgrade{font:bold 13px 'Courier New',monospace}.resource-card .card-actions .secondary{font:bold 11px 'Courier New',monospace}.country strong{font-size:10px}.choose-label{font-size:11px}.title-actions .start{font-size:17px}.tech-card h2{font-size:18px}.tech-card .upgrade,.paper-button{font:bold 11px/1.5 'Courier New',monospace}.done-label,.license-active{font-size:10px}.resource-info .secondary.full{font:bold 10px/1.6 'Courier New',monospace}.card-actions button{font:bold 11px 'Courier New',monospace}}
+
+/* Resource reserves remain visible between nation and treasury. */
+.game-shell{grid-template-rows:auto 1fr}
+.topbar{gap:18px;min-height:90px}
+.topbar .wordmark,.topbar .nation-label,.topbar .wallet,.topbar .icon-btn{flex-shrink:0}
+.resource-stocks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));flex:1;gap:8px;min-width:0}
+.resource-stock{display:flex;align-items:center;gap:7px;min-width:0;padding:9px 8px;background:#141a12b3;border:1px solid #6e6545;box-shadow:inset 0 0 0 1px #10150d}
+
+.resource-stock>div{min-width:0}
+.resource-stock small{display:block;color:#c4c6ac;font:bold 10px/1.3 'Courier New',monospace}
+.resource-stock strong{display:block;margin-top:5px;color:#efe2bf;font:20px/1 var(--pixel);font-variant-numeric:tabular-nums;white-space:nowrap}
+.topbar .wallet{margin-left:0}
+@media(max-width:1400px) and (min-width:761px){
+ .topbar{flex-wrap:wrap}
+ .topbar .wordmark{flex-basis:100%;font-size:27px;padding:4px 8px}
+ .topbar .nation-label{padding-left:0;border-left:0;font-size:14px}
+ .topbar .nation-label small{max-width:150px}
+ .resource-stocks{gap:5px}
+ .resource-stock{padding:8px 5px;gap:5px}
+}
+@media(max-width:760px){
+ .topbar{height:auto;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px 8px}
+ .topbar .wordmark{grid-column:1}
+ .topbar .nation-label{grid-column:2 / 4;justify-self:end}
+ .resource-stocks{grid-column:1 / -1;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+ .resource-stock{flex-direction:column;align-items:flex-start;gap:5px;padding:7px 4px}
+ .resource-stock small{font-size:9px;overflow-wrap:anywhere;min-height:24px}
+ .resource-stock strong{font-size:18px}
+ .topbar .wallet{grid-column:1 / 3;justify-self:end}
+ .topbar .icon-btn{grid-column:3;justify-self:end}
+}
+
+/* Small atlas illustrations share the industrial palette of the harvest cards. */
+.resource-icon{position:relative;display:inline-block;overflow:hidden;width:36px;flex:0 0 36px;vertical-align:middle;isolation:isolate;image-rendering:pixelated}
+.resource-icon img{position:absolute;display:block;max-width:none;height:auto;pointer-events:none;image-rendering:pixelated}
+.resource-card header h2,.resource-name{display:flex;align-items:center;gap:9px}
+.resource-stock .resource-icon{width:32px;flex-basis:32px}
+@media(max-width:1100px) and (min-width:761px){.resource-stock{flex-direction:column;align-items:flex-start}.resource-stock .resource-icon{flex-basis:auto}}
+@media(max-width:760px){.resource-stock .resource-icon{width:30px;flex-basis:auto}.resource-card header h2 .resource-icon{width:30px;flex-basis:30px}}
+
+/* Compact workforce controls; explanations live in accessible labels and tooltips. */
+.worker-panel{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:14px;padding:10px;background:#161d13b3;border:1px solid #665d3e;box-shadow:inset 0 0 0 1px #0e140d}
+.worker-counter,.worker-wages,.worker-controls{display:flex;align-items:center;gap:7px}
+.worker-icon,.wage-icon{width:28px;height:28px;flex-shrink:0;image-rendering:pixelated}
+.worker-counter strong,.worker-wages strong{font:22px/1 var(--pixel);font-variant-numeric:tabular-nums;color:#efe2bf}
+.worker-status{font:12px/1 'Courier New',monospace;color:#82916a}
+.worker-status[data-state="empty"]{color:#65705a}.worker-status[data-state="paused"]{color:#e3b956}.worker-status[data-state="active"]{color:#a7c47c}
+.worker-controls{gap:5px}.worker-panel .worker-controls button{display:flex;justify-content:center;align-items:center;width:36px;min-width:36px;height:36px;min-height:36px;margin:0;padding:0;font:bold 22px/1 'Courier New',monospace}
+.worker-wages{margin-left:auto}.worker-wages strong{color:#e7c674}.worker-wages small{font:10px/1 'Courier New',monospace;color:#b9b99f;white-space:nowrap}
+@media(pointer:coarse){.worker-panel .worker-controls button{width:44px;min-width:44px;height:44px;min-height:44px}}
+.market-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.market-card{margin:0}.market-card h2{font-size:22px}.market-card p{margin:18px 0;font:14px 'Courier New',monospace}
+.market-card .market-price{font-size:24px;color:var(--gold)}.market-price small{font-size:12px}
+.market-actions{display:grid;gap:10px}.market-actions button{font:bold 13px 'Courier New',monospace}
+@media(max-width:760px){.market-grid{grid-template-columns:1fr}.sidebar nav{overflow-x:auto}.sidebar nav button{flex-shrink:0}.wallet strong{white-space:nowrap}}
+
+/* Shared tracks align every section across neighboring harvest cards. */
+.resource-grid>.resource-card{display:grid;grid-row:span 7;grid-template-rows:subgrid;row-gap:0;min-width:0}
+.resource-grid>.resource-card>header{grid-row:1;min-width:0}
+.resource-grid>.resource-card>.art{grid-row:2;aspect-ratio:4 / 3!important;width:100%;align-self:start}
+.resource-grid>.resource-card>.resource-info{grid-row:3 / span 5;display:grid;grid-template-rows:subgrid;row-gap:0;min-width:0}
+.resource-card>.resource-info>p{grid-row:1}
+.resource-card>.resource-info>.stock-row{grid-row:2;min-width:0;gap:6px}
+.resource-card>.resource-info>.meter{grid-row:3}
+.resource-card>.resource-info>.card-actions{grid-row:4;align-self:start}
+.resource-card>.resource-info>.worker-panel{grid-row:5;align-self:end}
+.resource-card>.resource-info>.lock-info{grid-row:2 / 5;align-self:start}
+.resource-card>.resource-info>button.full{grid-row:5;align-self:end;min-height:44px;margin-top:14px;padding:10px 9px;font:bold 11px/1.6 'Courier New',monospace}
+.resource-card .worker-panel{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 6px}
+.resource-card .worker-counter{grid-column:1;grid-row:1;gap:5px;min-width:0}
+.resource-card .worker-counter strong{min-width:2ch;text-align:right}
+.resource-card .worker-controls{grid-column:2;grid-row:1;justify-self:end}
+.resource-card .worker-wages{grid-column:1 / -1;grid-row:2;justify-self:end;margin-left:0}
+.resource-card .worker-wages strong{min-width:3ch;text-align:right}
+@media(max-width:400px){
+ .resource-card .worker-panel{padding:7px 4px;gap:8px 3px}
+ .resource-card .worker-counter{gap:3px}
+ .resource-card .worker-icon{width:22px;height:22px}
+ .resource-card .worker-counter strong{font-size:18px}
+ .resource-card .worker-controls{gap:3px}
+ .resource-card .worker-panel .worker-controls button{width:32px;min-width:32px;height:44px;min-height:44px}
+}
+
+/* Keep the Soviet emblem independent from bitmap-font glyphs and line height. */
+.flag.su{padding:0;overflow:hidden;align-items:stretch;line-height:0}
+.flag.su .soviet-flag{display:block;width:100%;height:100%;flex:none}
+
+/* Four nations, with a compact two-column selector on smaller screens. */
+.countries{grid-template-columns:repeat(4,minmax(0,1fr));max-width:1120px}
+.flag.us{background:repeating-linear-gradient(to bottom,#a3443b 0 calc(100% / 13),#e9dfc2 calc(100% / 13) calc(200% / 13));overflow:hidden}
+.flag.us:before{content:'';position:absolute;left:0;top:0;width:45%;height:54%;background-color:#33496c;background-image:radial-gradient(circle,#eee3bf .7px,transparent 1px);background-size:4px 4px}
+@media(max-width:950px){.countries{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:380px){.countries{grid-template-columns:1fr}}
+
+.management-card .archive-illustration{display:block;width:100%;height:auto;aspect-ratio:216 / 166;object-fit:cover;border:1px solid #b0a070;image-rendering:pixelated;margin-bottom:12px}
+
+/* Twelve reserves retain their position between nation and treasury. */
+.resource-stocks{grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+.resource-stock{padding:6px 5px;gap:5px}
+.resource-stock small{font-size:9px;overflow-wrap:anywhere}
+.resource-stock strong{font-size:18px}
+.resource-stock .resource-icon{width:26px;flex-basis:26px}
+.resource-icon.mineral-icon{height:auto;aspect-ratio:1;align-self:center}
+.resource-grid .resource-scene{aspect-ratio:4 / 3;overflow:hidden;position:relative}
+.resource-scene img{position:absolute;max-width:none;object-fit:fill}
+.resource-card header h2{min-width:0;overflow-wrap:anywhere;font-size:18px}
+.resource-card header .resource-icon{flex-shrink:0}
+.resource-card .card-actions .upgrade{overflow-wrap:anywhere}
+@media(max-width:1400px) and (min-width:761px){.topbar .resource-stocks{flex-basis:100%;order:2}.topbar .wallet{margin-left:auto}.resource-stock{flex-direction:row}.resource-stock .resource-icon{flex-basis:26px}}
+@media(max-width:760px){.resource-stocks{display:flex;overflow-x:auto;padding-bottom:6px}.resource-stock{flex:0 0 90px;flex-direction:row;align-items:center}.resource-stock small{min-height:0}.resource-stock .resource-icon{width:24px;flex-basis:24px}.resource-card header h2{font-size:16px}}
+
+.resource-icon.generated-icon{aspect-ratio:1;align-self:center}.resource-icon.generated-icon img{max-width:none;object-fit:fill}
+
+/* Transparent menu sprites retain their material colors on active and idle buttons. */
+.sidebar nav button .menu-icon{display:block;position:relative;overflow:hidden;width:38px;height:38px;min-width:38px;flex:0 0 38px;mix-blend-mode:normal;background:none;image-rendering:pixelated}
+.menu-icon img{position:absolute;display:block;width:300%;height:200%;max-width:none;pointer-events:none;image-rendering:pixelated}
+@media(max-width:760px){.sidebar nav button .menu-icon{width:30px;height:30px;min-width:30px;flex-basis:30px}}
