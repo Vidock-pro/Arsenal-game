@@ -9,9 +9,9 @@ test('Each nation gets only its own 15 percent bonus',()=>{
   assert.ok(Math.abs(rate(s,RESOURCES[0])-.4*(id==='su'?1.15:1))<1e-10);
   assert.equal(researchTime(s,TECHS[0]),30/(id==='fr'?1.15:1));
   assert.equal(productTime(s,PRODUCTS[0]),12/(id==='us'?1.15:1));
-  assert.equal(salePrice(s,PRODUCTS[0]),id==='de'?63:55);
+  assert.equal(salePrice(s,PRODUCTS[0]),id==='de'?64:55);
   const gold=s.credits;s.resources.coal=1;act(s,'sell-resource','coal');assert.equal(s.credits,gold+1);
-  s.tech=['steam','assembly','alloys','series'];assert.equal(salePrice(s,PRODUCTS[0]),Math.floor(55*1.25*(id==='de'?1.15:1)));
+  s.tech=['steam','assembly','alloys','series'];assert.equal(salePrice(s,PRODUCTS[0]),Math.ceil(55*1.25*(id==='de'?1.15:1)));
   assert.doesNotThrow(()=>validateSave(s));
  }
  const us=established('us'),de=established('de');act(us,'toggle','rifle');act(de,'toggle','rifle');advance(us,11);advance(de,11);assert.equal(us.lines[0].stock,1);assert.equal(de.lines[0].stock,0);
@@ -88,8 +88,8 @@ test('All twelve sites open in order with x5 costs, x1.5 prices and x1.3 gross f
  for(let i=1;i<RESOURCES.length;i++){
   const r=RESOURCES[i],previous=RESOURCES[i-1];
   for(const later of RESOURCES.slice(i+1))assert.equal(available(s,later),false);
-  assert.equal(r.cost,100*5**(i-1));assert.equal(MARKET_PRICES[r.id]/MARKET_PRICES[previous.id],1.5);
-  const time=r.cost/(previous.rate*MARKET_PRICES[previous.id]);
+  assert.equal(r.cost,100*5**(i-1));assert.equal(MARKET_PRICES[r.id],Math.ceil(1.5**i));
+  const time=r.cost/(previous.rate*1.5**previous.tier);
   if(lastTime!==null)assert.ok(Math.abs(time/lastTime-1.3)<1e-10);lastTime=time;
   assert.ok(act(s,'upgrade',r.id));assert.ok(act(s,'harvest',r.id));assert.equal(s.resources[r.id],1);
   assert.ok(act(s,'hire',r.id));assert.ok(rate(s,r)>0);
@@ -107,8 +107,24 @@ test('Version 2 migration retains workers, converts platinum, and preserves acce
  assert.equal('platinum' in s.resources,false);assert.deepEqual(validateSave(s),s);
  old.resources.platinum=-1;assert.throws(()=>validateSave(old));
 });
-test('Fractional resource sales preserve value and late-game capacity survives save/load',()=>{
- const s=newGame('us');s.resources.cotton=1;act(s,'sell-resource','cotton');assert.equal(s.credits,1.5);
+test('Resource sales round up and late-game capacity survives save/load',()=>{
+ const s=newGame('us');s.resources.cotton=1;act(s,'sell-resource','cotton');assert.equal(s.credits,2);
  const r=RESOURCES.at(-1);s.levels[r.id]=1;s.workers[r.id]=[60];s.credits=100;
  advance(s,60);assert.ok(s.resources.bauxite>10000);assert.ok(s.resources.bauxite<capacity(s,r));assert.deepEqual(validateSave(s),s);
+});
+
+
+test('All transaction prices round upward and batch sales equal individual sales',()=>{
+ const a=newGame('fr'),b=newGame('fr');
+ for(const r of RESOURCES){
+  assert.equal(MARKET_PRICES[r.id],Math.ceil(1.5**r.tier));
+  a.resources[r.id]=10;b.resources[r.id]=10;
+  act(a,'sell-ten',r.id);for(let i=0;i<10;i++)act(b,'sell-resource',r.id);
+  assert.equal(a.credits,b.credits);assert.ok(Number.isInteger(a.credits));
+  a.levels[r.id]=3;assert.equal(upgradeCost(a,r),Math.ceil(r.cost*1.65**3));
+ }
+ for(const country of Object.keys(COUNTRIES))for(const p of PRODUCTS){
+  const s=newGame(country);s.tech.push('series');
+  assert.equal(salePrice(s,p),Math.ceil(p.value*(country==='de'?1.15:1)*1.25));
+ }
 });
