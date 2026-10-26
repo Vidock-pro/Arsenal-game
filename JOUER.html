@@ -158,52 +158,147 @@ button:hover:not(:disabled),a:hover{filter:brightness(1.12)}button:active:not(:d
 @media(min-width:1401px) and (max-width:1700px){.topbar .resource-stocks{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @media(max-width:760px){.topbar .resource-stocks{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @media(max-width:380px){.topbar .resource-stocks{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* Nation-specific orthographic equipment on green industrial drawing boards. */
+.production-sprite{position:relative;overflow:hidden;width:100%;aspect-ratio:3 / 2;align-self:center;background:#182015;image-rendering:pixelated}
+.production-sprite img{display:block;position:absolute;width:500%;height:400%;max-width:none;image-rendering:pixelated;pointer-events:none}
+.production-card .product-art{min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:12px}
+.production-card .product-details{min-width:0}
+.product-category{font:bold 11px/1.5 'Courier New',monospace;color:var(--gold);margin:0 0 8px}
+.production-filters{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px}
+.production-filters button{font:bold 12px 'Courier New',monospace;padding:10px 13px}
+.production-filters button.selected{background:#63542a;border-color:#dfbd70;color:#fff0c3}
+.production-card .recipe{display:flex;flex-wrap:wrap;gap:7px;margin:15px 0}
+.production-card .recipe>span{display:flex;align-items:center;gap:6px;padding:5px 8px;background:#11190eb3;border:1px solid #56583d;min-width:0}
+.production-card .recipe .resource-icon{width:25px;flex:0 0 25px;height:25px}
+.production-card .recipe small{font:10px/1.3 'Courier New',monospace}
+.production-requirements{padding:12px;border:1px solid #6e6545;background:#202619;margin:12px 0;color:#c9bea0;font:12px/1.6 'Courier New',monospace}
+.production-requirements strong{color:#d4b876;font-size:10px}.production-requirements ul{padding-left:18px;margin:6px 0}
+.production-locked .production-sprite{filter:saturate(.55) brightness(.8)}
+.production-card .product-heading h2{overflow-wrap:anywhere}
+@media(max-width:760px){.production-card .production-stats{display:flex;flex-wrap:wrap;gap:8px}.production-card .card-actions{flex-wrap:wrap}.production-card .card-actions button{white-space:normal;min-width:0}.production-card .product-art{padding:14px}}
+
+/* Research materials: compact costs with live availability. */
+.research-costs{display:grid;gap:6px;margin:12px 0;padding:9px;border:1px solid #786c43;background:#121b10}
+.research-cost{display:flex;align-items:center;gap:7px;min-width:0;font:10px/1.5 'Courier New',monospace;color:#ded5b6}
+.research-cost>span:not(.resource-icon){flex:1;min-width:0}
+.research-cost strong{margin-left:auto;white-space:nowrap;color:#bfce99;font-size:11px}
+.research-cost strong[data-missing="true"]{color:#edb17b}
+
+/* Research board and inspectable square nodes. */
+.research-tree{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,150px);padding:0;border:2px solid #8b7a4d;background:linear-gradient(#8192650c 1px,transparent 1px),linear-gradient(90deg,#8192650c 1px,transparent 1px),#141e11;background-size:22px 22px;box-shadow:inset 0 0 0 4px #0a1008;margin:16px 0 12px}
+.research-links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:-1;overflow:visible}
+.research-links path{fill:none;stroke:#5f6145;stroke-width:2;vector-effect:non-scaling-stroke;stroke-dasharray:5 5}
+.research-links path.fulfilled{stroke:#c6ac59;stroke-dasharray:none}
+.research-node{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;padding:10px 3px;gap:5px}
+.research-square{position:relative;flex:none;width:64px;height:64px;padding:10px;border:2px solid #a28b52;background:#293520;box-shadow:inset 0 0 0 3px #10180c,3px 3px #070d06;color:#dfc773;cursor:pointer}
+.research-square svg{width:100%;height:100%;filter:drop-shadow(2px 2px #080e06)}
+.research-square:hover,.research-square:focus-visible{outline:2px solid #f1d882;outline-offset:3px}
+.research-node.locked .research-square{color:#929781;border-color:#62664f;background:#1b2417}
+.research-node.completed .research-square{color:#daebaf;border-color:#acbf80;background:#33462a}
+.research-node.running .research-square{color:#ffde77;border-color:#f1c557;background:#4b4323}
+.research-node-mark{position:absolute;right:-5px;bottom:-5px;font:13px/18px monospace;background:#111b0d;border:1px solid currentColor;width:20px;height:20px;text-align:center}
+.research-node-name{font:10px/1.5 var(--pixel);text-align:center;max-width:96%;background:#141e11;color:#e3d9b7;padding:2px 3px}
+.research-node-state{font:8px/1.3 'Courier New',monospace;color:#b6b89a;background:#141e11;padding:1px 3px}
+.research-detail{display:none;position:absolute;top:calc(100% - 12px);left:50%;transform:translateX(-50%);width:330px;max-width:calc(300% - 12px);border:2px solid #b49b58;background:#1d2919;box-shadow:0 8px 24px #000b,inset 0 0 0 3px #0b1308;padding:16px 8px 8px;z-index:30;color:#e3dbbb}
+.research-node[style*="grid-column:1"] .research-detail{left:6px;transform:none}
+.research-node[style*="grid-column:3"] .research-detail{left:auto;right:6px;transform:none}
+.research-node[style*="grid-row:3"] .research-detail{top:auto;bottom:calc(100% - 12px)}
+.research-node[data-preview="true"],.research-node:focus-within,.research-node[data-pinned="true"]{z-index:20}
+.research-node[data-preview="true"] .research-detail,.research-node:has(.research-square:focus-visible) .research-detail,.research-detail:focus-within,.research-node[data-pinned="true"] .research-detail{display:block}
+.research-detail .resource-info{background:none;padding:8px}
+.research-detail h2{font:16px/1.5 var(--pixel);margin:6px 20px 12px 0}
+.research-detail-close{position:absolute;right:5px;top:4px;padding:1px 6px;font:20px monospace;color:#ead395;background:#25331d;border:1px solid #7b7047}
+.research-detail .tech-requirements{font:11px/1.5 'Courier New',monospace}
+.research-legend{display:flex;flex-wrap:wrap;gap:14px;font:10px/1.6 'Courier New',monospace;color:#c6c1a2;padding:6px}
+@media(max-width:480px){.research-square{width:54px;height:54px;padding:8px}.research-node-name{font-size:8px}.research-node-state{font-size:7px}.research-detail{width:280px}.research-tree{margin-inline:0}}
+
+/* Compact dossier text: remove minimum heights inherited from full-size cards. */
+.research-detail .resource-info{padding:6px}
+.research-detail h2{margin:2px 20px 8px 0;line-height:1.3}
+.research-detail .resource-info p,.research-detail .tech-requirements{min-height:0;margin:0 0 6px;font-size:10px;line-height:1.4}
+.research-detail .resource-info p strong,.research-detail .tech-requirements strong,.research-detail .research-cost-heading{font-weight:700;color:#eee0b4}
+.research-detail .research-costs{margin:8px 0;gap:4px;padding:7px}
+.research-detail .research-cost-heading{font-size:10px;line-height:1.4}
 </style><div id="app"></div><div id="toast" role="status" aria-live="polite"></div><script>/** Arsenal: deterministic, browser-independent game rules. No dependencies. */
 const COUNTRIES={
- fr:{name:'France',motto:'L’ingéniosité au service de l’industrie',bonus:'Recherche +15 %',icon:'FR',units:['Fusil MAS 36','Camion de ravitaillement','Char B1 bis']},
- us:{name:'USA',motto:'La puissance des grandes manufactures',bonus:'Production +15 %',icon:'US',units:['Fusil américain','Camion de ravitaillement','Char américain']},
- de:{name:'Allemagne',motto:'La précision des ateliers',bonus:'Prix de vente des équipements +15 %',icon:'DE',units:['Fusil Karabiner 98k','Camion de ravitaillement','Panzer IV']},
- su:{name:'URSS',motto:'La force des grands complexes',bonus:'Récolte +15 %',icon:'SU',units:['Fusil Mosin-Nagant','Camion de ravitaillement','Char T-34']}
+ fr:{name:'France',motto:'L’ingéniosité au service de l’industrie',bonus:'Recherche +15 %',icon:'FR'},
+ us:{name:'USA',motto:'La puissance des grandes manufactures',bonus:'Production +15 %',icon:'US'},
+ de:{name:'Allemagne',motto:'La précision des ateliers',bonus:'Prix de vente des équipements +15 %',icon:'DE'},
+ su:{name:'URSS',motto:'La force des grands complexes',bonus:'Récolte +15 %',icon:'SU'}
 };
 const RESOURCE_RATE_GROWTH=5/(1.5*1.3);
 const RESOURCES=[
- ['coal','Charbon','Mine de charbon','Énergie des ateliers et des futures transformations.'],
- ['cotton','Coton','Plantation de coton','Fibres destinées aux tissus et aux uniformes.'],
+ ['coal','Charbon','Mine de charbon','Énergie consommée par les ateliers de production.'],
+ ['cotton','Coton','Plantation de coton','Fibres pour les uniformes et le matériel de soutien.'],
  ['wood','Bois','Scierie','Caisses, matériel de soutien et crosses.'],
- ['copper','Cuivre','Mine de cuivre','Composants métalliques et futurs équipements électriques.'],
- ['gunpowder','Poudre à canon','Dépôt de poudre','Approvisionnement destiné aux futures munitions.'],
- ['iron','Minerai de fer','Carrière de fer','Pièces mécaniques et futurs aciers industriels.'],
- ['rubber','Caoutchouc','Concession d’hévéas','Pneus et joints des futurs véhicules.'],
- ['shale','Schiste bitumineux','Carrière de schiste','Matière destinée à la future filière des carburants.'],
+ ['copper','Cuivre','Mine de cuivre','Composants métalliques des équipements et véhicules.'],
+ ['gunpowder','Poudre à canon','Dépôt de poudre','Approvisionnement des ateliers de munitions.'],
+ ['iron','Minerai de fer','Carrière de fer','Pièces mécaniques pour armes, véhicules et avions.'],
+ ['rubber','Caoutchouc','Concession d’hévéas','Pneus et joints des véhicules.'],
+ ['shale','Schiste bitumineux','Carrière de schiste','Approvisionnement énergétique des véhicules légers.'],
  ['oil','Pétrole brut','Champ pétrolier','Carburants et lubrifiants pour les moteurs.'],
- ['manganese','Manganèse','Mine de manganèse','Aciers renforcés pour les futurs blindages.'],
+ ['manganese','Manganèse','Mine de manganèse','Alliages des half-tracks et des blindages.'],
  ['nickel','Nickel','Mine de nickel','Alliages avancés pour blindages et moteurs.'],
- ['bauxite','Bauxite','Carrière de bauxite','Aluminium destiné à la future aviation.']
+ ['bauxite','Bauxite','Carrière de bauxite','Métal léger destiné aux ateliers d’aviation.']
 ].map(([id,name,site,desc],i)=>({id,name,site,desc,tier:i,previous:i?['coal','cotton','wood','copper','gunpowder','iron','rubber','shale','oil','manganese','nickel'][i-1]:null,rate:.4*RESOURCE_RATE_GROWTH**i,cost:i?100*5**(i-1):90,icon:'◆'}));
 const TECHS=[
- {id:'steam',name:'Machines à vapeur',desc:'Récolte de toutes les ressources + 20 %.',cost:240,time:30,requires:[],x:404,y:274,w:275,h:111},
- {id:'assembly',name:'Chaîne de montage',desc:'Production 25 % plus rapide. Débloque les camions.',cost:450,time:50,requires:['steam'],x:398,y:485,w:285,h:111},
- {id:'alloys',name:'Alliages avancés',desc:'Débloque les blindés.',cost:650,time:75,requires:['steam'],x:753,y:485,w:277,h:109},
- {id:'chemistry',name:'Chimie industrielle',desc:'Prépare les procédés chimiques et les brevets industriels.',cost:400,time:45,requires:['steam'],x:752,y:273,w:278,h:113},
- {id:'series',name:'Production en série',desc:'Prix de vente de tous les équipements + 25 %.',cost:1300,time:100,requires:['assembly','alloys'],x:402,y:700,w:274,h:109},
- {id:'logistics',name:'Transport motorisé',desc:'Récolte + 25 %. Capacité des stocks doublée.',cost:1000,time:90,requires:['assembly','chemistry'],x:752,y:699,w:277,h:111}
+ {id:'steam',name:'Machines à vapeur',desc:'Récolte de toutes les ressources + 20 %.',cost:{coal:60,cotton:20},time:30,requires:[],x:404,y:274,w:275,h:111},
+ {id:'assembly',name:'Chaîne de montage',desc:'Production 25 % plus rapide. Autorise les véhicules légers et camions.',cost:{coal:100,wood:60,iron:40,copper:20},time:50,requires:['steam'],x:398,y:485,w:285,h:111},
+ {id:'alloys',name:'Alliages avancés',desc:'Autorise les blindés, après leurs étapes précédentes.',cost:{coal:150,iron:100,manganese:40,nickel:20},time:75,requires:['steam'],x:753,y:485,w:277,h:109},
+ {id:'chemistry',name:'Chimie industrielle',desc:'Autorise les grenades, munitions de fusil et obus.',cost:{coal:80,gunpowder:50,copper:30},time:45,requires:['steam'],x:752,y:273,w:278,h:113},
+ {id:'series',name:'Production en série',desc:'Prix de vente de tous les équipements + 25 %.',cost:{coal:180,wood:80,iron:120,copper:60},time:100,requires:['assembly','alloys'],x:402,y:700,w:274,h:109},
+ {id:'logistics',name:'Transport motorisé',desc:'Récolte + 25 %. Capacité des stocks doublée.',cost:{coal:140,iron:80,rubber:40,oil:30},time:90,requires:['assembly','chemistry'],x:752,y:699,w:277,h:111}
 ];
+// Recipes are abstract game units, not real manufacturing specifications.
 const PRODUCTS=[
- {id:'rifle',kind:'Armement individuel',recipe:{wood:8,iron:12,coal:5},time:12,value:55,unlock:null},
- {id:'truck',kind:'Logistique',recipe:{iron:40,wood:15,rubber:12,coal:20},time:30,value:240,unlock:'assembly'},
- {id:'tank',kind:'Blindés',recipe:{iron:100,coal:60,rubber:25,nickel:8},time:60,value:680,unlock:'alloys'}
-];
-const PATENTS=[
- {id:'steam',name:'Moteur à vapeur',cost:250,income:0.3},
- {id:'assembly',name:'Procédé d’assemblage',cost:500,income:0.6},
- {id:'alloys',name:'Acier allié',cost:650,income:0.9},
- {id:'chemistry',name:'Vulcanisation',cost:450,income:0.5},
- {id:'series',name:'Pièces standardisées',cost:1000,income:1.5},
- {id:'logistics',name:'Transmission mécanique',cost:900,income:1.2}
-];
+ ['uniform','Uniforme','Équipement', {coal:2,cotton:4},8,null],
+ ['support','Matériel de soutien','Équipement',{coal:3,cotton:6,wood:5},10,null],
+ ['pistol_ammo','Munition de pistolet','Armement',{coal:4,copper:6,gunpowder:4},12,null],
+ ['pistol','Pistolet','Armement',{coal:6,copper:5,iron:10},15,'steam'],
+ ['grenade','Grenade','Armement',{coal:6,gunpowder:8,iron:8},18,'chemistry'],
+ ['rifle_ammo','Munition de fusil','Armement',{coal:8,copper:12,gunpowder:10},22,'chemistry'],
+ ['rifle','Fusil','Armement',{coal:10,wood:14,iron:22},26,'steam'],
+ ['machine_gun','Mitrailleuse','Armement',{coal:16,wood:8,copper:12,iron:38},32,'series'],
+ ['shell','Obus','Artillerie',{coal:20,copper:20,gunpowder:28,iron:30},38,'chemistry'],
+ ['artillery','Canon d’artillerie','Artillerie',{coal:35,wood:20,copper:25,iron:75},45,'series'],
+ ['jeep','Jeep','Véhicules',{coal:40,cotton:15,copper:30,iron:85,rubber:35,shale:30},55,'assembly'],
+ ['truck','Camion','Véhicules',{coal:55,cotton:30,wood:45,copper:40,iron:120,rubber:55,oil:40},65,'assembly'],
+ ['halftrack','Half-track','Véhicules',{coal:70,copper:55,iron:160,rubber:65,oil:55,manganese:30},75,'logistics'],
+ ['light_tank','Char léger','Blindés',{coal:90,copper:65,iron:220,rubber:50,oil:75,manganese:60},90,'alloys'],
+ ['medium_tank','Char moyen','Blindés',{coal:120,copper:80,iron:320,rubber:65,oil:100,manganese:90,nickel:50},110,'alloys'],
+ ['heavy_tank','Char lourd','Blindés',{coal:160,copper:110,iron:450,rubber:80,oil:140,manganese:140,nickel:100},130,'alloys'],
+ ['recon','Avion de reconnaissance','Aviation',{coal:180,cotton:60,wood:100,copper:120,rubber:60,oil:150,nickel:70,bauxite:160},150,'logistics'],
+ ['fighter','Avion de chasse','Aviation',{coal:220,copper:150,iron:140,rubber:70,oil:200,nickel:120,bauxite:280},180,'series'],
+ ['bomber','Bombardier','Aviation',{coal:300,copper:220,iron:220,rubber:100,oil:300,nickel:180,bauxite:450},220,'series']
+].map(([id,name,kind,recipe,time,unlock],tier)=>({id,name,kind,recipe,time,unlock:unlock||'steam',tier,value:Math.ceil(Object.entries(recipe).reduce((sum,[id,n])=>sum+n*Math.ceil(1.5**RESOURCES.find(r=>r.id===id).tier),0)*(1.4+tier*.06))}));
+const PRODUCT_NAMES={
+ fr:['Tenue française modèle 1935','Équipement de soutien français','Cartouches de pistolet françaises','Pistolet automatique 1935A','Grenade F1','Cartouches de fusil françaises','MAS 36','Hotchkiss modèle 1914','Obus français','Canon de 75 modèle 1897','Willys MB · Forces françaises libres','Renault AGK','M5 Half-track · Forces françaises libres','Hotchkiss H39','SOMUA S35','B1 bis','Potez 63.11','Dewoitine D.520','LeO 451'],
+ us:['Tenue de campagne M1943','Équipement de soutien américain','Cartouches de pistolet américaines','Colt M1911A1','Grenade Mk 2','Cartouches de fusil américaines','M1 Garand','Browning M1919','Obus américain','Howitzer M2A1','Willys MB','GMC CCKW','M3 Half-track','M5A1 Stuart','M4 Sherman','M26 Pershing · 1945','Piper L-4 Grasshopper','P-51 Mustang','B-17 Flying Fortress'],
+ de:['Tenue de campagne M1936','Équipement de soutien allemand','Cartouches de pistolet allemandes','Walther P38','Stielhandgranate 24','Cartouches de fusil allemandes','Karabiner 98k','MG 42','Obus allemand','LeFH 18','Volkswagen Kübelwagen','Opel Blitz','Sd.Kfz. 251','Panzer II','Panzer IV','Tiger I','Focke-Wulf Fw 189','Messerschmitt Bf 109','Heinkel He 111'],
+ su:['Tenue Gymnastiorka et casque SSh-40','Équipement de soutien soviétique','Cartouches de pistolet soviétiques','Tokarev TT-33','Grenade F1','Cartouches de fusil soviétiques','Mosin-Nagant 1891/30','DP-27','Obus soviétique','ZiS-3','GAZ-67','ZiS-5','ZiS-42','T-70','T-34-85','IS-2','Polikarpov Po-2','Yakovlev Yak-3','Petlyakov Pe-2']
+};
+const productName=(s,p)=>PRODUCT_NAMES[s.country][p.tier];
+function patentRequirements(s,p){
+ const missing=[];
+ if(!s.tech.includes(p.unlock))missing.push('Recherche : '+TECHS.find(t=>t.id===p.unlock).name);
+ if(!s.patents.includes(p.id)&&p.tier&&s.lines.find(l=>l.id===PRODUCTS[p.tier-1].id).made<1)missing.push('Fabriquer : '+PRODUCTS[p.tier-1].name);
+ return missing;
+}
+function productionRequirements(s,p){
+ const missing=patentRequirements(s,p);
+ if(!s.patents.includes(p.id))missing.push('Acheter le brevet : '+p.name);
+ const sites=Object.keys(p.recipe).filter(id=>!s.levels[id]).map(id=>RESOURCES.find(r=>r.id===id).name);
+ if(sites.length)missing.push('Ouvrir : '+sites.join(', '));
+ return missing;
+}
+const productionUnlocked=(s,p)=>productionRequirements(s,p).length===0;
+// One-time license fee: five base sale values, with a 75-gold minimum.
+const PATENTS=PRODUCTS.map(p=>({...p,cost:Math.max(75,Math.ceil(p.value*5))}));
+const LEGACY_PATENT_COSTS={steam:250,assembly:500,alloys:650,chemistry:450,series:1000,logistics:900};
 function newGame(country,now=Date.now()){
  if(!COUNTRIES[country])throw Error('Pays invalide');
- return {version:3,country,credits:0,resources:Object.fromEntries(RESOURCES.map(r=>[r.id,0])),levels:Object.fromEntries(RESOURCES.map(r=>[r.id,r.id==='coal'?1:0])),workers:Object.fromEntries(RESOURCES.map(r=>[r.id,[]])),tech:[],research:null,patents:[],lines:PRODUCTS.map(p=>({id:p.id,enabled:false,remaining:0,stock:0,made:0})),totalSold:0,lastSaved:now,elapsed:0};
+ return {version:5,country,credits:0,resources:Object.fromEntries(RESOURCES.map(r=>[r.id,0])),levels:Object.fromEntries(RESOURCES.map(r=>[r.id,r.id==='coal'?1:0])),workers:Object.fromEntries(RESOURCES.map(r=>[r.id,[]])),tech:[],research:null,patents:[],lines:PRODUCTS.map(p=>({id:p.id,enabled:false,remaining:0,stock:0,made:0,licensed:false})),totalSold:0,lastSaved:now,elapsed:0};
 }
 const capacity=(s,r=RESOURCES[0])=>Math.ceil(5000*RESOURCE_RATE_GROWTH**r.tier)*(s.tech.includes('logistics')?2:1);
 const HIRE_COST=25, WAGE=2, PAY_PERIOD=60;
@@ -228,12 +323,21 @@ function advance(s,seconds){
  const dt=Math.min(1,left,...remaining);left-=dt;s.elapsed+=dt;
  for(const r of RESOURCES)s.resources[r.id]=Math.min(capacity(s,r),s.resources[r.id]+rate(s,r)*dt);
  for(const r of RESOURCES)s.workers[r.id]=s.workers[r.id].map(t=>Math.max(0,t-dt));
- s.credits+=PATENTS.filter(p=>s.patents.includes(p.id)).reduce((a,p)=>a+p.income,0)*dt;
  if(s.research){s.research.remaining-=dt;if(s.research.remaining<=0){s.tech.push(s.research.id);s.research=null;}}
- for(const line of s.lines){const p=PRODUCTS.find(x=>x.id===line.id);if(!line.enabled||(p.unlock&&!s.tech.includes(p.unlock)))continue;
- if(line.remaining<=0){if(line.stock>=9999||!affordable(s,p.recipe))continue;for(const [k,v]of Object.entries(p.recipe))s.resources[k]-=v;line.remaining=productTime(s,p);}
- line.remaining-=dt;if(line.remaining<=1e-8){line.remaining=0;line.stock++;line.made++;}
+ for(const line of s.lines){
+  const p=PRODUCTS.find(x=>x.id===line.id);if(!line.enabled)continue;
+  let budget=dt;
+  while(budget>1e-8){
+   if(line.remaining<=1e-8){
+    if(line.stock>=9999||!productionUnlocked(s,p)||!affordable(s,p.recipe))break;
+    for(const [id,n] of Object.entries(p.recipe))s.resources[id]-=n;
+    line.licensed=true;line.remaining=productTime(s,p);
+   }
+   const used=Math.min(budget,line.remaining);line.remaining-=used;budget-=used;
+   if(line.remaining<=1e-8){line.remaining=0;line.stock++;line.made++;}
+  }
  }
+
  }return s;
 }
 function act(s,type,id){
@@ -242,9 +346,9 @@ function act(s,type,id){
  if(type==='hire'){const r=RESOURCES.find(r=>r.id===id);if(!r||!unlocked(s,r)||s.workers[id].length>=100||s.credits<hireCost(s,r)+WAGE)return false;s.credits-=hireCost(s,r)+WAGE;s.workers[id].push(PAY_PERIOD);return true;}
  if(type==='dismiss'){const r=RESOURCES.find(r=>r.id===id);if(!r||!s.workers[id].length)return false;s.workers[id].pop();return true;}
  if(['sell-resource','sell-ten','sell-all'].includes(type)){const r=RESOURCES.find(r=>r.id===id);if(!r)return false;const amount=type==='sell-all'?Math.floor(s.resources[id]):type==='sell-ten'?10:1;if(amount<=0||s.resources[id]<amount)return false;s.resources[id]-=amount;s.credits+=amount*MARKET_PRICES[id];return true;}
- if(type==='research'){const t=TECHS.find(t=>t.id===id);if(!t||s.research||s.tech.includes(id)||!t.requires.every(k=>s.tech.includes(k))||s.credits<t.cost)return false;s.credits-=t.cost;s.research={id,remaining:researchTime(s,t)};return true;}
- if(type==='patent'){const p=PATENTS.find(p=>p.id===id);if(!p||!s.tech.includes(id)||s.patents.includes(id)||s.credits<p.cost)return false;s.credits-=p.cost;s.patents.push(id);return true;}
- if(type==='toggle'){const l=s.lines.find(l=>l.id===id),p=PRODUCTS.find(p=>p.id===id);if(!l||(p.unlock&&!s.tech.includes(p.unlock)))return false;l.enabled=!l.enabled;return true;}
+ if(type==='research'){const t=TECHS.find(t=>t.id===id);if(!t||s.research||s.tech.includes(id)||!t.requires.every(k=>s.tech.includes(k))||!affordable(s,t.cost))return false;for(const [resource,amount] of Object.entries(t.cost))s.resources[resource]-=amount;s.research={id,remaining:researchTime(s,t)};return true;}
+ if(type==='patent'){const p=PATENTS.find(p=>p.id===id);if(!p||patentRequirements(s,p).length||s.patents.includes(id)||s.credits<p.cost)return false;s.credits-=p.cost;s.patents.push(id);s.lines.find(l=>l.id===id).licensed=true;return true;}
+ if(type==='toggle'){const l=s.lines.find(l=>l.id===id),p=PRODUCTS.find(p=>p.id===id);if(!l||(!l.enabled&&l.remaining<=0&&!productionUnlocked(s,p)))return false;l.enabled=!l.enabled;return true;}
  if(type==='sell'){const l=s.lines.find(l=>l.id===id),p=PRODUCTS.find(p=>p.id===id);if(!l||!l.stock)return false;s.credits+=l.stock*salePrice(s,p);s.totalSold+=l.stock;l.stock=0;return true;}
  return false;
 }
@@ -252,7 +356,7 @@ function validateSave(raw){
  const s=typeof raw==='string'?JSON.parse(raw):structuredClone(raw);
  const finite=(n,max=1e12)=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=max;
  const unique=a=>new Set(a).size===a.length;
- if(!s||![1,2,3].includes(s.version)||!COUNTRIES[s.country]||!finite(s.credits)||!finite(s.elapsed)||!finite(s.totalSold)||!finite(s.lastSaved,Date.now()+60000))throw Error('Sauvegarde invalide');
+ if(!s||![1,2,3,4,5].includes(s.version)||!COUNTRIES[s.country]||!finite(s.credits)||!finite(s.elapsed)||!finite(s.totalSold)||!finite(s.lastSaved,Date.now()+60000))throw Error('Sauvegarde invalide');
  // Migrate old five-resource saves without resetting existing sites or payroll.
  if(s.version<3){
   const legacy=['coal','wood','iron','platinum','rubber'];
@@ -268,16 +372,36 @@ function validateSave(raw){
   s.version=3;
  }
  for(const r of RESOURCES)if(!finite(s.resources?.[r.id],1e12)||!Number.isInteger(s.levels?.[r.id])||s.levels[r.id]<0||s.levels[r.id]>100)throw Error('Ressources invalides');
- for(const key of ['tech','patents'])if(!Array.isArray(s[key])||!unique(s[key])||s[key].some(id=>!TECHS.some(t=>t.id===id)))throw Error('Technologies invalides');
- if(s.tech.some(id=>!TECHS.find(t=>t.id===id).requires.every(k=>s.tech.includes(k)))||s.patents.some(id=>!s.tech.includes(id)))throw Error('Progression incohérente');
+ for(const key of ['tech','patents'])if(!Array.isArray(s[key])||!unique(s[key])||s[key].some(id=>!(key==='patents'&&s.version===5?PATENTS:TECHS).some(t=>t.id===id)))throw Error('Technologies invalides');
+ if(s.tech.some(id=>!TECHS.find(t=>t.id===id).requires.every(k=>s.tech.includes(k)))||s.patents.some(id=>!s.tech.includes(s.version===5?PRODUCTS.find(p=>p.id===id).unlock:id)))throw Error('Progression incohérente');
  if(s.research&&(!TECHS.some(t=>t.id===s.research.id)||s.tech.includes(s.research.id)||!finite(s.research.remaining,200)||!TECHS.find(t=>t.id===s.research.id).requires.every(k=>s.tech.includes(k))))throw Error('Recherche invalide');
- if(!Array.isArray(s.lines)||s.lines.length!==3||!unique(s.lines.map(l=>l.id)))throw Error('Lignes invalides');
- for(const l of s.lines)if(!PRODUCTS.some(p=>p.id===l.id)||typeof l.enabled!=='boolean'||!finite(l.remaining,120)||!Number.isInteger(l.stock)||!finite(l.stock,9999)||!Number.isInteger(l.made)||!finite(l.made))throw Error('Production invalide');
+ const legacyLines=s.version<4;
+ if(!Array.isArray(s.lines)||s.lines.length!==(legacyLines?3:PRODUCTS.length)||!unique(s.lines.map(l=>l.id)))throw Error('Lignes invalides');
+ for(const l of s.lines)if(!(legacyLines?['rifle','truck','tank'].includes(l.id):PRODUCTS.some(p=>p.id===l.id))||typeof l.enabled!=='boolean'||!finite(l.remaining,300)||!Number.isInteger(l.stock)||!finite(l.stock,9999)||!Number.isInteger(l.made)||!finite(l.made)||(!legacyLines&&typeof l.licensed!=='boolean'))throw Error('Production invalide');
+ if(legacyLines){
+  const old=Object.fromEntries(s.lines.map(l=>[l.id==='tank'?'medium_tank':l.id,l]));
+  s.lines=PRODUCTS.map(p=>old[p.id]?{...old[p.id],id:p.id,licensed:true}:{id:p.id,enabled:false,remaining:0,stock:0,made:0,licensed:false});
+  s.version=4;
+ }
+ if(s.version<5){
+  // Refund obsolete royalty certificates once; keep every previously acquired line.
+  s.credits+=s.patents.reduce((sum,id)=>sum+LEGACY_PATENT_COSTS[id],0);
+  s.patents=s.lines.filter(l=>l.licensed||l.enabled||l.made>0||l.stock>0||l.remaining>0).map(l=>l.id);
+  const grant=id=>{for(const parent of TECHS.find(t=>t.id===id).requires)grant(parent);if(!s.tech.includes(id))s.tech.push(id);};
+  for(const id of s.patents)grant(PRODUCTS.find(p=>p.id===id).unlock);
+  for(const l of s.lines)l.licensed=s.patents.includes(l.id);
+  if(s.research&&s.tech.includes(s.research.id)){s.credits+=({steam:240,assembly:450,alloys:650,chemistry:400,series:1300,logistics:1000})[s.research.id];s.research=null;}
+  s.version=5;
+ }
+ if(!finite(s.credits)||s.lines.some(l=>l.licensed!==s.patents.includes(l.id)||((l.enabled||l.remaining>0||l.made>0||l.stock>0)&&!l.licensed)))throw Error('Brevets incohérents');
  for(const r of RESOURCES){const crew=s.workers?.[r.id];if(!Array.isArray(crew)||crew.length>100||crew.some(t=>!finite(t,PAY_PERIOD))||(crew.length&&!unlocked(s,r)))throw Error('Ouvriers invalides');}
  return s;
 }
 
 const $=s=>document.querySelector(s),KEY='arsenal.save.v1';
+let productionFilter='all',pinnedResearch=null;
+let researchHoverTimer=null,researchHoverSquare=null;
+function cancelResearchHover(){clearTimeout(researchHoverTimer);researchHoverTimer=null;researchHoverSquare=null;}
 let state=null,view='harvest',selected='fr',screen='title',last=Date.now(),saved=true,toastTimer;
 const fmt=n=>Math.floor(n).toLocaleString('fr-FR');
 const money=n=>Math.ceil(n).toLocaleString('fr-FR');
@@ -301,9 +425,9 @@ function resourceIcon(id){
 }
 function resourceScene(r){return `<div class="art resource-scene" role="img" aria-label="${r.site}"><img src="dist/assets/resources-atlas.png" alt="" draggable="false" style="width:400%;height:300%;left:${-(r.tier%4)*100}%;top:${-Math.floor(r.tier/4)*100}%"></div>`;}
 function navArt(id){const index=['harvest','market','production','research','patents','storage'].indexOf(id);return `<span class="nav-art menu-icon" aria-hidden="true"><img src="dist/assets/menu-icons-atlas.png" alt="" draggable="false" style="left:${-(index%3)*100}%;top:${-Math.floor(index/3)*100}%"></span>`;}
-function management(){return `<aside class="management"><h2>GESTION</h2><section class="management-card"><h3>RENDEMENT</h3><div class="management-stat"><span>Récolte auto / min</span><strong id="total-rate"></strong></div><div class="management-stat"><span>Salaires / min</span><strong id="total-wages"></strong></div><div class="management-stat"><span>Redevances / min</span><strong id="total-income"></strong></div><div class="management-stat"><span>Unités livrées</span><strong id="total-sold"></strong></div></section><section class="management-card"><h3>BUREAU D’ÉTUDES</h3>${art('research',1140,214,371,265)}<p id="project-status"></p><div class="meter"><i id="management-research"></i></div><button class="upgrade full" data-view="research">RECHERCHE →</button></section><section class="management-card"><h3>ARCHIVE</h3><img class="archive-illustration" src="dist/assets/archive-library.png" alt="Bibliothèque administrative : dossiers, registres et meubles à archives" draggable="false"><div class="management-stat"><span>Technologies</span><strong>${state.tech.length} / 6</strong></div><div class="management-stat"><span>Brevets</span><strong>${state.patents.length} / 6</strong></div><button class="secondary full" data-view="storage">VOIR LES STOCKS</button></section><div class="live-dot">USINE OPÉRATIONNELLE</div></aside>`;}
+function management(){return `<aside class="management"><h2>GESTION</h2><section class="management-card"><h3>RENDEMENT</h3><div class="management-stat"><span>Récolte auto / min</span><strong id="total-rate"></strong></div><div class="management-stat"><span>Salaires / min</span><strong id="total-wages"></strong></div><div class="management-stat"><span>Lignes acquises</span><strong id="total-income"></strong></div><div class="management-stat"><span>Unités livrées</span><strong id="total-sold"></strong></div></section><section class="management-card"><h3>BUREAU D’ÉTUDES</h3>${art('research',1140,214,371,265)}<p id="project-status"></p><div class="meter"><i id="management-research"></i></div><button class="upgrade full" data-view="research">RECHERCHE →</button></section><section class="management-card"><h3>ARCHIVE</h3><img class="archive-illustration" src="dist/assets/archive-library.png" alt="Bibliothèque administrative : dossiers, registres et meubles à archives" draggable="false"><div class="management-stat"><span>Technologies</span><strong>${state.tech.length} / 6</strong></div><div class="management-stat"><span>Brevets</span><strong>${state.patents.length} / ${PRODUCTS.length}</strong></div><button class="secondary full" data-view="storage">VOIR LES STOCKS</button></section><div class="live-dot">USINE OPÉRATIONNELLE</div></aside>`;}
 function title(){screen='title';$('#app').innerHTML=`<main class="title-screen"><header class="title-top"><a class="brand" href="#">A<span class="brand-rule"></span></a><span>JEU DE GESTION INDUSTRIELLE · 1914—1945</span><span class="edition">ÉDITION PIXEL / 0.2</span></header><div class="title-body"><div class="eyebrow"><i></i> LES INDUSTRIES DE GUERRE</div><h1>ARSENAL<span>Le pouvoir se construit.</span></h1><p class="intro">Des premières mines aux grandes manufactures.<br>Récoltez, inventez, produisez. Bâtissez votre héritage industriel.</p><div class="choose-label"><span>01</span> CHOISISSEZ VOTRE NATION <small>Une sauvegarde locale par navigateur.</small></div><div class="countries">${Object.entries(COUNTRIES).map(([id,c])=>`<button class="country ${id===selected?'selected':''}" data-country="${id}" aria-pressed="${id===selected}">${flag(id)}<span class="country-name">${c.name}</span><span class="country-motto">${c.motto}</span><strong>${c.bonus}</strong><span class="check">${id===selected?'✓':'○'}</span></button>`).join('')}</div><div class="title-actions"><button class="primary start" data-action="start">FONDER MON INDUSTRIE <span>→</span></button>${state?`<button class="secondary" data-action="continue">Reprendre · ${COUNTRIES[state.country].name} →</button>`:''}</div><p class="title-note">${state?'Une nouvelle partie remplacera votre sauvegarde, après confirmation.':'Une économie à développer. Des inventions à maîtriser. À votre rythme.'}</p></div><footer class="title-footer"><span>SOLO · PROGRESSION HORS LIGNE · SANS COMPTE</span><div><button data-action="import">Importer une partie</button><a href="README.md">Code source ↗</a><span>MIT · Open source</span></div></footer></main>`;}
-function goal(){if(!Object.values(state.workers).some(crew=>crew.length))return 'Récoltez du charbon, vendez-le au marché, puis engagez votre premier ouvrier pour 27 or.';const next=RESOURCES.find(r=>!state.levels[r.id]);if(next)return `Prochaine exploitation : ${next.name} · ${fmt(next.cost)} or. Gardez une réserve pour les salaires.`;if(!state.lines.some(l=>l.enabled||l.made))return 'Première mission : ouvrez Production et lancez votre atelier de fusils.';if(!state.totalSold)return 'Première livraison : vendez votre premier lot dans Production.';if(state.research)return 'Vos ingénieurs travaillent. Continuez à produire pour financer la prochaine avancée.';if(!state.tech.length)return 'Investissez vos revenus : lancez Machines à vapeur dans Recherche.';if(!state.patents.length)return 'Protégez votre première invention dans Brevets pour toucher des revenus passifs.';return 'Développez vos ateliers, financez les recherches et débloquez les blindés.';}
+function goal(){if(!Object.values(state.workers).some(crew=>crew.length))return 'Récoltez du charbon, vendez-le au marché, puis engagez votre premier ouvrier pour 27 or.';const next=RESOURCES.find(r=>!state.levels[r.id]);if(next)return `Prochaine exploitation : ${next.name} · ${fmt(next.cost)} or. Gardez une réserve pour les salaires.`;if(!state.lines.some(l=>l.enabled||l.made))return 'Recherchez Machines à vapeur, achetez le brevet Uniforme, puis lancez la confection dans Production.';if(!state.totalSold)return 'Première livraison : vendez votre premier lot dans Production.';if(state.research)return 'Vos ingénieurs travaillent. Rassemblez les ressources nécessaires à la prochaine avancée.';if(!state.tech.length)return 'Rassemblez du charbon et du coton pour rechercher Machines à vapeur.';if(!state.patents.length)return 'Achetez votre première licence de production dans Brevets.';return 'Développez vos ateliers, approvisionnez la recherche et débloquez les blindés.';}
 function shell(){screen='game';const c=COUNTRIES[state.country];$('#app').innerHTML=`<div class="game-shell"><header class="topbar"><button class="wordmark" data-action="home">ARSENAL<small>LES INDUSTRIES DE GUERRE</small></button><div class="nation-label">${flag(state.country)}<span>${c.name}<small>${c.bonus}</small></span></div><div class="resource-stocks" role="group" aria-label="Stocks de ressources">${RESOURCES.map(r=>`<div class="resource-stock" title="${r.name}" aria-label="${r.name}" role="group" tabindex="0">${resourceIcon(r.id)}<strong id="header-stock-${r.id}"></strong></div>`).join('')}</div><div class="wallet">${wageIcon()}<div><small>TRÉSORERIE</small><strong id="credits"></strong></div></div><button class="icon-btn" data-action="settings" aria-label="Sauvegarde et paramètres">☰</button></header><aside class="sidebar"><div class="sidebar-label">COMPLEXE INDUSTRIEL</div><nav>${Object.entries(names).map(([id,name])=>`<button data-view="${id}" class="${view===id?'active':''}">${navArt(id)}${name}<b>${id==='research'&&state.research?'•':''}</b></button>`).join('')}</nav>${art('harvest',9,447,250,563,'sidebar-scene')}<div class="sidebar-bottom"><div class="live-dot">USINE OPÉRATIONNELLE</div><p>L’avenir appartient<br>à ceux qui le fabriquent.</p><a href="README.md">↗ Code source · MIT</a><button data-action="home">← Écran titre</button></div></aside><main class="workspace"><div class="page-heading"><div><p class="eyebrow">DIRECTION DES OPÉRATIONS / <span>${String(Object.keys(names).indexOf(view)+1).padStart(2,'0')}</span></p><h1>${({harvest:'Récolte des ressources',market:'Marché des matières premières',production:'Ateliers de production',research:'Bureau de recherche',patents:'Bureau des brevets',storage:'Magasins & réserves'})[view]}</h1></div><span class="date-badge">CAMPAGNE INDUSTRIELLE<br><strong>1936</strong></span></div><div class="mission"><span>ORDRE DU JOUR</span><p id="current-goal">${goal()}</p></div><div class="workspace-layout"><div id="content"></div>${management()}</div><footer class="game-footer"><span id="save-status">● Sauvegarde automatique</span><span>ARSENAL / VERSION 0.2 · ÉCONOMIE FICTIVE</span></footer></main></div>`;renderContent();updateNumbers();}
 function workerIcon(){return `<span class="worker-icon workforce-icon" aria-hidden="true"><img src="dist/assets/workforce-icons.png" alt="" draggable="false" style="left:0"></span>`;}
 function wageIcon(){return `<span class="wage-icon workforce-icon" aria-hidden="true"><img src="dist/assets/workforce-icons.png" alt="" draggable="false" style="left:-100%"></span>`;}
@@ -313,17 +437,32 @@ function harvest(){return `<div class="section-intro"><p>Chaque clic rapporte 1 
  return `<article class="resource-card ${!open?'locked':''}"><header><h2>${resourceIcon(r.id)}${r.name}</h2><span class="level" id="level-${r.id}"></span></header>${resourceScene(r)}<div class="resource-info"><span class="serial">EXPLOITATION ${String(i+1).padStart(2,'0')}</span><p>${r.desc}</p>${!open?`<div class="lock-info">${reason}</div><button class="upgrade full" data-action="upgrade" data-id="${r.id}" id="upgrade-${r.id}"></button>`:`<div class="stock-row"><div><small>EN RÉSERVE</small><strong id="stock-${r.id}"></strong></div><span class="rate" id="rate-${r.id}"></span></div><div class="meter"><i id="bar-${r.id}"></i></div><div class="card-actions"><button class="secondary" data-action="harvest" data-id="${r.id}" id="harvest-${r.id}">Récolter +1</button><button class="upgrade" data-action="upgrade" data-id="${r.id}" id="upgrade-${r.id}"></button></div><section class="worker-panel" aria-label="Ouvriers et salaires"><div class="worker-counter" id="crew-${r.id}" role="group" aria-label="Ouvriers engagés">${workerIcon()}<strong id="workers-${r.id}">0</strong><span class="worker-status" id="worker-status-${r.id}" role="img"></span></div><div class="worker-controls"><button class="secondary" data-action="dismiss" data-id="${r.id}" id="dismiss-${r.id}" aria-label="Libérer un ouvrier — ${r.name}" title="Libérer un ouvrier ; le salaire déjà payé n’est pas remboursé">−</button><button class="upgrade" data-action="hire" data-id="${r.id}" id="hire-${r.id}" aria-label="Engager un ouvrier — ${r.name}, ${hireCost(state,r)+WAGE} or" title="Embauche : ${hireCost(state,r)} or + ${WAGE} or pour la première minute ; embauche ×1,3 par ouvrier supplémentaire">+</button></div><div class="worker-wages" id="wages-${r.id}" role="group" title="${WAGE} or par ouvrier et par minute, payés d’avance, même hors ligne ou si le stock est plein. Sans or, les ouvriers se mettent en pause.">${wageIcon()}<strong id="payroll-${r.id}">0</strong><small>/ min</small></div></section>`}</div></article>`;
  }).join('')}</div>`;}
 function market(){return `<div class="section-intro"><p>Vendez vos matières premières pour financer vos ouvriers et de nouvelles exploitations.</p><span>PRIX FIXES · PAIEMENT IMMÉDIAT</span></div><div class="market-grid">${RESOURCES.map(r=>`<article class="storage-panel market-card"><h2 class="resource-name">${resourceIcon(r.id)}${r.name}</h2><p class="market-price">${money(MARKET_PRICES[r.id])} or <small>/ unité</small></p><p>En réserve : <strong id="stock-${r.id}"></strong></p><div class="market-actions"><button class="secondary" data-action="sell-resource" data-id="${r.id}" id="sell-resource-${r.id}">Vendre 1 · ${money(MARKET_PRICES[r.id])} or</button><button class="secondary" data-action="sell-ten" data-id="${r.id}" id="sell-ten-${r.id}">Vendre 10 · ${money(MARKET_PRICES[r.id]*10)} or</button><button class="upgrade" data-action="sell-all" data-id="${r.id}" id="sell-all-${r.id}"></button></div></article>`).join('')}</div>`;}
-function vehicle(id){const col=PRODUCTS.findIndex(p=>p.id===id),row=({fr:0,us:0,de:1,su:2})[state.country];return `<div class="equipment-sprite" role="img" aria-label="${COUNTRIES[state.country].units[col]} en pixel art" style="background-position:${col*50}% ${row*50}%"></div>`;}
-function production(){return `<div class="section-intro"><p>Transformez vos matières en équipements. Vendez les lots pour financer votre expansion.</p></div><div class="production-list">${PRODUCTS.map((p,i)=>{let l=state.lines[i],lock=p.unlock&&!state.tech.includes(p.unlock);return `<article class="production-card ${lock?'locked':''}"><div class="product-art"><span class="serial">ATELIER 0${i+1} / ${p.kind}</span>${vehicle(p.id)}<span class="blueprint-label">PLAN D’ENSEMBLE · ${COUNTRIES[state.country].icon} / 0${i+1}</span></div><div class="product-details"><div class="product-heading"><h2>${COUNTRIES[state.country].units[i]}</h2><span id="status-${p.id}" class="status"></span></div><div class="recipe">${Object.entries(p.recipe).map(([k,v])=>`<span>${RESOURCES.find(r=>r.id===k).icon} ${v} ${RESOURCES.find(r=>r.id===k).name}</span>`).join('')}</div>${lock?`<p>Recherche requise : ${TECHS.find(t=>t.id===p.unlock).name}</p><button class="secondary" data-view="research">Ouvrir la recherche →</button>`:`<div class="production-stats"><span>${dec(productTime(state,p))} s / unité</span><span>${fmt(salePrice(state,p))} or / unité</span><span id="made-${p.id}"></span></div><div class="meter"><i id="progress-${p.id}"></i></div><div class="card-actions"><button class="secondary" data-action="toggle" data-id="${p.id}" id="toggle-${p.id}"></button><button class="upgrade" data-action="sell" data-id="${p.id}" id="sell-${p.id}"></button></div>`}</div></article>`;}).join('')}</div>`;}
-function research(){return `<div class="section-intro"><p>Un bureau, six avancées. Chaque invention transforme votre industrie.</p><span>UN PROJET À LA FOIS</span></div><div class="tech-grid">${TECHS.map((t,i)=>{let done=state.tech.includes(t.id),running=state.research?.id===t.id,ready=t.requires.every(k=>state.tech.includes(k));return `<article class="tech-card ${done?'completed':''} ${!ready?'locked':''}">${art('research',t.x,t.y,t.w,t.h)}<div class="resource-info"><span class="serial">DOSSIER R–0${i+1} / ${done?'VALIDÉ':running?'EN COURS':'RECHERCHE'}</span><h2>${t.name}</h2><p>${t.desc}</p><div class="tech-requirements">${t.requires.length?'Prérequis : '+t.requires.map(k=>TECHS.find(x=>x.id===k).name).join(', '):'Aucun prérequis'}</div>${done?'<div class="done-label">✓ Technologie maîtrisée</div>':running?`<div class="meter"><i id="research-bar"></i></div><div class="research-time" id="research-time"></div>`:`<button class="upgrade full" data-action="research" data-id="${t.id}" id="research-${t.id}" ${!ready?'disabled':''}>Rechercher · ${fmt(t.cost)} ◉ <small>${clock(researchTime(state,t))}</small></button>`}</div></article>`;}).join('')}</div>`;}
-function patentDrawing(i){const drawings=[[305,304,413,130],[305,647,413,125],[754,304,413,130],[754,648,413,125],[305,647,413,125],[305,304,413,130]];return art('patents',...drawings[i],'patent-drawing');}
-function patents(){return `<div class="section-intro"><p>Déposez vos inventions pour accorder des licences et toucher des redevances automatiques.</p><span id="patent-rate"></span></div><div class="patent-grid">${PATENTS.map((p,i)=>{const owns=state.patents.includes(p.id),ready=state.tech.includes(p.id);return `<article class="patent-card ${!ready?'patent-locked':''}"><div class="paper-top"><span>RÉPUBLIQUE INDUSTRIELLE</span><span>N° 00${42+i}</span></div><h2>${p.name}</h2>${patentDrawing(i)}<p>Certificat d’exploitation industrielle</p><div class="stamp ${owns?'owned':''}">${owns?'DÉPOSÉ':ready?'À DÉPOSER':'VERROUILLÉ'}</div><div class="patent-benefit">Redevances <strong>+ ${money(p.income*60)} ◉ / min</strong></div>${owns?'<span class="license-active">✓ Licence active · revenus automatiques</span>':ready?`<button class="paper-button" data-action="patent" data-id="${p.id}" id="patent-${p.id}">Déposer le brevet · ${fmt(p.cost)} ◉</button>`:`<button class="paper-button" data-view="research">Recherche requise →</button>`}</article>`;}).join('')}</div>`;}
-function storage(){return `<div class="section-intro"><p>Vos matières premières et vos équipements disponibles.</p><span>CAPACITÉ ADAPTÉE À CHAQUE EXPLOITATION</span></div><section class="storage-panel"><h2>Registre des matières premières</h2>${RESOURCES.map(r=>`<div class="inventory-row"><span class="resource-name">${resourceIcon(r.id)}${r.name}</span><div class="meter"><i id="bar-${r.id}"></i></div><strong id="stock-${r.id}"></strong><small id="rate-${r.id}"></small></div>`).join('')}</section><section class="storage-panel"><h2>Équipements prêts à livrer</h2>${PRODUCTS.map((p,i)=>`<div class="inventory-row"><span>${COUNTRIES[state.country].units[i]}</span><strong id="warehouse-${p.id}"></strong><button class="upgrade" data-action="sell" data-id="${p.id}" id="sell-${p.id}"></button></div>`).join('')}</section>`;}
-function renderContent(){$('#content').innerHTML=({harvest,market,production,research,patents,storage})[view]();}
+function vehicle(id){const p=PRODUCTS.find(p=>p.id===id);return `<div class="production-sprite" role="img" aria-label="${productName(state,p)}, vue de côté sur une table à dessin industrielle"><img src="dist/assets/production-${state.country}.png" alt="" draggable="false" style="left:${-(p.tier%5)*100}%;top:${-Math.floor(p.tier/5)*100}%"></div>`;}
+function production(){
+ const groups=['all',...new Set(PRODUCTS.map(p=>p.kind))];
+ const selected=PRODUCTS.filter(p=>productionFilter==='all'||p.kind===productionFilter);
+ return `<div class="section-intro"><p>Recherchez la technologie, achetez le brevet, puis lancez la fabrication. Les matières sont consommées au lancement du cycle.</p><span>${PRODUCTS.filter(p=>productionUnlocked(state,p)).length} / ${PRODUCTS.length} ATELIERS ACCESSIBLES</span></div><nav class="production-filters" aria-label="Catégories de production">${groups.map(group=>`<button class="secondary ${productionFilter===group?'selected':''}" data-production-filter="${group}" aria-pressed="${productionFilter===group}">${group==='all'?'Tout':group}</button>`).join('')}</nav><div class="production-list">${selected.map(p=>{
+ const l=state.lines.find(l=>l.id===p.id),requirements=productionRequirements(state,p),lock=requirements.length>0,number=String(p.tier+1).padStart(2,'0');
+ return `<article class="production-card ${lock?'production-locked':''}"><div class="product-art"><span class="serial">ATELIER ${number} / ${p.kind}</span>${vehicle(p.id)}<span class="blueprint-label">PLAN D’ENSEMBLE · ${COUNTRIES[state.country].icon} / ${number}</span></div><div class="product-details"><div class="product-heading"><div><p class="product-category">${number} · ${p.name}</p><h2>${productName(state,p)}</h2></div><span id="status-${p.id}" class="status"></span></div><div class="recipe" aria-label="Matières par unité">${Object.entries(p.recipe).map(([id,n])=>`<span title="${RESOURCES.find(r=>r.id===id).name}">${resourceIcon(id)}<b>${fmt(n)}</b><small>${RESOURCES.find(r=>r.id===id).name}</small></span>`).join('')}</div>${lock?`<div class="production-requirements"><strong>À DÉBLOQUER</strong><ul>${requirements.map(reason=>`<li>${reason}</li>`).join('')}</ul>${p.unlock&&!state.tech.includes(p.unlock)?'<button class="secondary" data-view="research">Ouvrir la recherche →</button>':''}${!state.patents.includes(p.id)?'<button class="upgrade" data-view="patents">Acheter le brevet →</button>':''}</div>`:''}<div class="production-stats"><span>${dec(productTime(state,p))} s / unité</span><span>${money(salePrice(state,p))} or / unité</span><span id="made-${p.id}"></span></div><div class="meter"><i id="progress-${p.id}"></i></div><div class="card-actions"><button class="secondary" data-action="toggle" data-id="${p.id}" id="toggle-${p.id}"></button><button class="upgrade" data-action="sell" data-id="${p.id}" id="sell-${p.id}"></button></div></div></article>`;
+ }).join('')}</div>`;
+}
+const researchPositions={steam:[2,1],alloys:[1,2],assembly:[2,2],chemistry:[3,2],series:[1,3],logistics:[3,3]};
+function researchIcon(id){const drawings={
+ steam:'<path d="M7 23h18v-9H7zM10 14V7h5v7m10 3h4v6h-4M5 27h25M18 10V5h5v5"/><path d="M10 19h4m4 0h4"/>',
+ assembly:'<path d="M4 23h24v6H4zM7 23V13h7v10m5 0V13h7v10M4 7h24M10 7v6m12-6v6"/><path d="M8 26h2m5 0h2m5 0h2"/>',
+ alloys:'<path d="m5 24 5-8h12l5 8v4H5zM8 12l4-7h8l4 7zM10 16l5 8m7-8-5 8M5 24h22"/>',
+ chemistry:'<path d="M11 4h10m-8 0v10L5 26v3h22v-3l-8-12V4M9 21h14"/><path d="M12 25h3m4-8h2"/>',
+ series:'<path d="M3 5h10v9H3zM19 5h10v9H19zM3 20h10v9H3zM19 20h10v9H19zM13 9h6m5 5v6M13 25h6"/>',
+ logistics:'<path d="M3 10h16v14H3zM19 15h6l4 6v3H19M23 15v6h6"/><path d="M6 24v5h5v-5m11 0v5h5v-5M6 6h10"/>'
+};return `<svg viewBox="0 0 32 34" aria-hidden="true" shape-rendering="crispEdges" fill="none" stroke="currentColor" stroke-width="2">${drawings[id]}</svg>`;}
+function research(){return `<div class="section-intro"><p>Survolez le carré pendant 1 seconde pour consulter son dossier. Cliquez pour le garder ouvert.</p><span>UN PROJET À LA FOIS</span></div><div class="research-tree" aria-label="Arbre des recherches"><svg class="research-links" viewBox="0 0 300 450" preserveAspectRatio="none" aria-hidden="true">${TECHS.flatMap(t=>t.requires.map(id=>{const [x,y]=researchPositions[id],[tx,ty]=researchPositions[t.id];return `<path class="${state.tech.includes(id)?'fulfilled':''}" d="M${x*100-50} ${y*150-75} V${y*150} H${tx*100-50} V${ty*150-75}"/>`;})).join('')}</svg>${TECHS.map((t,i)=>{const done=state.tech.includes(t.id),running=state.research?.id===t.id,ready=t.requires.every(k=>state.tech.includes(k)),[col,row]=researchPositions[t.id],status=done?'VALIDÉ':running?'EN COURS':ready?'ACCESSIBLE':'VERROUILLÉ';return `<div class="research-node ${done?'completed':running?'running':ready?'available':'locked'}" style="grid-column:${col};grid-row:${row}" data-pinned="${pinnedResearch===t.id}"><button class="research-square" data-research-node="${t.id}" aria-label="${t.name} · ${status}" aria-expanded="${pinnedResearch===t.id}" aria-controls="research-detail-${t.id}">${researchIcon(t.id)}<span class="research-node-mark" aria-hidden="true">${done?'✓':running?'◷':ready?'+':'×'}</span></button><span class="research-node-name">${t.name}</span><span class="research-node-state">${status}</span><section class="research-detail" id="research-detail-${t.id}" aria-label="${t.name}"><button class="research-detail-close" data-research-close="${t.id}" aria-label="Fermer le dossier">×</button><div class="resource-info"><span class="serial">DOSSIER R–0${i+1} / ${done?'VALIDÉ':running?'EN COURS':'RECHERCHE'}</span><h2>${t.name}</h2><p><strong>Effets :</strong> ${t.desc}</p><p><strong>Brevets :</strong> ${PRODUCTS.filter(p=>p.unlock===t.id).map(p=>p.name).join(', ')}.</p><div class="tech-requirements"><strong>Prérequis :</strong> ${t.requires.length?t.requires.map(k=>TECHS.find(x=>x.id===k).name).join(', '):'Aucun'}</div>${!done&&!running?`<div class="research-costs" aria-label="Ressources nécessaires"><strong class="research-cost-heading">Ressources nécessaires :</strong>${Object.entries(t.cost).map(([id,n])=>`<div class="research-cost">${resourceIcon(id)}<span>${RESOURCES.find(r=>r.id===id).name}</span><strong id="research-cost-${t.id}-${id}"></strong></div>`).join('')}</div>`:''}${done?'<div class="done-label">✓ Technologie maîtrisée</div>':running?`<div class="meter"><i id="research-bar"></i></div><div class="research-time" id="research-time"></div>`:`<button class="upgrade full" data-action="research" data-id="${t.id}" id="research-${t.id}" ${!ready?'disabled':''}>Lancer la recherche <small>${clock(researchTime(state,t))}</small></button>`}</div></section></div>`;}).join('')}</div><div class="research-legend"><span>□ Verrouillé</span><span>＋ Accessible</span><span>◷ En cours</span><span>✓ Validé</span></div>`;}
+function patents(){return `<div class="section-intro"><p>Recherche terminée → achat du brevet → ligne de production. Fabriquez un exemplaire de chaque équipement pour accéder au suivant. Chaque licence s’achète une seule fois.</p><span>${state.patents.length} / ${PRODUCTS.length} LICENCES ACQUISES</span></div><div class="production-list patent-catalog">${PATENTS.map(p=>{const owns=state.patents.includes(p.id),requirements=patentRequirements(state,p);return `<article class="production-card ${!owns&&requirements.length?'production-locked':''}"><div class="product-art"><span class="serial">BREVET ${String(p.tier+1).padStart(2,'0')} / ${p.kind}</span>${vehicle(p.id)}<span class="blueprint-label">DOSSIER D’EXPLOITATION · ${COUNTRIES[state.country].icon}</span></div><div class="product-details"><div class="product-heading"><div><p class="product-category">${p.name}</p><h2>${productName(state,p)}</h2></div><span class="status">${owns?'ACQUIS':requirements.length?'VERROUILLÉ':'DISPONIBLE'}</span></div><p>Recherche : ${TECHS.find(t=>t.id===p.unlock).name} · ${state.tech.includes(p.unlock)?'validée':'requise'}</p><p>Autorise la ligne de production ${p.name}.</p>${!owns&&requirements.length?`<div class="production-requirements"><ul>${requirements.map(r=>`<li>${r}</li>`).join('')}</ul></div>`:''}<div class="production-stats"><span>${wageIcon()} ${money(p.cost)} or · achat unique</span></div><div class="card-actions">${owns?'<button class="upgrade" data-view="production">Ouvrir la production →</button>':`<button class="upgrade" data-action="patent" data-id="${p.id}" id="patent-${p.id}">Acheter le brevet · ${money(p.cost)} or</button>${!state.tech.includes(p.unlock)?'<button class="secondary" data-view="research">Recherche →</button>':requirements.length?'<button class="secondary" data-view="production">Production précédente →</button>':''}`}</div></div></article>`;}).join('')}</div>`;}
+function storage(){return `<div class="section-intro"><p>Vos matières premières et vos équipements disponibles.</p><span>CAPACITÉ ADAPTÉE À CHAQUE EXPLOITATION</span></div><section class="storage-panel"><h2>Registre des matières premières</h2>${RESOURCES.map(r=>`<div class="inventory-row"><span class="resource-name">${resourceIcon(r.id)}${r.name}</span><div class="meter"><i id="bar-${r.id}"></i></div><strong id="stock-${r.id}"></strong><small id="rate-${r.id}"></small></div>`).join('')}</section><section class="storage-panel"><h2>Équipements prêts à livrer</h2>${PRODUCTS.map((p,i)=>`<div class="inventory-row"><span>${productName(state,p)}</span><strong id="warehouse-${p.id}"></strong><button class="upgrade" data-action="sell" data-id="${p.id}" id="sell-${p.id}"></button></div>`).join('')}</section>`;}
+function renderContent(){cancelResearchHover();$('#content').innerHTML=({harvest,market,production,research,patents,storage})[view]();}
 function text(id,value){const el=document.getElementById(id);if(el)el.textContent=value;}
 function width(id,v){const el=document.getElementById(id);if(el)el.style.width=Math.min(100,Math.max(0,v))+'%';}
 function disable(id,value){const el=document.getElementById(id);if(el)el.disabled=value;}
-function updateNumbers(){if(screen!=='game')return;text('credits',money(state.credits)+' or');text('current-goal',goal());text('total-wages',fmt(Object.values(state.workers).reduce((n,crew)=>n+crew.length*WAGE,0))+' or');text('total-rate','+ '+dec(RESOURCES.reduce((sum,r)=>sum+rate(state,r)*60,0)));text('total-income','+ '+money(PATENTS.filter(p=>state.patents.includes(p.id)).reduce((sum,p)=>sum+p.income*60,0)));text('total-sold',fmt(state.totalSold));text('project-status',state.research?TECHS.find(t=>t.id===state.research.id).name+' · '+clock(state.research.remaining):'Ingénieurs disponibles');width('management-research',state.research?100*(1-state.research.remaining/researchTime(state,TECHS.find(t=>t.id===state.research.id))):0);text('save-status',saved?'● Sauvegarde automatique':'⚠ Sauvegarde indisponible · exportez votre partie');for(const r of RESOURCES){text('stock-'+r.id,fmt(state.resources[r.id]));const stockEl=document.getElementById('stock-'+r.id);if(stockEl)stockEl.title=`Capacité : ${fmt(capacity(state,r))}`;text('header-stock-'+r.id,compact(state.resources[r.id]));const headerStock=document.getElementById('header-stock-'+r.id);if(headerStock){headerStock.setAttribute('aria-label',fmt(state.resources[r.id]));headerStock.parentElement.title=`${r.name} : ${fmt(state.resources[r.id])}`;}text('rate-'+r.id,`+ ${dec(rate(state,r)*60)} / min`);text('level-'+r.id,state.levels[r.id]?`NIV. ${state.levels[r.id]}`:'À OUVRIR');text('upgrade-'+r.id,`${state.levels[r.id]?'Améliorer':'Ouvrir'} · ${fmt(upgradeCost(state,r))} ◉`);disable('upgrade-'+r.id,!available(state,r)||state.levels[r.id]>=100||state.credits<upgradeCost(state,r));width('bar-'+r.id,state.resources[r.id]/capacity(state,r)*100);
+function updateNumbers(){if(screen!=='game')return;text('credits',money(state.credits)+' or');text('current-goal',goal());text('total-wages',fmt(Object.values(state.workers).reduce((n,crew)=>n+crew.length*WAGE,0))+' or');text('total-rate','+ '+dec(RESOURCES.reduce((sum,r)=>sum+rate(state,r)*60,0)));text('total-income',state.patents.length+' / '+PRODUCTS.length);text('total-sold',fmt(state.totalSold));text('project-status',state.research?TECHS.find(t=>t.id===state.research.id).name+' · '+clock(state.research.remaining):'Ingénieurs disponibles');width('management-research',state.research?100*(1-state.research.remaining/researchTime(state,TECHS.find(t=>t.id===state.research.id))):0);text('save-status',saved?'● Sauvegarde automatique':'⚠ Sauvegarde indisponible · exportez votre partie');for(const r of RESOURCES){text('stock-'+r.id,fmt(state.resources[r.id]));const stockEl=document.getElementById('stock-'+r.id);if(stockEl)stockEl.title=`Capacité : ${fmt(capacity(state,r))}`;text('header-stock-'+r.id,compact(state.resources[r.id]));const headerStock=document.getElementById('header-stock-'+r.id);if(headerStock){headerStock.setAttribute('aria-label',fmt(state.resources[r.id]));headerStock.parentElement.title=`${r.name} : ${fmt(state.resources[r.id])}`;}text('rate-'+r.id,`+ ${dec(rate(state,r)*60)} / min`);text('level-'+r.id,state.levels[r.id]?`NIV. ${state.levels[r.id]}`:'À OUVRIR');text('upgrade-'+r.id,`${state.levels[r.id]?'Améliorer':'Ouvrir'} · ${fmt(upgradeCost(state,r))} ◉`);disable('upgrade-'+r.id,!available(state,r)||state.levels[r.id]>=100||state.credits<upgradeCost(state,r));width('bar-'+r.id,state.resources[r.id]/capacity(state,r)*100);
  const crew=state.workers[r.id],active=activeWorkers(state,r),quantity=Math.floor(state.resources[r.id]);
  text('workers-'+r.id,crew.length);
  text('payroll-'+r.id,crew.length*WAGE);
@@ -338,15 +477,36 @@ function updateNumbers(){if(screen!=='game')return;text('credits',money(state.cr
  disable('sell-resource-'+r.id,quantity<1);disable('sell-ten-'+r.id,quantity<10);disable('sell-all-'+r.id,quantity<1);
  text('sell-all-'+r.id,`Tout vendre (${fmt(quantity)}) · ${money(quantity*MARKET_PRICES[r.id])} or`);
 }
- for(const p of PRODUCTS){const l=state.lines.find(l=>l.id===p.id);text('status-'+p.id,l.enabled?(l.remaining>0?'EN PRODUCTION':affordable(state,p.recipe)?'DÉMARRAGE':'MATIÈRES MANQUANTES'):'À L’ARRÊT');text('toggle-'+p.id,l.enabled?'Ⅱ Suspendre':'▶ Lancer la production');text('sell-'+p.id,`Vendre ${l.stock} · ${fmt(l.stock*salePrice(state,p))} ◉`);disable('sell-'+p.id,!l.stock);text('made-'+p.id,`${l.made} unités fabriquées`);text('warehouse-'+p.id,`${l.stock} en stock`);width('progress-'+p.id,l.remaining>0?100*(1-l.remaining/productTime(state,p)):0);}
- for(const t of TECHS)disable('research-'+t.id,!!state.research||state.credits<t.cost||!t.requires.every(k=>state.tech.includes(k)));
+ for(const p of PRODUCTS){const l=state.lines.find(l=>l.id===p.id);text('status-'+p.id,l.enabled?(l.remaining>0?'EN PRODUCTION':l.stock>=9999?'STOCK PLEIN':!productionUnlocked(state,p)?'PRÉREQUIS MANQUANTS':affordable(state,p.recipe)?'DÉMARRAGE':'MATIÈRES MANQUANTES'):productionUnlocked(state,p)||l.remaining>0?'À L’ARRÊT':'VERROUILLÉ');disable('toggle-'+p.id,!l.enabled&&l.remaining<=0&&!productionUnlocked(state,p));text('toggle-'+p.id,l.enabled?'Ⅱ Suspendre':'▶ Lancer la production');text('sell-'+p.id,`Vendre ${l.stock} · ${fmt(l.stock*salePrice(state,p))} ◉`);disable('sell-'+p.id,!l.stock);text('made-'+p.id,`${l.made} unités fabriquées`);text('warehouse-'+p.id,`${l.stock} en stock`);width('progress-'+p.id,l.remaining>0?100*(1-l.remaining/productTime(state,p)):0);}
+ for(const t of TECHS){disable('research-'+t.id,!!state.research||state.tech.includes(t.id)||!affordable(state,t.cost)||!t.requires.every(k=>state.tech.includes(k)));for(const [id,n] of Object.entries(t.cost)){text('research-cost-'+t.id+'-'+id,fmt(state.resources[id])+' / '+fmt(n));const el=document.getElementById('research-cost-'+t.id+'-'+id);if(el)el.setAttribute('data-missing',String(state.resources[id]<n));}}
  if(state.research){const t=TECHS.find(t=>t.id===state.research.id);width('research-bar',100*(1-state.research.remaining/researchTime(state,t)));text('research-time',`${clock(state.research.remaining)} · Recherche en cours`);}
- for(const p of PATENTS)disable('patent-'+p.id,state.credits<p.cost);text('patent-rate',`REDEVANCES · + ${money(PATENTS.filter(p=>state.patents.includes(p.id)).reduce((a,p)=>a+p.income*60,0))} ◉ / MIN`);
+ for(const p of PATENTS)disable('patent-'+p.id,state.patents.includes(p.id)||patentRequirements(state,p).length>0||state.credits<p.cost);
 }
-function settings(){const d=document.createElement('dialog');d.innerHTML=`<form method="dialog"><div class="modal-header"><h2>Archives de l’industrie</h2><button class="icon-btn" aria-label="Fermer">×</button></div><p>Votre partie est sauvegardée dans ce navigateur. Exportez-la pour changer d’appareil ou conserver une copie.</p><div class="modal-actions"><button type="button" class="primary" data-action="export">Exporter la sauvegarde</button><button type="button" class="secondary" data-action="import">Importer une sauvegarde</button><a class="secondary" href="README.md">Télécharger le code source ↗</a></div><p class="small">Progression hors ligne limitée à 8 heures. La production consomme les ressources ; vendez vos lots pour gagner des or. Les ouvriers sont payés d’avance chaque minute, y compris hors ligne ; sans or ils se mettent en pause. Les brevets rapportent automatiquement.</p><button class="secondary full">Retour à l’usine</button></form>`;document.body.append(d);d.addEventListener('close',()=>d.remove());d.showModal();}
+function settings(){const d=document.createElement('dialog');d.innerHTML=`<form method="dialog"><div class="modal-header"><h2>Archives de l’industrie</h2><button class="icon-btn" aria-label="Fermer">×</button></div><p>Votre partie est sauvegardée dans ce navigateur. Exportez-la pour changer d’appareil ou conserver une copie.</p><div class="modal-actions"><button type="button" class="primary" data-action="export">Exporter la sauvegarde</button><button type="button" class="secondary" data-action="import">Importer une sauvegarde</button><a class="secondary" href="README.md">Télécharger le code source ↗</a></div><p class="small">Progression hors ligne limitée à 8 heures. La production consomme les ressources ; vendez vos lots pour gagner des or. Les ouvriers sont payés d’avance chaque minute, y compris hors ligne ; sans or ils se mettent en pause. Les recherches consomment des ressources ; acheter un brevet en or autorise une ligne de production.</p><button class="secondary full">Retour à l’usine</button></form>`;document.body.append(d);d.addEventListener('close',()=>d.remove());d.showModal();}
 function download(){save();const url=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`arsenal-${state.country}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('Sauvegarde exportée.');}
 function importSave(){const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=async()=>{try{const file=input.files[0];if(!file||file.size>100000)throw Error();const next=validateSave(await file.text());if(state&&!confirm('Remplacer votre partie actuelle par cette sauvegarde ?'))return;state=next;advance(state,Math.max(0,(Date.now()-state.lastSaved)/1000));save();last=Date.now();document.querySelector('dialog')?.close();shell();notify('Sauvegarde restaurée.');}catch{notify('Fichier invalide : choisissez une sauvegarde Arsenal au format JSON.');}};input.click();}
-document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b)return;if(b.dataset.country){selected=b.dataset.country;title();return;}if(b.dataset.view){view=b.dataset.view;shell();return;}const a=b.dataset.action;if(!a)return;if(a==='start'){if(state&&!confirm('Créer une nouvelle industrie et remplacer la sauvegarde actuelle ? Pensez à l’exporter avant.'))return;state=newGame(selected);view='harvest';last=Date.now();save();shell();return;}if(a==='continue'){last=Date.now();shell();if(offlineMessage){notify(offlineMessage);offlineMessage='';}return;}if(a==='home'){save();title();return;}if(a==='settings'){settings();return;}if(a==='export'){download();return;}if(a==='import'){importSave();return;}if(state&&act(state,a,b.dataset.id)){save();if(['harvest','sell-resource','sell-ten','sell-all'].includes(a)){updateNumbers();return;}shell();if(a==='patent')notify('Brevet déposé. Les redevances sont maintenant automatiques.');}else notify('Conditions ou ressources insuffisantes.');});
-setInterval(()=>{const now=Date.now();if(state){const before=state.tech.length;advance(state,(now-last)/1000);if(state.tech.length!==before){if(screen==='game')shell();notify('Recherche terminée : '+TECHS.find(t=>t.id===state.tech.at(-1)).name);}updateNumbers();}last=now;},250);
+// Only the square starts the delay. Once open, the dossier remains reachable.
+document.addEventListener('pointerover',e=>{
+ const square=e.target.closest('.research-square');
+ if(!square||e.pointerType==='touch'||square.contains(e.relatedTarget))return;
+ cancelResearchHover();researchHoverSquare=square;
+ researchHoverTimer=setTimeout(()=>{
+  if(researchHoverSquare!==square||!square.isConnected)return;
+  square.closest('.research-node').setAttribute('data-preview','true');
+  square.setAttribute('aria-expanded','true');
+  researchHoverTimer=null;
+ },1000);
+});
+document.addEventListener('pointerout',e=>{
+ const square=e.target.closest('.research-square');
+ if(square&&!square.contains(e.relatedTarget)&&researchHoverSquare===square)cancelResearchHover();
+ const node=e.target.closest('.research-node');
+ if(node&&!node.contains(e.relatedTarget)){
+  node.removeAttribute('data-preview');
+  node.querySelector('.research-square').setAttribute('aria-expanded',node.getAttribute('data-pinned')==='true'?'true':'false');
+ }
+});
+document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b)return;if(b.dataset.researchNode){pinnedResearch=pinnedResearch===b.dataset.researchNode?null:b.dataset.researchNode;renderContent();updateNumbers();return;}if(b.dataset.researchClose){pinnedResearch=null;renderContent();updateNumbers();return;}if(b.dataset.productionFilter){productionFilter=b.dataset.productionFilter;renderContent();updateNumbers();return;}if(b.dataset.country){selected=b.dataset.country;title();return;}if(b.dataset.view){view=b.dataset.view;shell();return;}const a=b.dataset.action;if(!a)return;if(a==='start'){if(state&&!confirm('Créer une nouvelle industrie et remplacer la sauvegarde actuelle ? Pensez à l’exporter avant.'))return;state=newGame(selected);view='harvest';last=Date.now();save();shell();return;}if(a==='continue'){last=Date.now();shell();if(offlineMessage){notify(offlineMessage);offlineMessage='';}return;}if(a==='home'){save();title();return;}if(a==='settings'){settings();return;}if(a==='export'){download();return;}if(a==='import'){importSave();return;}if(state&&act(state,a,b.dataset.id)){save();if(['harvest','sell-resource','sell-ten','sell-all'].includes(a)){updateNumbers();return;}shell();if(a==='patent')notify('Brevet acquis. Votre ligne de production est autorisée.');}else notify('Conditions ou ressources insuffisantes.');});
+setInterval(()=>{const now=Date.now();if(state){const before=state.tech.length,completed=state.lines.filter(l=>l.made>0).length;advance(state,(now-last)/1000);if(state.tech.length!==before){if(screen==='game')shell();notify('Recherche terminée : '+TECHS.find(t=>t.id===state.tech.at(-1)).name);}else if(screen==='game'&&['production','patents'].includes(view)&&completed!==state.lines.filter(l=>l.made>0).length){shell();}updateNumbers();}last=now;},250);
 setInterval(save,5000);document.addEventListener('visibilitychange',()=>{if(document.hidden)save();});window.addEventListener('pagehide',save);title();
 </script></html>

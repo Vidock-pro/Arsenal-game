@@ -25,17 +25,40 @@ Ouvrez http://localhost:8000. Sur Windows, remplacez `python` par `py` si néces
 - Une nouvelle partie commence avec uniquement le charbon accessible, des stocks vides et 0 or. Chaque clic donne 1 ressource.
 - Ordre des exploitations : charbon → coton → bois → cuivre → poudre à canon → minerai de fer → caoutchouc → schiste bitumineux → pétrole brut → manganèse → nickel → bauxite.
 - Chaque nouveau site nécessite le précédent. Le coton coûte 100 or, puis les ouvertures coûtent cinq fois plus à chaque palier. Les recherches ne bloquent plus l’ouverture des ressources.
-- Le marché permet de vendre 1, 10 ou toutes les unités entières. Le prix unitaire vaut 1,5 puissance le rang de la ressource (charbon = rang 0). Le prix unitaire est arrondi à l’or supérieur avant multiplication par la quantité : vendre un lot rapporte autant que vendre unité par unité. Tous les prix d’achat et de vente sont des entiers, arrondis vers le haut. La trésorerie est affichée à l’entier supérieur ; les fractions provenant des revenus passifs restent conservées en interne, sans arrondi à chaque cycle.
+- Le marché permet de vendre 1, 10 ou toutes les unités entières. Le prix unitaire vaut 1,5 puissance le rang de la ressource (charbon = rang 0). Le prix unitaire est arrondi à l’or supérieur avant multiplication par la quantité : vendre un lot rapporte autant que vendre unité par unité. Tous les prix d’achat et de vente sont des entiers, arrondis vers le haut. La trésorerie est affichée à l’entier supérieur.
 - Le rendement d’un ouvrier au niveau 1 vaut 0,4 × (5 / (1,5 × 1,3)) puissance le rang, par seconde. Le temps théorique de financement du site suivant avec le revenu brut d’un ouvrier du dernier site augmente ainsi de 30 % par palier. Les arrondis des prix peuvent légèrement modifier ce repère. Il exclut les salaires, les bonus, les autres exploitations, les améliorations et le coût d’embauche : le temps réel dépend du développement du joueur.
 - Les capacités de stockage augmentent dans la même proportion que les rendements, et sont doublées par Transport motorisé.
 - L’embauche coûte 25 × 1,3 puissance le nombre d’ouvriers déjà engagés sur le site, arrondi à l’or supérieur, plus 2 or pour la première minute. Le salaire reste fixé à 2 or par minute et par ouvrier, payés d’avance. Sans or, le travail se met en pause ; il reprend lorsque les fonds sont disponibles. Les salaires s’appliquent également hors ligne et lorsque le stock est plein.
 - Les boutons − et + permettent de libérer ou d’engager un ouvrier. Libérer un ouvrier réduit le prix de la prochaine embauche ; les salaires déjà payés ne sont pas remboursés.
 - Les améliorations augmentent le rendement des ouvriers ; le clic reste à +1.
-- Les trois ateliers existants sont conservés en attendant le futur arbre de production, de l’uniforme au bombardier. La recette du blindé utilise désormais du nickel à la place du platine. Les usages décrits sur les nouvelles cartes préparent les futures chaînes de production ; ces transformations ne sont pas encore implémentées.
+- Production comporte 19 étapes : uniforme → matériel de soutien → munition de pistolet → pistolet → grenade → munition de fusil → fusil → mitrailleuse → obus → canon d’artillerie → jeep → camion → half-track → char léger → char moyen → char lourd → avion de reconnaissance → avion de chasse → bombardier.
+- Chaque étape demande la recherche associée terminée et un brevet acheté. Acheter le brevet nécessite un premier exemplaire de l’équipement précédent ; lancer la production nécessite aussi ses exploitations de matières premières. Les trois premiers équipements utilisent Machines à vapeur. Les conditions sont affichées sur chaque carte. Des filtres permettent de sélectionner équipement, armement, artillerie, véhicules, blindés ou aviation.
+- Les ingrédients sont consommés au début du cycle, jamais en pause. Une ligne en attente de ressources reprend lorsqu’elles sont disponibles. Le stockage d’équipements est limité à 9 999 unités par ligne ; vendre libère la place.
+- Chaque nation possède 19 appellations et illustrations propres. Les visuels sont des vues de côté sur fond vert quadrillé de table à dessin industrielle. Les variantes nationales ont les mêmes recettes de jeu ; les bonus de nation s’appliquent séparément.
+- Les recettes utilisent directement les 12 matières premières en unités abstraites. Le prix de base d’un équipement dépasse la valeur marchande de ses ingrédients, avec une marge croissante selon le palier. La production de matières intermédiaires (tissu, acier, carburant raffiné) n’est pas encore un système séparé.
+
+- Brevets est un catalogue de 19 licences avec les illustrations nationales. Chaque achat est unique, coûte cinq fois la valeur de vente de base (minimum 75 or, arrondi supérieur), et autorise une ligne. Les brevets ne génèrent plus de revenus passifs.
+
+### Présentation des recherches
+
+L’onglet Recherche affiche les six technologies dans un arbre de boutons carrés reliés selon leurs prérequis. Un survol continu d’une seconde sur le carré révèle la fiche détaillée (quitter le carré avant ce délai annule l’ouverture). Le texte et les espaces autour ne déclenchent pas la fiche. Le focus clavier permet aussi de la consulter ; un clic la garde ouverte, y compris sur écran tactile. La fiche indique les effets, les brevets associés, les ressources disponibles et requises, ainsi que le lancement ou la progression du projet. Les états verrouillé, accessible, en cours et validé sont identifiés par un texte et un symbole.
+
+### Coût des recherches
+
+Les ressources sont consommées au lancement, une seule fois, sans coût en or. Les recherches déjà en cours continuent sans nouveau paiement. Les prérequis et durées sont inchangés ; les brevets restent achetés en or.
+
+| Recherche | Ressources |
+|---|---|
+| Machines à vapeur | 60 charbon, 20 coton |
+| Chaîne de montage | 100 charbon, 60 bois, 40 fer, 20 cuivre |
+| Alliages avancés | 150 charbon, 100 fer, 40 manganèse, 20 nickel |
+| Chimie industrielle | 80 charbon, 50 poudre à canon, 30 cuivre |
+| Production en série | 180 charbon, 80 bois, 120 fer, 60 cuivre |
+| Transport motorisé | 140 charbon, 80 fer, 40 caoutchouc, 30 pétrole |
 
 ### Compatibilité des anciennes parties
 
-Les sauvegardes v1/v2 passent en version 3. Les exploitations existantes restent utilisables même si les nouveaux sites intermédiaires ne sont pas encore ouverts. Les nouvelles ressources commencent à zéro. Le platine est converti à son ancien prix (6 or par unité) et ses ouvriers rejoignent le charbon ; si la limite de 100 ouvriers est atteinte, les ouvriers excédentaires sont compensés à hauteur de l’embauche de base et de leur salaire prépayé restant. La migration ne remet pas la partie à zéro.
+Les sauvegardes v1/v2/v3/v4 passent en version 5. Les exploitations existantes restent utilisables même si les nouveaux sites intermédiaires ne sont pas encore ouverts. Les nouvelles ressources commencent à zéro. Le platine est converti à son ancien prix (6 or par unité) et ses ouvriers rejoignent le charbon ; si la limite de 100 ouvriers est atteinte, les ouvriers excédentaires sont compensés à hauteur de l’embauche de base et de leur salaire prépayé restant. La migration ne remet pas la partie à zéro. Les anciennes lignes fusil et camion conservent leur état ; l’ancienne ligne char devient char moyen. Stocks, travail en cours et nombres fabriqués sont conservés. Les lignes déjà acquises, actives ou ayant produit conservent leur licence et obtiennent les recherches nécessaires. Les anciens certificats à redevances sont remboursés une seule fois à leur prix d’achat. Si une recherche ainsi accordée était en cours, elle est remboursée et arrêtée. Les autres lignes suivent le nouveau parcours.
 
 ### Les quatre pays
 
@@ -46,7 +69,7 @@ Les sauvegardes v1/v2 passent en version 3. Les exploitations existantes restent
 | Allemagne | Prix de vente des équipements +15 % | Karabiner 98k | Panzer IV |
 | URSS | Récolte +15 % | Mosin-Nagant | T-34 |
 
-La campagne est fictive : le millésime 1936 est une ambiance de départ et non une simulation chronologique exacte. Les équipements disposent de sprites pixel art ; les USA réutilisent provisoirement les illustrations françaises. Ces illustrations restent des interprétations artistiques. Les bonus de recherche et de production multiplient la vitesse par 1,15. Le bonus allemand concerne uniquement les équipements, avec un prix final arrondi à l’or supérieur. Le clic manuel reste à +1 pour toutes les nations. Les valeurs, recettes et brevets sont des mécaniques ludiques, pas des instructions techniques historiques.
+La campagne est fictive : le millésime 1936 est une ambiance de départ et non une simulation chronologique exacte. Les équipements disposent de sprites pixel art ; chaque nation possède sa propre planche de 19 équipements. Ces illustrations restent des interprétations artistiques. Les bonus de recherche et de production multiplient la vitesse par 1,15. Le bonus allemand concerne uniquement les équipements, avec un prix final arrondi à l’or supérieur. Le clic manuel reste à +1 pour toutes les nations. Les valeurs, recettes et brevets sont des mécaniques ludiques, pas des instructions techniques historiques.
 
 ## Sauvegarde
 
@@ -95,4 +118,15 @@ Code sous licence MIT : réutilisation, modification, redistribution et usage co
 
 ## Périmètre de cette première version
 
-12 ressources, 3 lignes de production par nation, 6 recherches, 6 brevets, écran de stocks et sauvegardes. Les illustrations d'exploitation proviennent des maquettes ; les équipements de production sont des SVG schématiques. Pas encore de sons, de campagne scénarisée, de gestion d'énergie/ouvriers ni de prestige. L'équilibrage vise un premier prototype jouable.
+12 ressources, 19 lignes de production par nation, 6 recherches, 19 brevets, écran de stocks et sauvegardes. Les illustrations d'exploitation proviennent des maquettes ; les équipements sont illustrés en pixel art sur des planches de dessin industriel. Pas encore de sons, de campagne scénarisée, de simulation énergétique séparée ni de prestige. L'équilibrage vise un premier prototype jouable.
+
+
+## Références visuelles de production
+
+Les modèles sont des inspirations historiques adaptées à un monde alternatif, et non des reproductions muséographiques exactes. Les vêtements et kits sont présentés à plat ; véhicules et armes en profil. La catégorie « Jeep » comprend les véhicules légers nationaux équivalents. Les véhicules américains des Forces françaises libres sont explicitement identifiés ; le M26 américain correspond à la fin de guerre en 1945.
+
+- Musée des Blindés / ministère des Armées : https://www.defense.gouv.fr/chemins-memoire/tourisme-memoire/lieux-memoire/musees-du-ministere-armees-anciens-combattants/musee-blindes
+- B1 bis : https://museedesblindes.fr/les_chars/b1-bis/
+- National Museum of the USAF, Piper L-4 : https://www.nationalmuseum.af.mil/Visit/Museum-Exhibits/Fact-Sheets/Display/Article/197424/piper-l-4a-grasshopper/
+- USAF, avions de 1939-1945 : https://www.afhistory.af.mil/FAQs/Fact-Sheets/Article/459025/army-air-forces-aircraft-a-definitive-moment/
+- Tank Museum, M26 en 1945 : https://tankmuseum.org/article/bridge-at-remagen
