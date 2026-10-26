@@ -18,7 +18,7 @@ test('Production renders all 19 national cards and filters without missing image
   assert.ok(!html.includes('undefined'));assert.ok(!html.includes('NaN'));
   assert.ok(fs.existsSync(new URL(`dist/assets/production-${country}.png`,root)));
   assert.equal(ui.get('toggle-uniform').disabled,true);
-  vm.runInContext("state.levels.cotton=1;state.tech=['steam'];state.credits=75;act(state,'patent','uniform');shell();",ui.context);
+  vm.runInContext("state.levels.cotton=1;state.tech=['steam'];state.credits=75;act(state,'patent','uniform');state.factories=1;act(state,'assign-factory','uniform');shell();",ui.context);
   assert.equal(ui.get('toggle-uniform').disabled,false);assert.equal(ui.get('toggle-support').disabled,true);
   ui.events.click({target:{closest:()=>({dataset:{productionFilter:'Aviation'}})}});
   assert.equal((ui.get('#content').innerHTML.match(/<article class="production-card/g)||[]).length,3);
@@ -27,7 +27,7 @@ test('Production renders all 19 national cards and filters without missing image
  }
 });
 test('A completed first item refreshes the production prerequisites',()=>{
- const ui=mount();vm.runInContext("state=newGame('fr');state.levels.cotton=1;state.levels.wood=1;state.resources.cotton=4;state.resources.coal=2;state.tech=['steam'];state.credits=1000;act(state,'patent','uniform');view='production';shell();act(state,'toggle','uniform');last=Date.now()-8100;",ui.context);
+ const ui=mount();vm.runInContext("state=newGame('fr');state.levels.cotton=1;state.levels.wood=1;state.resources.cotton=4;state.resources.coal=2;state.tech=['steam'];state.credits=1000;act(state,'patent','uniform');state.factories=1;act(state,'assign-factory','uniform');view='production';shell();act(state,'toggle','uniform');last=Date.now()-8100;",ui.context);
  ui.timers[0]();assert.equal(ui.get('toggle-support').disabled,true);vm.runInContext("view='patents';shell();",ui.context);assert.equal(ui.get('patent-support').disabled,false);assert.ok(ui.get('made-uniform').textContent.startsWith('1 '));
 });
 
@@ -65,4 +65,11 @@ test('Research hover opens only after one continuous second on the square',()=>{
  ui.events.pointerover({target:square,relatedTarget:node});ui.elapse(999);assert.equal(attrs['data-preview'],undefined);ui.elapse(1);assert.equal(attrs['data-preview'],'true');
  ui.events.pointerout({target:square,relatedTarget:node});assert.equal(attrs['data-preview'],'true');
  ui.events.pointerout({target:square,relatedTarget:null});assert.equal(attrs['data-preview'],undefined);assert.equal(attrs['aria-expanded'],'false');
+});
+
+test('Production displays factory purchase and allocation controls',()=>{
+ const ui=mount();vm.runInContext("state=newGame('fr');view='production';state.tech=['steam'];state.credits=2000;state.levels.cotton=1;act(state,'patent','uniform');shell();",ui.context);
+ assert.ok(ui.get('#content').innerHTML.includes('factory-icon'));assert.equal(ui.get('toggle-uniform').disabled,true);assert.equal(ui.get('assign-factory-uniform').disabled,true);
+ ui.events.click({target:{closest:()=>({dataset:{action:'buy-factory'}})}});assert.equal(ui.get('assign-factory-uniform').disabled,false);
+ ui.events.click({target:{closest:()=>({dataset:{action:'assign-factory',id:'uniform'}})}});assert.equal(ui.get('toggle-uniform').disabled,false);assert.equal(ui.get('factory-summary').textContent,'1 usines · 0 disponibles');
 });
