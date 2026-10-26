@@ -2723,3 +2723,66 @@ dialog p {
   width: 56px;
   height: 56px;
 }
+
+/* Icônes compactes : mêmes proportions sur ordinateur, tablette et téléphone.
+   Les aplats gardent le style pixel art ; le rééchantillonnage normal évite
+   de perdre des morceaux de contour lors de la réduction des grandes planches. */
+.compact-icon,
+.worker-icon.compact-icon,
+.wage-icon.compact-icon,
+.factory-icon.compact-icon,
+.resource-icon.compact-icon,
+.sidebar nav button .menu-icon.compact-icon,
+.wallet > .workforce-icon.compact-icon,
+.factory-pool > .factory-icon.compact-icon {
+  --icon-size: 32px;
+  position: relative;
+  display: inline-block;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  min-width: var(--icon-size);
+  flex: 0 0 var(--icon-size);
+  aspect-ratio: 1;
+  overflow: hidden;
+  vertical-align: middle;
+  align-self: center;
+  padding: 0;
+  background: none;
+  filter: none;
+  mix-blend-mode: normal;
+  image-rendering: auto;
+}
+.compact-icon > img,
+.resource-icon.compact-icon > img {
+  position: absolute;
+  display: block;
+  max-width: none;
+  max-height: none;
+  object-fit: fill;
+  image-rendering: auto;
+  pointer-events: none;
+  user-select: none;
+  filter: none;
+}
+.topbar .resource-stock .resource-icon.compact-icon,
+.production-card .recipe .resource-icon.compact-icon,
+.research-cost .resource-icon.compact-icon,
+.wage-icon.compact-icon {
+  --icon-size: 24px;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  min-width: var(--icon-size);
+  flex: 0 0 var(--icon-size);
+}
+.worker-icon.compact-icon,
+.wallet > .workforce-icon.compact-icon {
+  --icon-size: 28px;
+}
+@media (max-width: 760px) {
+  .sidebar nav button .menu-icon.compact-icon {
+    --icon-size: 28px;
+  }
+  .resource-card header h2 .resource-icon.compact-icon {
+    --icon-size: 28px;
+  }
+}

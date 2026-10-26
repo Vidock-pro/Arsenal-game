@@ -135,26 +135,26 @@ function art(atlas, x, y, w, h, cls = '') {
     />
   </div>`;
 }
-// Les deux planches de ressources ont des cases carrées et un fond transparent.
-// Choisit la case de la planche correspondant à la ressource.
-function resourceIcon(id) {
-  const classic = ['coal', 'wood', 'iron', 'rubber'].indexOf(id);
-  const index =
-    classic >= 0
-      ? classic
-      : ['cotton', 'copper', 'gunpowder', 'shale', 'oil', 'manganese', 'nickel', 'bauxite'].indexOf(
-          id,
-        );
-  const columns = classic >= 0 ? 2 : 4;
-  const atlas = classic >= 0 ? 'classic-resource-icons.png' : 'resource-icons-atlas.png';
-  return /* HTML */ `<span class="resource-icon generated-icon" aria-hidden="true"
+// Toutes les petites icônes utilisent des silhouettes simples dans des cases régulières.
+// Les dimensions du dessin sont indépendantes de la taille du bouton ou de la carte.
+function compactIcon(atlas, index, columns, rows, classes) {
+  return /* HTML */ `<span class="${classes} compact-icon" aria-hidden="true"
     ><img
       src="assets/${atlas}"
       alt=""
       draggable="false"
-      style="width:${columns * 100}%;height:200%;left:${-(index % columns) *
+      style="width:${columns * 100}%;height:${rows * 100}%;left:${-(index % columns) *
       100}%;top:${-Math.floor(index / columns) * 100}%"
   /></span>`;
+}
+function resourceIcon(id) {
+  return compactIcon(
+    'resource-icons-simple.png',
+    RESOURCES.findIndex((resource) => resource.id === id),
+    4,
+    3,
+    'resource-icon generated-icon',
+  );
 }
 function resourceScene(resource) {
   return /* HTML */ `<div class="art resource-scene" role="img" aria-label="${resource.site}">
@@ -170,13 +170,7 @@ function resourceScene(resource) {
 }
 function navArt(id) {
   const index = ['harvest', 'market', 'production', 'research', 'patents', 'storage'].indexOf(id);
-  return /* HTML */ `<span class="nav-art menu-icon" aria-hidden="true"
-    ><img
-      src="assets/menu-icons-atlas.png"
-      alt=""
-      draggable="false"
-      style="left:${-(index % 3) * 100}%;top:${-Math.floor(index / 3) * 100}%"
-  /></span>`;
+  return compactIcon('ui-icons-simple.png', index, 3, 3, 'nav-art menu-icon');
 }
 // Construit les compteurs et les raccourcis du panneau de gestion.
 function management() {
@@ -390,14 +384,10 @@ function shell() {
   updateNumbers();
 }
 function workerIcon() {
-  return /* HTML */ `<span class="worker-icon workforce-icon" aria-hidden="true"
-    ><img src="assets/workforce-icons.png" alt="" draggable="false" style="left:0"
-  /></span>`;
+  return compactIcon('ui-icons-simple.png', 6, 3, 3, 'worker-icon workforce-icon');
 }
 function wageIcon() {
-  return /* HTML */ `<span class="wage-icon workforce-icon" aria-hidden="true"
-    ><img src="assets/workforce-icons.png" alt="" draggable="false" style="left:-100%"
-  /></span>`;
+  return compactIcon('ui-icons-simple.png', 7, 3, 3, 'wage-icon workforce-icon');
 }
 // Affiche les exploitations, leurs stocks et leurs ouvriers.
 function harvest() {
@@ -562,7 +552,7 @@ function vehicle(id) {
   </div>`;
 }
 function factoryIcon() {
-  return '<img class="factory-icon" src="assets/factory-icon.png" alt="" aria-hidden="true" draggable="false">';
+  return compactIcon('ui-icons-simple.png', 2, 3, 3, 'factory-icon');
 }
 // Affiche le parc d’usines et les lignes de la catégorie sélectionnée.
 function production() {

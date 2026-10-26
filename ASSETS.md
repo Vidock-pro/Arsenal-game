@@ -25,3 +25,10 @@ Images générées par IA, fournies pour réutilisation avec le projet dans la m
 - `dist/assets/production-fr.png`, `production-us.png`, `production-de.png`, `production-su.png` : 19 équipements par nation, profils pixel art sur fond de table à dessin vert quadrillé, créés avec ImageGen intégré. Grilles de 5 colonnes × 4 lignes, dernière case vide. Les premières versions en perspective ont été écartées. Prompts : `tools/production-art-prompts.txt`.
 
 - `dist/assets/factory-icon.png` : usine industrielle illustrée en pixel art, tons olive et laiton, fond transparent ; générée avec imagegen pour Arsenal.
+
+### Icônes compactes (version simplifiée)
+
+- `dist/assets/resource-icons-simple.png` : 12 silhouettes en grille 4 × 3, dans l’ordre de `RESOURCES`.
+- `dist/assets/ui-icons-simple.png` : grille 3 × 3 : récolte, marché, usine ; recherche, brevets, stockage ; ouvrier, lingots, engrenage.
+- Illustrations générées avec imagegen, fond transparent, aplats larges sans textures fines. Affichage à 24, 28 ou 32 pixels selon l’emplacement. La production et le parc d’usines partagent le même dessin d’usine.
+- Les anciennes planches sont conservées dans les sources mais ne sont plus utilisées par les petites icônes de l’interface.
