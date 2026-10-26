@@ -1,1 +1,16 @@
-{"name":"arsenal-idle","version":"0.2.0","private":true,"type":"module","description":"Jeu idle industriel 1914–1945","license":"MIT","scripts":{"test":"node --test tests/*.test.js"}}
+{
+  "name": "arsenal-idle",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Jeu idle industriel 1914–1945",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "format": "prettier --write \"dist/*.{js,css,html}\" \"tests/*.js\" package.json .prettierrc.json",
+    "format:check": "prettier --check \"dist/*.{js,css,html}\" \"tests/*.js\" package.json .prettierrc.json"
+  },
+  "devDependencies": {
+    "prettier": "3.6.2"
+  }
+}
