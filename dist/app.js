@@ -3,6 +3,7 @@ import {
   factoryCost,
   freeFactories,
   productionBatch,
+  productionRecipe,
   patentRequirements,
   productName,
   productionUnlocked,
@@ -207,7 +208,7 @@ function management() {
         draggable="false"
       />
       <div class="management-stat">
-        <span>Technologies</span><strong>${state.tech.length} / 6</strong>
+        <span>Technologies</span><strong>${state.tech.length} / ${TECHS.length}</strong>
       </div>
       <div class="management-stat">
         <span>Brevets</span><strong>${state.patents.length} / ${PRODUCTS.length}</strong>
@@ -287,8 +288,7 @@ function goal() {
   if (!state.totalSold) return 'Première livraison : vendez votre premier lot dans Production.';
   if (state.research)
     return 'Vos ingénieurs travaillent. Rassemblez les ressources nécessaires à la prochaine avancée.';
-  if (!state.tech.length)
-    return 'Rassemblez du charbon et du coton pour rechercher Machines à vapeur.';
+  if (!state.tech.length) return 'Préparez votre atelier de confection.';
   if (!state.patents.length) return 'Achetez votre première licence de production dans Brevets.';
   return 'Développez vos ateliers, approvisionnez la recherche et débloquez les blindés.';
 }
@@ -613,7 +613,7 @@ function production() {
                 <span id="status-${product.id}" class="status"></span>
               </div>
               <div class="recipe" aria-label="Matières par unité">
-                ${Object.entries(product.recipe)
+                ${Object.entries(productionRecipe(state, product))
                   .map(
                     ([id, n]) =>
                       /* HTML */ `<span
@@ -685,147 +685,248 @@ function production() {
         .join('')}
     </div>`;
 }
-const researchPositions = {
-  steam: [2, 1],
-  alloys: [1, 2],
-  assembly: [2, 2],
-  chemistry: [3, 2],
-  series: [1, 3],
-  logistics: [3, 3],
-};
+const researchBranches = [
+  'Textile',
+  'Armement',
+  'Munitions',
+  'Véhicules',
+  'Blindés',
+  'Aviation',
+  'Industrie',
+];
+// Réutilise les pictogrammes compacts pour garder la même palette que les autres écrans.
 function researchIcon(id) {
-  const drawings = {
-    steam:
-      '<path d="M7 23h18v-9H7zM10 14V7h5v7m10 3h4v6h-4M5 27h25M18 10V5h5v5"/><path d="M10 19h4m4 0h4"/>',
-    assembly:
-      '<path d="M4 23h24v6H4zM7 23V13h7v10m5 0V13h7v10M4 7h24M10 7v6m12-6v6"/><path d="M8 26h2m5 0h2m5 0h2"/>',
-    alloys: '<path d="m5 24 5-8h12l5 8v4H5zM8 12l4-7h8l4 7zM10 16l5 8m7-8-5 8M5 24h22"/>',
-    chemistry:
-      '<path d="M11 4h10m-8 0v10L5 26v3h22v-3l-8-12V4M9 21h14"/><path d="M12 25h3m4-8h2"/>',
-    series:
-      '<path d="M3 5h10v9H3zM19 5h10v9H19zM3 20h10v9H3zM19 20h10v9H19zM13 9h6m5 5v6M13 25h6"/>',
-    logistics:
-      '<path d="M3 10h16v14H3zM19 15h6l4 6v3H19M23 15v6h6"/><path d="M6 24v5h5v-5m11 0v5h5v-5M6 6h10"/>',
+  const materials = {
+    sewing: 'cotton',
+    confection: 'cotton',
+    chemistry: 'gunpowder',
+    cartridges: 'copper',
+    casting: 'iron',
+    rifle_cartridges: 'copper',
+    long_arms: 'wood',
+    armor: 'manganese',
+    alloys: 'nickel',
+    airframes: 'bauxite',
+    steam: 'coal',
+    electricity: 'copper',
+    engines: 'oil',
+    heavy_engines: 'oil',
+    aero_engines: 'oil',
+    light_armor: 'iron',
   };
-  return /* HTML */ `<svg
-    viewBox="0 0 32 34"
-    aria-hidden="true"
-    shape-rendering="crispEdges"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-  >
-    ${drawings[id]}
-  </svg>`;
+  if (materials[id]) return resourceIcon(materials[id]);
+  const icon = [
+    'assembly',
+    'chassis',
+    'mixed_tracks',
+    'heavy_press',
+    'artillery_machining',
+  ].includes(id)
+    ? 2
+    : ['aviation', 'multiengine'].includes(id)
+      ? 3
+      : id === 'series'
+        ? 4
+        : id === 'logistics'
+          ? 5
+          : 8;
+  return compactIcon('ui-icons-simple.png', icon, 3, 3, 'technology-icon');
 }
-// Relie les recherches à leurs prérequis et construit leurs fiches.
+// Chaque branche forme un arbre local : les sous-arbres occupent des couloirs distincts.
+// Les prérequis d’une autre branche sont des renvois cliquables, jamais des traits traversants.
+function researchLayout(branch) {
+  const techs = TECHS.filter((tech) => tech.branch === branch);
+  const ids = new Set(techs.map((tech) => tech.id));
+  const children = (id) => techs.filter((tech) => tech.requires.includes(id));
+  const roots = techs.filter((tech) => !tech.requires.some((id) => ids.has(id)));
+  const leaves = (id) =>
+    Math.max(
+      1,
+      children(id).reduce((total, child) => total + leaves(child.id), 0),
+    );
+  const lanes = roots.reduce((total, root) => total + leaves(root.id), 0);
+  const positions = {};
+  let cursor = 0;
+  function place(tech, depth) {
+    const start = cursor,
+      descendants = children(tech.id);
+    if (descendants.length) descendants.forEach((child) => place(child, depth + 1));
+    else cursor++;
+    positions[tech.id] = { x: ((start + cursor) / 2 / lanes) * 100, depth };
+  }
+  roots.forEach((root) => place(root, 0));
+  return {
+    techs,
+    positions,
+    lanes,
+    height: (Math.max(...Object.values(positions).map((position) => position.depth)) + 1) * 220,
+  };
+}
 function research() {
   return /* HTML */ `<div class="section-intro">
       <p>Consultez les dossiers de recherche.</p>
-      <span>UN PROJET À LA FOIS</span>
+      <span>${state.tech.length} / ${TECHS.length} RECHERCHES</span>
     </div>
-    <div class="research-tree" aria-label="Arbre des recherches">
-      <svg
-        class="research-links"
-        viewBox="0 0 300 450"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        ${TECHS.flatMap((t) =>
-          t.requires.map((id) => {
-            const [x, y] = researchPositions[id],
-              [tx, ty] = researchPositions[t.id];
-            return /* HTML */ `<path
-              class="${state.tech.includes(id) ? 'fulfilled' : ''}"
-              d="M${x * 100 - 50} ${y * 150 - 75} V${y * 150} H${tx * 100 - 50} V${ty * 150 - 75}"
-            />`;
-          }),
-        ).join('')}</svg
-      >${TECHS.map((t, i) => {
-        const done = state.tech.includes(t.id),
-          running = state.research?.id === t.id,
-          ready = t.requires.every((k) => state.tech.includes(k)),
-          [col, row] = researchPositions[t.id],
-          status = done ? 'VALIDÉ' : running ? 'EN COURS' : ready ? 'ACCESSIBLE' : 'VERROUILLÉ';
-        return /* HTML */ `<div
-          class="research-node ${done
-            ? 'completed'
-            : running
-              ? 'running'
-              : ready
-                ? 'available'
-                : 'locked'}"
-          style="grid-column:${col};grid-row:${row}"
-          data-pinned="${pinnedResearch === t.id}"
-        >
-          <button
-            class="research-square"
-            data-research-node="${t.id}"
-            aria-label="${t.name} · ${status}"
-            aria-expanded="${pinnedResearch === t.id}"
-            aria-controls="research-detail-${t.id}"
-          >
-            ${researchIcon(t.id)}<span class="research-node-mark" aria-hidden="true"
-              >${done ? '✓' : running ? '◷' : ready ? '+' : '×'}</span
-            ></button
-          ><span class="research-node-name">${t.name}</span
-          ><span class="research-node-state">${status}</span>
-          <section class="research-detail" id="research-detail-${t.id}" aria-label="${t.name}">
-            <button
-              class="research-detail-close"
-              data-research-close="${t.id}"
-              aria-label="Fermer le dossier"
-            >
-              ×
-            </button>
-            <div class="resource-info">
-              <span class="serial"
-                >DOSSIER R–0${i + 1} / ${done ? 'VALIDÉ' : running ? 'EN COURS' : 'RECHERCHE'}</span
+    <div class="research-forest">
+      ${researchBranches
+        .map((branch) => {
+          const layout = researchLayout(branch);
+          return /* HTML */ `<section class="research-branch">
+            <h2>
+              ${branch}<small
+                >${layout.techs.filter((tech) => state.tech.includes(tech.id)).length} /
+                ${layout.techs.length}</small
               >
-              <h2>${t.name}</h2>
-              <p><strong>Effets :</strong> ${t.desc}</p>
-              <p>
-                <strong>Brevets :</strong> ${PRODUCTS.filter((product) => product.unlock === t.id)
-                  .map((product) => product.name)
-                  .join(', ')}.
-              </p>
-              <div class="tech-requirements">
-                <strong>Prérequis :</strong> ${t.requires.length
-                  ? t.requires.map((k) => TECHS.find((x) => x.id === k).name).join(', ')
-                  : 'Aucun'}
-              </div>
-              ${!done && !running
-                ? /* HTML */ `<div class="research-costs" aria-label="Ressources nécessaires">
-                    <strong class="research-cost-heading">Ressources nécessaires :</strong
-                    >${Object.entries(t.cost)
-                      .map(
-                        ([id, n]) =>
-                          /* HTML */ `<div class="research-cost">
-                            ${resourceIcon(id)}<span
-                              >${RESOURCES.find((resource) => resource.id === id).name}</span
-                            ><strong id="research-cost-${t.id}-${id}"></strong>
-                          </div>`,
-                      )
-                      .join('')}
-                  </div>`
-                : ''}${done
-                ? '<div class="done-label">✓ Technologie maîtrisée</div>'
-                : running
-                  ? /* HTML */ `<div class="meter"><i id="research-bar"></i></div>
-                      <div class="research-time" id="research-time"></div>`
-                  : /* HTML */ `<button
-                      class="upgrade full"
-                      data-action="research"
-                      data-id="${t.id}"
-                      id="research-${t.id}"
-                      ${!ready ? 'disabled' : ''}
+            </h2>
+            <div
+              class="research-tree technology-tree"
+              style="height:${layout.height}px"
+              aria-label="Arbre ${branch}"
+            >
+              <svg
+                class="research-links"
+                viewBox="0 0 320 ${layout.height}"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                ${layout.techs
+                  .flatMap((tech) =>
+                    tech.requires
+                      .filter((id) => layout.positions[id])
+                      .map((id) => {
+                        const from = layout.positions[id],
+                          to = layout.positions[tech.id];
+                        return /* HTML */ `<path
+                          class="${state.tech.includes(id) ? 'fulfilled' : ''}"
+                          d="M${from.x * 3.2} ${from.depth * 220 + 74} V${from.depth * 220 +
+                          202} H${to.x * 3.2} V${to.depth * 220 + 18}"
+                        />`;
+                      }),
+                  )
+                  .join('')}
+              </svg>
+              ${layout.techs
+                .map((t) => {
+                  const i = TECHS.indexOf(t);
+                  const done = state.tech.includes(t.id),
+                    running = state.research?.id === t.id,
+                    ready = t.requires.every((k) => state.tech.includes(k)),
+                    { x, depth } = layout.positions[t.id],
+                    status = done
+                      ? 'VALIDÉ'
+                      : running
+                        ? 'EN COURS'
+                        : ready
+                          ? 'ACCESSIBLE'
+                          : 'VERROUILLÉ';
+                  return /* HTML */ `<div
+                    class="research-node ${done
+                      ? 'completed'
+                      : running
+                        ? 'running'
+                        : ready
+                          ? 'available'
+                          : 'locked'}"
+                    style="left:${x}%;top:${depth * 220 + 18}px;--lanes:${layout.lanes}"
+                    data-pinned="${pinnedResearch === t.id}"
+                  >
+                    <button
+                      class="research-square"
+                      data-research-node="${t.id}"
+                      aria-label="${t.name} · ${status}"
+                      aria-expanded="${pinnedResearch === t.id}"
+                      aria-controls="research-detail-${t.id}"
                     >
-                      Lancer la recherche <small>${clock(researchTime(state, t))}</small>
-                    </button>`}
+                      ${researchIcon(t.id)}<span class="research-node-mark" aria-hidden="true"
+                        >${done ? '✓' : running ? '◷' : ready ? '+' : '×'}</span
+                      ></button
+                    ><span class="research-node-name">${t.name}</span
+                    ><span class="research-node-state">${status}</span>
+                    ${t.requires
+                      .filter((id) => TECHS.find((parent) => parent.id === id).branch !== t.branch)
+                      .map((id) => {
+                        const prerequisite = TECHS.find((parent) => parent.id === id);
+                        return /* HTML */ `<button
+                          class="research-prerequisite ${state.tech.includes(id) ? 'met' : ''}"
+                          data-research-jump="${id}"
+                          title="${prerequisite.branch} · ${prerequisite.name}"
+                        >
+                          ${state.tech.includes(id) ? '✓' : '↗'} ${prerequisite.name}
+                        </button>`;
+                      })
+                      .join('')}
+                    <section
+                      class="research-detail"
+                      id="research-detail-${t.id}"
+                      aria-label="${t.name}"
+                    >
+                      <button
+                        class="research-detail-close"
+                        data-research-close="${t.id}"
+                        aria-label="Fermer le dossier"
+                      >
+                        ×
+                      </button>
+                      <div class="resource-info">
+                        <span class="serial"
+                          >DOSSIER R–0${i + 1} /
+                          ${done ? 'VALIDÉ' : running ? 'EN COURS' : 'RECHERCHE'}</span
+                        >
+                        <h2>${t.name}</h2>
+                        <p><strong>Effets :</strong> ${t.desc}</p>
+                        <p>
+                          <strong>Brevets :</strong> ${PRODUCTS.filter(
+                            (product) => product.unlock === t.id,
+                          )
+                            .map((product) => product.name)
+                            .join(', ') || 'Amélioration industrielle'}.
+                        </p>
+                        <div class="tech-requirements">
+                          <strong>Prérequis :</strong> ${t.requires.length
+                            ? t.requires.map((k) => TECHS.find((x) => x.id === k).name).join(', ')
+                            : 'Aucun'}
+                        </div>
+                        ${!done && !running
+                          ? /* HTML */ `<div
+                              class="research-costs"
+                              aria-label="Ressources nécessaires"
+                            >
+                              <strong class="research-cost-heading">Ressources nécessaires :</strong
+                              >${Object.entries(t.cost)
+                                .map(
+                                  ([id, n]) =>
+                                    /* HTML */ `<div class="research-cost">
+                                      ${resourceIcon(id)}<span
+                                        >${RESOURCES.find((resource) => resource.id === id)
+                                          .name}</span
+                                      ><strong id="research-cost-${t.id}-${id}"></strong>
+                                    </div>`,
+                                )
+                                .join('')}
+                            </div>`
+                          : ''}${done
+                          ? '<div class="done-label">✓ Technologie maîtrisée</div>'
+                          : running
+                            ? /* HTML */ `<div class="meter"><i id="research-bar"></i></div>
+                                <div class="research-time" id="research-time"></div>`
+                            : /* HTML */ `<button
+                                class="upgrade full"
+                                data-action="research"
+                                data-id="${t.id}"
+                                id="research-${t.id}"
+                                ${!ready ? 'disabled' : ''}
+                              >
+                                Lancer la recherche <small>${clock(researchTime(state, t))}</small>
+                              </button>`}
+                      </div>
+                    </section>
+                  </div>`;
+                })
+                .join('')}
             </div>
-          </section>
-        </div>`;
-      }).join('')}
+          </section>`;
+        })
+        .join('')}
     </div>
     <div class="research-legend">
       <span>□ Verrouillé</span><span>＋ Accessible</span><span>◷ En cours</span
@@ -1117,7 +1218,7 @@ function updateProductionNumbers() {
               ? 'STOCK PLEIN'
               : !productionUnlocked(state, product)
                 ? 'PRÉREQUIS MANQUANTS'
-                : affordable(state, product.recipe)
+                : affordable(state, productionRecipe(state, product))
                   ? 'DÉMARRAGE'
                   : 'MATIÈRES MANQUANTES'
           : productionUnlocked(state, product) || line.remaining > 0
@@ -1248,6 +1349,15 @@ document.addEventListener('click', (e) => {
     pinnedResearch = null;
     renderContent();
     updateNumbers();
+    return;
+  }
+  if (button.dataset.researchJump) {
+    pinnedResearch = button.dataset.researchJump;
+    renderContent();
+    updateNumbers();
+    document
+      .querySelector(`[data-research-node="${pinnedResearch}"]`)
+      ?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
     return;
   }
   if (button.dataset.productionFilter) {

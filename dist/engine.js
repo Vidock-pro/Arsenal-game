@@ -83,7 +83,7 @@ export const RESOURCES = [
   icon: '◆',
 }));
 // Recherches : coûts en ressources, durée, prérequis et coordonnées des illustrations.
-export const TECHS = [
+const LEGACY_TECHS = [
   {
     id: 'steam',
     name: 'Machines à vapeur',
@@ -156,6 +156,484 @@ export const TECHS = [
     w: 277,
     h: 111,
   },
+];
+
+// Arbre actuel : position, branche et prérequis sont partagés avec l’interface.
+export const TECHS = [
+  {
+    id: 'sewing',
+    name: 'Machines à coudre industrielles',
+    branch: 'Textile',
+    requires: [],
+    cost: {
+      coal: 60,
+      cotton: 80,
+    },
+    time: 30,
+    col: 1,
+    row: 1,
+    desc: 'Confection des uniformes.',
+  },
+  {
+    id: 'press',
+    name: 'Presses d’emboutissage',
+    branch: 'Armement',
+    requires: [],
+    cost: {
+      coal: 100,
+      wood: 60,
+      copper: 60,
+    },
+    time: 35,
+    col: 2,
+    row: 1,
+    desc: 'Formage des pièces métalliques.',
+  },
+  {
+    id: 'chemistry',
+    name: 'Chimie des poudres',
+    branch: 'Munitions',
+    requires: [],
+    cost: {
+      coal: 120,
+      gunpowder: 80,
+    },
+    time: 40,
+    col: 3,
+    row: 1,
+    desc: 'Prépare les branches de munitions et d’artillerie.',
+  },
+  {
+    id: 'steam',
+    name: 'Chaudières industrielles',
+    branch: 'Industrie',
+    requires: [],
+    cost: {
+      coal: 120,
+      cotton: 40,
+    },
+    time: 30,
+    col: 7,
+    row: 1,
+    desc: 'Récolte automatique +20 %.',
+  },
+  {
+    id: 'confection',
+    name: 'Confection renforcée',
+    branch: 'Textile',
+    requires: ['sewing'],
+    cost: {
+      cotton: 160,
+      wood: 70,
+    },
+    time: 40,
+    col: 1,
+    row: 2,
+    desc: 'Équipement de soutien.',
+  },
+  {
+    id: 'cartridges',
+    name: 'Fabrication de cartouches',
+    branch: 'Munitions',
+    requires: ['press', 'chemistry'],
+    cost: {
+      coal: 140,
+      copper: 120,
+      gunpowder: 100,
+    },
+    time: 45,
+    col: 3,
+    row: 2,
+    desc: 'Munitions de pistolet.',
+  },
+  {
+    id: 'electricity',
+    name: 'Électrification des ateliers',
+    branch: 'Industrie',
+    requires: ['steam'],
+    cost: {
+      coal: 200,
+      copper: 160,
+      iron: 100,
+    },
+    time: 55,
+    col: 7,
+    row: 2,
+    desc: 'Production 15 % plus rapide.',
+  },
+  {
+    id: 'precision',
+    name: 'Usinage de précision',
+    branch: 'Armement',
+    requires: ['press'],
+    cost: {
+      coal: 160,
+      copper: 80,
+      iron: 120,
+    },
+    time: 50,
+    col: 2,
+    row: 3,
+    desc: 'Armes individuelles et pièces mécaniques.',
+  },
+  {
+    id: 'casting',
+    name: 'Fonderie de corps métalliques',
+    branch: 'Munitions',
+    requires: ['chemistry'],
+    cost: {
+      coal: 180,
+      iron: 140,
+      gunpowder: 100,
+    },
+    time: 50,
+    col: 3,
+    row: 3,
+    desc: 'Corps de grenades et pièces de fonderie.',
+  },
+  {
+    id: 'airframes',
+    name: 'Structures aéronautiques légères',
+    branch: 'Aviation',
+    requires: ['confection'],
+    cost: {
+      wood: 320,
+      cotton: 240,
+      bauxite: 280,
+    },
+    time: 100,
+    col: 6,
+    row: 3,
+    desc: 'Structures légères pour l’aviation.',
+  },
+  {
+    id: 'assembly',
+    name: 'Chaîne de montage',
+    branch: 'Industrie',
+    requires: ['electricity'],
+    cost: {
+      coal: 300,
+      wood: 160,
+      iron: 240,
+      copper: 120,
+    },
+    time: 80,
+    col: 7,
+    row: 3,
+    desc: 'Production 25 % plus rapide.',
+  },
+  {
+    id: 'rifle_cartridges',
+    name: 'Cartouches standardisées',
+    branch: 'Munitions',
+    requires: ['cartridges'],
+    cost: {
+      coal: 200,
+      copper: 180,
+      gunpowder: 160,
+    },
+    time: 60,
+    col: 3,
+    row: 4,
+    desc: 'Munitions de fusil.',
+  },
+  {
+    id: 'long_arms',
+    name: 'Fabrication d’armes longues',
+    branch: 'Armement',
+    requires: ['precision'],
+    cost: {
+      coal: 220,
+      wood: 200,
+      iron: 240,
+    },
+    time: 65,
+    col: 2,
+    row: 4,
+    desc: 'Fabrication des fusils.',
+  },
+  {
+    id: 'engines',
+    name: 'Moteurs à combustion',
+    branch: 'Véhicules',
+    requires: ['precision'],
+    cost: {
+      coal: 360,
+      iron: 280,
+      copper: 160,
+      rubber: 100,
+      shale: 120,
+    },
+    time: 80,
+    col: 4,
+    row: 4,
+    desc: 'Motorisation des véhicules légers.',
+  },
+  {
+    id: 'armor',
+    name: 'Métallurgie du blindage',
+    branch: 'Blindés',
+    requires: ['casting'],
+    cost: {
+      coal: 400,
+      iron: 400,
+      manganese: 160,
+    },
+    time: 90,
+    col: 5,
+    row: 4,
+    desc: 'Prépare les blindages des véhicules chenillés.',
+  },
+  {
+    id: 'tooling',
+    name: 'Outillage standardisé',
+    branch: 'Industrie',
+    requires: ['electricity'],
+    cost: {
+      coal: 360,
+      iron: 320,
+      copper: 180,
+    },
+    time: 90,
+    col: 7,
+    row: 4,
+    desc: 'Consommation de matières en production −10 %.',
+  },
+  {
+    id: 'automatic',
+    name: 'Mécanismes automatiques',
+    branch: 'Armement',
+    requires: ['long_arms'],
+    cost: {
+      coal: 320,
+      copper: 180,
+      iron: 360,
+    },
+    time: 80,
+    col: 2,
+    row: 5,
+    desc: 'Fabrication des mitrailleuses.',
+  },
+  {
+    id: 'heavy_press',
+    name: 'Emboutissage lourd',
+    branch: 'Munitions',
+    requires: ['casting', 'press'],
+    cost: {
+      coal: 340,
+      copper: 240,
+      iron: 320,
+      gunpowder: 260,
+    },
+    time: 85,
+    col: 3,
+    row: 5,
+    desc: 'Production des obus.',
+  },
+  {
+    id: 'chassis',
+    name: 'Châssis renforcés',
+    branch: 'Véhicules',
+    requires: ['engines'],
+    cost: {
+      coal: 440,
+      iron: 480,
+      wood: 240,
+      rubber: 160,
+      oil: 120,
+    },
+    time: 95,
+    col: 4,
+    row: 5,
+    desc: 'Fabrication des camions.',
+  },
+  {
+    id: 'aviation',
+    name: 'Construction aéronautique',
+    branch: 'Aviation',
+    requires: ['airframes', 'engines'],
+    cost: {
+      coal: 520,
+      wood: 360,
+      bauxite: 520,
+      copper: 240,
+      oil: 280,
+    },
+    time: 130,
+    col: 6,
+    row: 5,
+    desc: 'Fabrication des avions de reconnaissance.',
+  },
+  {
+    id: 'series',
+    name: 'Contrôle qualité',
+    branch: 'Industrie',
+    requires: ['tooling'],
+    cost: {
+      coal: 440,
+      iron: 400,
+      copper: 240,
+      nickel: 80,
+    },
+    time: 100,
+    col: 7,
+    row: 5,
+    desc: 'Prix de vente des équipements +25 %.',
+  },
+  {
+    id: 'artillery_machining',
+    name: 'Usinage des pièces d’artillerie',
+    branch: 'Munitions',
+    requires: ['heavy_press', 'precision'],
+    cost: {
+      coal: 480,
+      iron: 560,
+      copper: 260,
+      wood: 200,
+    },
+    time: 100,
+    col: 3,
+    row: 6,
+    desc: 'Fabrication des canons.',
+  },
+  {
+    id: 'mixed_tracks',
+    name: 'Trains de roulement mixtes',
+    branch: 'Véhicules',
+    requires: ['chassis'],
+    cost: {
+      coal: 520,
+      iron: 600,
+      rubber: 220,
+      oil: 180,
+      manganese: 120,
+    },
+    time: 110,
+    col: 4,
+    row: 6,
+    desc: 'Fabrication des half-tracks.',
+  },
+  {
+    id: 'aero_engines',
+    name: 'Moteurs aéronautiques performants',
+    branch: 'Aviation',
+    requires: ['aviation'],
+    cost: {
+      coal: 700,
+      bauxite: 800,
+      nickel: 360,
+      oil: 440,
+      copper: 320,
+    },
+    time: 160,
+    col: 6,
+    row: 6,
+    desc: 'Fabrication des avions de chasse.',
+  },
+  {
+    id: 'logistics',
+    name: 'Transport industriel',
+    branch: 'Industrie',
+    requires: ['assembly'],
+    cost: {
+      coal: 280,
+      iron: 160,
+      rubber: 80,
+      oil: 60,
+    },
+    time: 90,
+    col: 7,
+    row: 6,
+    desc: 'Récolte automatique +25 %. Capacité des stocks doublée.',
+  },
+  {
+    id: 'light_armor',
+    name: 'Blindage et chenilles',
+    branch: 'Blindés',
+    requires: ['armor', 'mixed_tracks'],
+    cost: {
+      coal: 600,
+      iron: 720,
+      manganese: 260,
+      oil: 200,
+    },
+    time: 120,
+    col: 5,
+    row: 7,
+    desc: 'Fabrication des chars légers.',
+  },
+  {
+    id: 'multiengine',
+    name: 'Construction multimoteur',
+    branch: 'Aviation',
+    requires: ['aero_engines'],
+    cost: {
+      coal: 1000,
+      bauxite: 1300,
+      nickel: 520,
+      oil: 700,
+      copper: 480,
+    },
+    time: 190,
+    col: 6,
+    row: 7,
+    desc: 'Fabrication des bombardiers.',
+  },
+  {
+    id: 'alloys',
+    name: 'Aciers alliés et transmissions renforcées',
+    branch: 'Blindés',
+    requires: ['light_armor'],
+    cost: {
+      coal: 760,
+      iron: 960,
+      manganese: 360,
+      nickel: 200,
+      oil: 260,
+    },
+    time: 145,
+    col: 5,
+    row: 8,
+    desc: 'Fabrication des chars moyens.',
+  },
+  {
+    id: 'heavy_engines',
+    name: 'Motorisation lourde',
+    branch: 'Blindés',
+    requires: ['alloys'],
+    cost: {
+      coal: 1000,
+      iron: 1300,
+      manganese: 480,
+      nickel: 360,
+      oil: 400,
+    },
+    time: 170,
+    col: 5,
+    row: 9,
+    desc: 'Fabrication des chars lourds.',
+  },
+];
+const PRODUCT_RESEARCH = [
+  'sewing',
+  'confection',
+  'cartridges',
+  'precision',
+  'casting',
+  'rifle_cartridges',
+  'long_arms',
+  'automatic',
+  'heavy_press',
+  'artillery_machining',
+  'engines',
+  'chassis',
+  'mixed_tracks',
+  'light_armor',
+  'alloys',
+  'heavy_engines',
+  'aviation',
+  'aero_engines',
+  'multiengine',
 ];
 // Les recettes sont des quantités de jeu, pas des procédés réels de fabrication.
 export const PRODUCTS = [
@@ -291,7 +769,8 @@ export const PRODUCTS = [
   kind,
   recipe,
   time,
-  unlock: unlock || 'steam',
+  unlock: PRODUCT_RESEARCH[tier],
+  legacyUnlock: unlock || 'steam',
   tier,
   value: Math.ceil(
     Object.entries(recipe).reduce(
@@ -432,7 +911,7 @@ const LEGACY_PATENT_COSTS = {
 export function newGame(country, now = Date.now()) {
   if (!COUNTRIES[country]) throw Error('Pays invalide');
   return {
-    version: 6,
+    version: 7,
     factories: 0,
     country,
     credits: 0,
@@ -465,13 +944,23 @@ export const factoryCost = (state) => Math.ceil(1000 * 1.3 ** Math.floor(state.f
 export const freeFactories = (state) =>
   state.factories - state.lines.reduce((n, line) => n + Math.max(line.factories, line.batch), 0);
 // Limiter le lot aux usines, aux matières disponibles et à la place en stock.
+// La réduction porte sur les matières consommées, jamais sur la valeur de vente.
+export const productionRecipe = (state, product) =>
+  Object.fromEntries(
+    Object.entries(product.recipe).map(([id, amount]) => [
+      id,
+      amount * (state.tech.includes('tooling') ? 0.9 : 1),
+    ]),
+  );
 export const productionBatch = (state, product, line) =>
   Math.max(
     0,
     Math.min(
       line.factories,
       9999 - line.stock,
-      ...Object.entries(product.recipe).map(([id, n]) => Math.floor(state.resources[id] / n)),
+      ...Object.entries(productionRecipe(state, product)).map(([id, n]) =>
+        Math.floor((state.resources[id] + 1e-9) / n),
+      ),
     ),
   );
 export const capacity = (state, resource = RESOURCES[0]) =>
@@ -505,7 +994,10 @@ export const upgradeCost = (state, resource) =>
   Math.ceil(resource.cost * 1.65 ** state.levels[resource.id]);
 export const researchTime = (state, t) => t.time / (state.country === 'fr' ? 1.15 : 1);
 export const productTime = (state, product) =>
-  product.time / (state.country === 'us' ? 1.15 : 1) / (state.tech.includes('assembly') ? 1.25 : 1);
+  product.time /
+  (state.country === 'us' ? 1.15 : 1) /
+  (state.tech.includes('assembly') ? 1.25 : 1) /
+  (state.tech.includes('electricity') ? 1.15 : 1);
 export const salePrice = (state, product) =>
   Math.ceil(
     product.value *
@@ -554,7 +1046,8 @@ export function advance(state, seconds) {
         if (line.remaining <= 1e-8) {
           const batch = productionBatch(state, product, line);
           if (!batch || !productionUnlocked(state, product)) break;
-          for (const [id, n] of Object.entries(product.recipe)) state.resources[id] -= n * batch;
+          for (const [id, n] of Object.entries(productionRecipe(state, product)))
+            state.resources[id] = Math.max(0, state.resources[id] - n * batch);
           line.batch = batch;
           line.licensed = true;
           line.remaining = productTime(state, product);
@@ -705,10 +1198,12 @@ export function validateSave(raw) {
   const state = typeof raw === 'string' ? JSON.parse(raw) : structuredClone(raw);
   const finite = (n, max = 1e12) =>
     typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= max;
+  const saveTechs = state?.version < 7 ? LEGACY_TECHS : TECHS;
+  const unlockForSave = (product) => (state.version < 7 ? product.legacyUnlock : product.unlock);
   const unique = (a) => new Set(a).size === a.length;
   if (
     !state ||
-    ![1, 2, 3, 4, 5, 6].includes(state.version) ||
+    ![1, 2, 3, 4, 5, 6, 7].includes(state.version) ||
     !COUNTRIES[state.country] ||
     !finite(state.credits) ||
     !finite(state.elapsed) ||
@@ -772,28 +1267,30 @@ export function validateSave(raw) {
       !unique(state[key]) ||
       state[key].some(
         (id) =>
-          !(key === 'patents' && state.version >= 5 ? PATENTS : TECHS).some((t) => t.id === id),
+          !(key === 'patents' && state.version >= 5 ? PATENTS : saveTechs).some((t) => t.id === id),
       )
     )
       throw Error('Technologies invalides');
   if (
     state.tech.some(
-      (id) => !TECHS.find((t) => t.id === id).requires.every((k) => state.tech.includes(k)),
+      (id) => !saveTechs.find((t) => t.id === id).requires.every((k) => state.tech.includes(k)),
     ) ||
     state.patents.some(
       (id) =>
         !state.tech.includes(
-          state.version >= 5 ? PRODUCTS.find((product) => product.id === id).unlock : id,
+          state.version >= 5 ? unlockForSave(PRODUCTS.find((product) => product.id === id)) : id,
         ),
     )
   )
     throw Error('Progression incohérente');
   if (
     state.research &&
-    (!TECHS.some((t) => t.id === state.research.id) ||
+    (!saveTechs.some((t) => t.id === state.research.id) ||
       state.tech.includes(state.research.id) ||
       !finite(state.research.remaining, 200) ||
-      !TECHS.find((t) => t.id === state.research.id).requires.every((k) => state.tech.includes(k)))
+      !saveTechs
+        .find((t) => t.id === state.research.id)
+        .requires.every((k) => state.tech.includes(k)))
   )
     throw Error('Recherche invalide');
   const legacyLines = state.version < 4;
@@ -847,10 +1344,11 @@ export function validateSave(raw) {
       )
       .map((line) => line.id);
     const grant = (id) => {
-      for (const parent of TECHS.find((t) => t.id === id).requires) grant(parent);
+      for (const parent of saveTechs.find((t) => t.id === id).requires) grant(parent);
       if (!state.tech.includes(id)) state.tech.push(id);
     };
-    for (const id of state.patents) grant(PRODUCTS.find((product) => product.id === id).unlock);
+    for (const id of state.patents)
+      grant(unlockForSave(PRODUCTS.find((product) => product.id === id)));
     for (const line of state.lines) line.licensed = state.patents.includes(line.id);
     if (state.research && state.tech.includes(state.research.id)) {
       state.credits += {
@@ -873,6 +1371,29 @@ export function validateSave(raw) {
     }
     state.factories = state.lines.reduce((n, line) => n + line.factories, 0);
     state.version = 6;
+  }
+  // Ancien arbre : préserver les technologies et les brevets accessibles, une seule fois.
+  if (state.version < 7) {
+    const oldTech = [...state.tech];
+    const grant = (id) => {
+      for (const parent of TECHS.find((t) => t.id === id).requires) grant(parent);
+      if (!state.tech.includes(id)) state.tech.push(id);
+    };
+    state.tech = [];
+    for (const id of oldTech) grant(id);
+    for (const product of PRODUCTS)
+      if (oldTech.includes(product.legacyUnlock) || state.patents.includes(product.id))
+        grant(product.unlock);
+    if (state.research) {
+      const id = state.research.id;
+      if (state.tech.includes(id)) {
+        // La recherche payée devenue acquise est remboursée en matières.
+        for (const [resource, amount] of Object.entries(LEGACY_TECHS.find((t) => t.id === id).cost))
+          state.resources[resource] += amount;
+        state.research = null;
+      } else for (const parent of TECHS.find((t) => t.id === id).requires) grant(parent);
+    }
+    state.version = 7;
   }
   if (
     !Number.isInteger(state.factories) ||

@@ -4110,6 +4110,126 @@ dialog p {
   }
 }
 
+/* Arbres indépendants : aucune liaison ne traverse une autre branche. */
+.research-forest {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.research-branch {
+  min-width: 0;
+  border: 2px solid #8b7a4d;
+  background: #141e11;
+}
+.research-branch > h2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 14px;
+  background: #29331d;
+  border-bottom: 1px solid #8b7a4d;
+  font: 15px var(--pixel);
+  color: #ecd79e;
+}
+.research-branch > h2 small {
+  font:
+    10px 'Courier New',
+    monospace;
+  color: #c9bc94;
+}
+.research-tree.technology-tree {
+  display: block;
+  width: 100%;
+  margin: 0;
+  border: 0;
+  isolation: auto;
+  box-shadow: none;
+}
+.technology-tree .research-node {
+  position: absolute;
+  width: calc(100% / var(--lanes) - 12px);
+  margin-left: calc(-50% / var(--lanes) + 6px);
+  justify-content: flex-start;
+  padding: 0;
+  gap: 5px;
+}
+.technology-tree .research-square {
+  width: 56px;
+  height: 56px;
+}
+.technology-tree .research-node-name {
+  max-width: 100%;
+  font-size: 9px;
+  line-height: 1.4;
+}
+.technology-tree .research-prerequisite {
+  max-width: 100%;
+  padding: 3px 5px;
+  border: 1px solid #82744a;
+  background: #202d1b;
+  color: #d8c795;
+  font:
+    9px/1.4 'Courier New',
+    monospace;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.technology-tree .research-prerequisite.met {
+  color: #c7d6a5;
+  border-color: #647b49;
+}
+/* Les fiches restent dans la fenêtre, même si leur nœud est au bord de la carte. */
+.technology-tree .research-node .research-detail {
+  position: fixed;
+  left: auto;
+  right: 18px;
+  top: 105px;
+  bottom: auto;
+  transform: none;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 125px);
+  overflow: auto;
+  z-index: 100;
+}
+.technology-tree .research-node[data-preview='true'],
+.technology-tree .research-node[data-pinned='true'],
+.technology-tree .research-node:focus-within {
+  z-index: 40;
+}
+@media (max-width: 760px) {
+  .technology-tree .research-node .research-detail {
+    top: 80px;
+    right: 12px;
+    max-height: calc(100vh - 100px);
+  }
+}
+
+.technology-tree .research-links {
+  z-index: 0;
+}
+.technology-tree .research-node {
+  z-index: 1;
+}
+.technology-tree .research-node[data-preview='true'],
+.technology-tree .research-node[data-pinned='true'],
+.technology-tree .research-node:focus-within {
+  z-index: 40;
+}
+.technology-tree .research-square {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+}
+.technology-tree .research-square .compact-icon {
+  --icon-size: 40px;
+  pointer-events: none;
+}
+
     </style>
   </head>
   <body>
@@ -4201,7 +4321,7 @@ const RESOURCES = [
   icon: '◆',
 }));
 // Recherches : coûts en ressources, durée, prérequis et coordonnées des illustrations.
-const TECHS = [
+const LEGACY_TECHS = [
   {
     id: 'steam',
     name: 'Machines à vapeur',
@@ -4274,6 +4394,484 @@ const TECHS = [
     w: 277,
     h: 111,
   },
+];
+
+// Arbre actuel : position, branche et prérequis sont partagés avec l’interface.
+const TECHS = [
+  {
+    id: 'sewing',
+    name: 'Machines à coudre industrielles',
+    branch: 'Textile',
+    requires: [],
+    cost: {
+      coal: 60,
+      cotton: 80,
+    },
+    time: 30,
+    col: 1,
+    row: 1,
+    desc: 'Confection des uniformes.',
+  },
+  {
+    id: 'press',
+    name: 'Presses d’emboutissage',
+    branch: 'Armement',
+    requires: [],
+    cost: {
+      coal: 100,
+      wood: 60,
+      copper: 60,
+    },
+    time: 35,
+    col: 2,
+    row: 1,
+    desc: 'Formage des pièces métalliques.',
+  },
+  {
+    id: 'chemistry',
+    name: 'Chimie des poudres',
+    branch: 'Munitions',
+    requires: [],
+    cost: {
+      coal: 120,
+      gunpowder: 80,
+    },
+    time: 40,
+    col: 3,
+    row: 1,
+    desc: 'Prépare les branches de munitions et d’artillerie.',
+  },
+  {
+    id: 'steam',
+    name: 'Chaudières industrielles',
+    branch: 'Industrie',
+    requires: [],
+    cost: {
+      coal: 120,
+      cotton: 40,
+    },
+    time: 30,
+    col: 7,
+    row: 1,
+    desc: 'Récolte automatique +20 %.',
+  },
+  {
+    id: 'confection',
+    name: 'Confection renforcée',
+    branch: 'Textile',
+    requires: ['sewing'],
+    cost: {
+      cotton: 160,
+      wood: 70,
+    },
+    time: 40,
+    col: 1,
+    row: 2,
+    desc: 'Équipement de soutien.',
+  },
+  {
+    id: 'cartridges',
+    name: 'Fabrication de cartouches',
+    branch: 'Munitions',
+    requires: ['press', 'chemistry'],
+    cost: {
+      coal: 140,
+      copper: 120,
+      gunpowder: 100,
+    },
+    time: 45,
+    col: 3,
+    row: 2,
+    desc: 'Munitions de pistolet.',
+  },
+  {
+    id: 'electricity',
+    name: 'Électrification des ateliers',
+    branch: 'Industrie',
+    requires: ['steam'],
+    cost: {
+      coal: 200,
+      copper: 160,
+      iron: 100,
+    },
+    time: 55,
+    col: 7,
+    row: 2,
+    desc: 'Production 15 % plus rapide.',
+  },
+  {
+    id: 'precision',
+    name: 'Usinage de précision',
+    branch: 'Armement',
+    requires: ['press'],
+    cost: {
+      coal: 160,
+      copper: 80,
+      iron: 120,
+    },
+    time: 50,
+    col: 2,
+    row: 3,
+    desc: 'Armes individuelles et pièces mécaniques.',
+  },
+  {
+    id: 'casting',
+    name: 'Fonderie de corps métalliques',
+    branch: 'Munitions',
+    requires: ['chemistry'],
+    cost: {
+      coal: 180,
+      iron: 140,
+      gunpowder: 100,
+    },
+    time: 50,
+    col: 3,
+    row: 3,
+    desc: 'Corps de grenades et pièces de fonderie.',
+  },
+  {
+    id: 'airframes',
+    name: 'Structures aéronautiques légères',
+    branch: 'Aviation',
+    requires: ['confection'],
+    cost: {
+      wood: 320,
+      cotton: 240,
+      bauxite: 280,
+    },
+    time: 100,
+    col: 6,
+    row: 3,
+    desc: 'Structures légères pour l’aviation.',
+  },
+  {
+    id: 'assembly',
+    name: 'Chaîne de montage',
+    branch: 'Industrie',
+    requires: ['electricity'],
+    cost: {
+      coal: 300,
+      wood: 160,
+      iron: 240,
+      copper: 120,
+    },
+    time: 80,
+    col: 7,
+    row: 3,
+    desc: 'Production 25 % plus rapide.',
+  },
+  {
+    id: 'rifle_cartridges',
+    name: 'Cartouches standardisées',
+    branch: 'Munitions',
+    requires: ['cartridges'],
+    cost: {
+      coal: 200,
+      copper: 180,
+      gunpowder: 160,
+    },
+    time: 60,
+    col: 3,
+    row: 4,
+    desc: 'Munitions de fusil.',
+  },
+  {
+    id: 'long_arms',
+    name: 'Fabrication d’armes longues',
+    branch: 'Armement',
+    requires: ['precision'],
+    cost: {
+      coal: 220,
+      wood: 200,
+      iron: 240,
+    },
+    time: 65,
+    col: 2,
+    row: 4,
+    desc: 'Fabrication des fusils.',
+  },
+  {
+    id: 'engines',
+    name: 'Moteurs à combustion',
+    branch: 'Véhicules',
+    requires: ['precision'],
+    cost: {
+      coal: 360,
+      iron: 280,
+      copper: 160,
+      rubber: 100,
+      shale: 120,
+    },
+    time: 80,
+    col: 4,
+    row: 4,
+    desc: 'Motorisation des véhicules légers.',
+  },
+  {
+    id: 'armor',
+    name: 'Métallurgie du blindage',
+    branch: 'Blindés',
+    requires: ['casting'],
+    cost: {
+      coal: 400,
+      iron: 400,
+      manganese: 160,
+    },
+    time: 90,
+    col: 5,
+    row: 4,
+    desc: 'Prépare les blindages des véhicules chenillés.',
+  },
+  {
+    id: 'tooling',
+    name: 'Outillage standardisé',
+    branch: 'Industrie',
+    requires: ['electricity'],
+    cost: {
+      coal: 360,
+      iron: 320,
+      copper: 180,
+    },
+    time: 90,
+    col: 7,
+    row: 4,
+    desc: 'Consommation de matières en production −10 %.',
+  },
+  {
+    id: 'automatic',
+    name: 'Mécanismes automatiques',
+    branch: 'Armement',
+    requires: ['long_arms'],
+    cost: {
+      coal: 320,
+      copper: 180,
+      iron: 360,
+    },
+    time: 80,
+    col: 2,
+    row: 5,
+    desc: 'Fabrication des mitrailleuses.',
+  },
+  {
+    id: 'heavy_press',
+    name: 'Emboutissage lourd',
+    branch: 'Munitions',
+    requires: ['casting', 'press'],
+    cost: {
+      coal: 340,
+      copper: 240,
+      iron: 320,
+      gunpowder: 260,
+    },
+    time: 85,
+    col: 3,
+    row: 5,
+    desc: 'Production des obus.',
+  },
+  {
+    id: 'chassis',
+    name: 'Châssis renforcés',
+    branch: 'Véhicules',
+    requires: ['engines'],
+    cost: {
+      coal: 440,
+      iron: 480,
+      wood: 240,
+      rubber: 160,
+      oil: 120,
+    },
+    time: 95,
+    col: 4,
+    row: 5,
+    desc: 'Fabrication des camions.',
+  },
+  {
+    id: 'aviation',
+    name: 'Construction aéronautique',
+    branch: 'Aviation',
+    requires: ['airframes', 'engines'],
+    cost: {
+      coal: 520,
+      wood: 360,
+      bauxite: 520,
+      copper: 240,
+      oil: 280,
+    },
+    time: 130,
+    col: 6,
+    row: 5,
+    desc: 'Fabrication des avions de reconnaissance.',
+  },
+  {
+    id: 'series',
+    name: 'Contrôle qualité',
+    branch: 'Industrie',
+    requires: ['tooling'],
+    cost: {
+      coal: 440,
+      iron: 400,
+      copper: 240,
+      nickel: 80,
+    },
+    time: 100,
+    col: 7,
+    row: 5,
+    desc: 'Prix de vente des équipements +25 %.',
+  },
+  {
+    id: 'artillery_machining',
+    name: 'Usinage des pièces d’artillerie',
+    branch: 'Munitions',
+    requires: ['heavy_press', 'precision'],
+    cost: {
+      coal: 480,
+      iron: 560,
+      copper: 260,
+      wood: 200,
+    },
+    time: 100,
+    col: 3,
+    row: 6,
+    desc: 'Fabrication des canons.',
+  },
+  {
+    id: 'mixed_tracks',
+    name: 'Trains de roulement mixtes',
+    branch: 'Véhicules',
+    requires: ['chassis'],
+    cost: {
+      coal: 520,
+      iron: 600,
+      rubber: 220,
+      oil: 180,
+      manganese: 120,
+    },
+    time: 110,
+    col: 4,
+    row: 6,
+    desc: 'Fabrication des half-tracks.',
+  },
+  {
+    id: 'aero_engines',
+    name: 'Moteurs aéronautiques performants',
+    branch: 'Aviation',
+    requires: ['aviation'],
+    cost: {
+      coal: 700,
+      bauxite: 800,
+      nickel: 360,
+      oil: 440,
+      copper: 320,
+    },
+    time: 160,
+    col: 6,
+    row: 6,
+    desc: 'Fabrication des avions de chasse.',
+  },
+  {
+    id: 'logistics',
+    name: 'Transport industriel',
+    branch: 'Industrie',
+    requires: ['assembly'],
+    cost: {
+      coal: 280,
+      iron: 160,
+      rubber: 80,
+      oil: 60,
+    },
+    time: 90,
+    col: 7,
+    row: 6,
+    desc: 'Récolte automatique +25 %. Capacité des stocks doublée.',
+  },
+  {
+    id: 'light_armor',
+    name: 'Blindage et chenilles',
+    branch: 'Blindés',
+    requires: ['armor', 'mixed_tracks'],
+    cost: {
+      coal: 600,
+      iron: 720,
+      manganese: 260,
+      oil: 200,
+    },
+    time: 120,
+    col: 5,
+    row: 7,
+    desc: 'Fabrication des chars légers.',
+  },
+  {
+    id: 'multiengine',
+    name: 'Construction multimoteur',
+    branch: 'Aviation',
+    requires: ['aero_engines'],
+    cost: {
+      coal: 1000,
+      bauxite: 1300,
+      nickel: 520,
+      oil: 700,
+      copper: 480,
+    },
+    time: 190,
+    col: 6,
+    row: 7,
+    desc: 'Fabrication des bombardiers.',
+  },
+  {
+    id: 'alloys',
+    name: 'Aciers alliés et transmissions renforcées',
+    branch: 'Blindés',
+    requires: ['light_armor'],
+    cost: {
+      coal: 760,
+      iron: 960,
+      manganese: 360,
+      nickel: 200,
+      oil: 260,
+    },
+    time: 145,
+    col: 5,
+    row: 8,
+    desc: 'Fabrication des chars moyens.',
+  },
+  {
+    id: 'heavy_engines',
+    name: 'Motorisation lourde',
+    branch: 'Blindés',
+    requires: ['alloys'],
+    cost: {
+      coal: 1000,
+      iron: 1300,
+      manganese: 480,
+      nickel: 360,
+      oil: 400,
+    },
+    time: 170,
+    col: 5,
+    row: 9,
+    desc: 'Fabrication des chars lourds.',
+  },
+];
+const PRODUCT_RESEARCH = [
+  'sewing',
+  'confection',
+  'cartridges',
+  'precision',
+  'casting',
+  'rifle_cartridges',
+  'long_arms',
+  'automatic',
+  'heavy_press',
+  'artillery_machining',
+  'engines',
+  'chassis',
+  'mixed_tracks',
+  'light_armor',
+  'alloys',
+  'heavy_engines',
+  'aviation',
+  'aero_engines',
+  'multiengine',
 ];
 // Les recettes sont des quantités de jeu, pas des procédés réels de fabrication.
 const PRODUCTS = [
@@ -4409,7 +5007,8 @@ const PRODUCTS = [
   kind,
   recipe,
   time,
-  unlock: unlock || 'steam',
+  unlock: PRODUCT_RESEARCH[tier],
+  legacyUnlock: unlock || 'steam',
   tier,
   value: Math.ceil(
     Object.entries(recipe).reduce(
@@ -4550,7 +5149,7 @@ const LEGACY_PATENT_COSTS = {
 function newGame(country, now = Date.now()) {
   if (!COUNTRIES[country]) throw Error('Pays invalide');
   return {
-    version: 6,
+    version: 7,
     factories: 0,
     country,
     credits: 0,
@@ -4583,13 +5182,23 @@ const factoryCost = (state) => Math.ceil(1000 * 1.3 ** Math.floor(state.factorie
 const freeFactories = (state) =>
   state.factories - state.lines.reduce((n, line) => n + Math.max(line.factories, line.batch), 0);
 // Limiter le lot aux usines, aux matières disponibles et à la place en stock.
+// La réduction porte sur les matières consommées, jamais sur la valeur de vente.
+const productionRecipe = (state, product) =>
+  Object.fromEntries(
+    Object.entries(product.recipe).map(([id, amount]) => [
+      id,
+      amount * (state.tech.includes('tooling') ? 0.9 : 1),
+    ]),
+  );
 const productionBatch = (state, product, line) =>
   Math.max(
     0,
     Math.min(
       line.factories,
       9999 - line.stock,
-      ...Object.entries(product.recipe).map(([id, n]) => Math.floor(state.resources[id] / n)),
+      ...Object.entries(productionRecipe(state, product)).map(([id, n]) =>
+        Math.floor((state.resources[id] + 1e-9) / n),
+      ),
     ),
   );
 const capacity = (state, resource = RESOURCES[0]) =>
@@ -4623,7 +5232,10 @@ const upgradeCost = (state, resource) =>
   Math.ceil(resource.cost * 1.65 ** state.levels[resource.id]);
 const researchTime = (state, t) => t.time / (state.country === 'fr' ? 1.15 : 1);
 const productTime = (state, product) =>
-  product.time / (state.country === 'us' ? 1.15 : 1) / (state.tech.includes('assembly') ? 1.25 : 1);
+  product.time /
+  (state.country === 'us' ? 1.15 : 1) /
+  (state.tech.includes('assembly') ? 1.25 : 1) /
+  (state.tech.includes('electricity') ? 1.15 : 1);
 const salePrice = (state, product) =>
   Math.ceil(
     product.value *
@@ -4672,7 +5284,8 @@ function advance(state, seconds) {
         if (line.remaining <= 1e-8) {
           const batch = productionBatch(state, product, line);
           if (!batch || !productionUnlocked(state, product)) break;
-          for (const [id, n] of Object.entries(product.recipe)) state.resources[id] -= n * batch;
+          for (const [id, n] of Object.entries(productionRecipe(state, product)))
+            state.resources[id] = Math.max(0, state.resources[id] - n * batch);
           line.batch = batch;
           line.licensed = true;
           line.remaining = productTime(state, product);
@@ -4823,10 +5436,12 @@ function validateSave(raw) {
   const state = typeof raw === 'string' ? JSON.parse(raw) : structuredClone(raw);
   const finite = (n, max = 1e12) =>
     typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= max;
+  const saveTechs = state?.version < 7 ? LEGACY_TECHS : TECHS;
+  const unlockForSave = (product) => (state.version < 7 ? product.legacyUnlock : product.unlock);
   const unique = (a) => new Set(a).size === a.length;
   if (
     !state ||
-    ![1, 2, 3, 4, 5, 6].includes(state.version) ||
+    ![1, 2, 3, 4, 5, 6, 7].includes(state.version) ||
     !COUNTRIES[state.country] ||
     !finite(state.credits) ||
     !finite(state.elapsed) ||
@@ -4890,28 +5505,30 @@ function validateSave(raw) {
       !unique(state[key]) ||
       state[key].some(
         (id) =>
-          !(key === 'patents' && state.version >= 5 ? PATENTS : TECHS).some((t) => t.id === id),
+          !(key === 'patents' && state.version >= 5 ? PATENTS : saveTechs).some((t) => t.id === id),
       )
     )
       throw Error('Technologies invalides');
   if (
     state.tech.some(
-      (id) => !TECHS.find((t) => t.id === id).requires.every((k) => state.tech.includes(k)),
+      (id) => !saveTechs.find((t) => t.id === id).requires.every((k) => state.tech.includes(k)),
     ) ||
     state.patents.some(
       (id) =>
         !state.tech.includes(
-          state.version >= 5 ? PRODUCTS.find((product) => product.id === id).unlock : id,
+          state.version >= 5 ? unlockForSave(PRODUCTS.find((product) => product.id === id)) : id,
         ),
     )
   )
     throw Error('Progression incohérente');
   if (
     state.research &&
-    (!TECHS.some((t) => t.id === state.research.id) ||
+    (!saveTechs.some((t) => t.id === state.research.id) ||
       state.tech.includes(state.research.id) ||
       !finite(state.research.remaining, 200) ||
-      !TECHS.find((t) => t.id === state.research.id).requires.every((k) => state.tech.includes(k)))
+      !saveTechs
+        .find((t) => t.id === state.research.id)
+        .requires.every((k) => state.tech.includes(k)))
   )
     throw Error('Recherche invalide');
   const legacyLines = state.version < 4;
@@ -4965,10 +5582,11 @@ function validateSave(raw) {
       )
       .map((line) => line.id);
     const grant = (id) => {
-      for (const parent of TECHS.find((t) => t.id === id).requires) grant(parent);
+      for (const parent of saveTechs.find((t) => t.id === id).requires) grant(parent);
       if (!state.tech.includes(id)) state.tech.push(id);
     };
-    for (const id of state.patents) grant(PRODUCTS.find((product) => product.id === id).unlock);
+    for (const id of state.patents)
+      grant(unlockForSave(PRODUCTS.find((product) => product.id === id)));
     for (const line of state.lines) line.licensed = state.patents.includes(line.id);
     if (state.research && state.tech.includes(state.research.id)) {
       state.credits += {
@@ -4991,6 +5609,29 @@ function validateSave(raw) {
     }
     state.factories = state.lines.reduce((n, line) => n + line.factories, 0);
     state.version = 6;
+  }
+  // Ancien arbre : préserver les technologies et les brevets accessibles, une seule fois.
+  if (state.version < 7) {
+    const oldTech = [...state.tech];
+    const grant = (id) => {
+      for (const parent of TECHS.find((t) => t.id === id).requires) grant(parent);
+      if (!state.tech.includes(id)) state.tech.push(id);
+    };
+    state.tech = [];
+    for (const id of oldTech) grant(id);
+    for (const product of PRODUCTS)
+      if (oldTech.includes(product.legacyUnlock) || state.patents.includes(product.id))
+        grant(product.unlock);
+    if (state.research) {
+      const id = state.research.id;
+      if (state.tech.includes(id)) {
+        // La recherche payée devenue acquise est remboursée en matières.
+        for (const [resource, amount] of Object.entries(LEGACY_TECHS.find((t) => t.id === id).cost))
+          state.resources[resource] += amount;
+        state.research = null;
+      } else for (const parent of TECHS.find((t) => t.id === id).requires) grant(parent);
+    }
+    state.version = 7;
   }
   if (
     !Number.isInteger(state.factories) ||
@@ -5208,7 +5849,7 @@ function management() {
         draggable="false"
       />
       <div class="management-stat">
-        <span>Technologies</span><strong>${state.tech.length} / 6</strong>
+        <span>Technologies</span><strong>${state.tech.length} / ${TECHS.length}</strong>
       </div>
       <div class="management-stat">
         <span>Brevets</span><strong>${state.patents.length} / ${PRODUCTS.length}</strong>
@@ -5288,8 +5929,7 @@ function goal() {
   if (!state.totalSold) return 'Première livraison : vendez votre premier lot dans Production.';
   if (state.research)
     return 'Vos ingénieurs travaillent. Rassemblez les ressources nécessaires à la prochaine avancée.';
-  if (!state.tech.length)
-    return 'Rassemblez du charbon et du coton pour rechercher Machines à vapeur.';
+  if (!state.tech.length) return 'Préparez votre atelier de confection.';
   if (!state.patents.length) return 'Achetez votre première licence de production dans Brevets.';
   return 'Développez vos ateliers, approvisionnez la recherche et débloquez les blindés.';
 }
@@ -5614,7 +6254,7 @@ function production() {
                 <span id="status-${product.id}" class="status"></span>
               </div>
               <div class="recipe" aria-label="Matières par unité">
-                ${Object.entries(product.recipe)
+                ${Object.entries(productionRecipe(state, product))
                   .map(
                     ([id, n]) =>
                       /* HTML */ `<span
@@ -5686,147 +6326,248 @@ function production() {
         .join('')}
     </div>`;
 }
-const researchPositions = {
-  steam: [2, 1],
-  alloys: [1, 2],
-  assembly: [2, 2],
-  chemistry: [3, 2],
-  series: [1, 3],
-  logistics: [3, 3],
-};
+const researchBranches = [
+  'Textile',
+  'Armement',
+  'Munitions',
+  'Véhicules',
+  'Blindés',
+  'Aviation',
+  'Industrie',
+];
+// Réutilise les pictogrammes compacts pour garder la même palette que les autres écrans.
 function researchIcon(id) {
-  const drawings = {
-    steam:
-      '<path d="M7 23h18v-9H7zM10 14V7h5v7m10 3h4v6h-4M5 27h25M18 10V5h5v5"/><path d="M10 19h4m4 0h4"/>',
-    assembly:
-      '<path d="M4 23h24v6H4zM7 23V13h7v10m5 0V13h7v10M4 7h24M10 7v6m12-6v6"/><path d="M8 26h2m5 0h2m5 0h2"/>',
-    alloys: '<path d="m5 24 5-8h12l5 8v4H5zM8 12l4-7h8l4 7zM10 16l5 8m7-8-5 8M5 24h22"/>',
-    chemistry:
-      '<path d="M11 4h10m-8 0v10L5 26v3h22v-3l-8-12V4M9 21h14"/><path d="M12 25h3m4-8h2"/>',
-    series:
-      '<path d="M3 5h10v9H3zM19 5h10v9H19zM3 20h10v9H3zM19 20h10v9H19zM13 9h6m5 5v6M13 25h6"/>',
-    logistics:
-      '<path d="M3 10h16v14H3zM19 15h6l4 6v3H19M23 15v6h6"/><path d="M6 24v5h5v-5m11 0v5h5v-5M6 6h10"/>',
+  const materials = {
+    sewing: 'cotton',
+    confection: 'cotton',
+    chemistry: 'gunpowder',
+    cartridges: 'copper',
+    casting: 'iron',
+    rifle_cartridges: 'copper',
+    long_arms: 'wood',
+    armor: 'manganese',
+    alloys: 'nickel',
+    airframes: 'bauxite',
+    steam: 'coal',
+    electricity: 'copper',
+    engines: 'oil',
+    heavy_engines: 'oil',
+    aero_engines: 'oil',
+    light_armor: 'iron',
   };
-  return /* HTML */ `<svg
-    viewBox="0 0 32 34"
-    aria-hidden="true"
-    shape-rendering="crispEdges"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-  >
-    ${drawings[id]}
-  </svg>`;
+  if (materials[id]) return resourceIcon(materials[id]);
+  const icon = [
+    'assembly',
+    'chassis',
+    'mixed_tracks',
+    'heavy_press',
+    'artillery_machining',
+  ].includes(id)
+    ? 2
+    : ['aviation', 'multiengine'].includes(id)
+      ? 3
+      : id === 'series'
+        ? 4
+        : id === 'logistics'
+          ? 5
+          : 8;
+  return compactIcon('ui-icons-simple.png', icon, 3, 3, 'technology-icon');
 }
-// Relie les recherches à leurs prérequis et construit leurs fiches.
+// Chaque branche forme un arbre local : les sous-arbres occupent des couloirs distincts.
+// Les prérequis d’une autre branche sont des renvois cliquables, jamais des traits traversants.
+function researchLayout(branch) {
+  const techs = TECHS.filter((tech) => tech.branch === branch);
+  const ids = new Set(techs.map((tech) => tech.id));
+  const children = (id) => techs.filter((tech) => tech.requires.includes(id));
+  const roots = techs.filter((tech) => !tech.requires.some((id) => ids.has(id)));
+  const leaves = (id) =>
+    Math.max(
+      1,
+      children(id).reduce((total, child) => total + leaves(child.id), 0),
+    );
+  const lanes = roots.reduce((total, root) => total + leaves(root.id), 0);
+  const positions = {};
+  let cursor = 0;
+  function place(tech, depth) {
+    const start = cursor,
+      descendants = children(tech.id);
+    if (descendants.length) descendants.forEach((child) => place(child, depth + 1));
+    else cursor++;
+    positions[tech.id] = { x: ((start + cursor) / 2 / lanes) * 100, depth };
+  }
+  roots.forEach((root) => place(root, 0));
+  return {
+    techs,
+    positions,
+    lanes,
+    height: (Math.max(...Object.values(positions).map((position) => position.depth)) + 1) * 220,
+  };
+}
 function research() {
   return /* HTML */ `<div class="section-intro">
       <p>Consultez les dossiers de recherche.</p>
-      <span>UN PROJET À LA FOIS</span>
+      <span>${state.tech.length} / ${TECHS.length} RECHERCHES</span>
     </div>
-    <div class="research-tree" aria-label="Arbre des recherches">
-      <svg
-        class="research-links"
-        viewBox="0 0 300 450"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        ${TECHS.flatMap((t) =>
-          t.requires.map((id) => {
-            const [x, y] = researchPositions[id],
-              [tx, ty] = researchPositions[t.id];
-            return /* HTML */ `<path
-              class="${state.tech.includes(id) ? 'fulfilled' : ''}"
-              d="M${x * 100 - 50} ${y * 150 - 75} V${y * 150} H${tx * 100 - 50} V${ty * 150 - 75}"
-            />`;
-          }),
-        ).join('')}</svg
-      >${TECHS.map((t, i) => {
-        const done = state.tech.includes(t.id),
-          running = state.research?.id === t.id,
-          ready = t.requires.every((k) => state.tech.includes(k)),
-          [col, row] = researchPositions[t.id],
-          status = done ? 'VALIDÉ' : running ? 'EN COURS' : ready ? 'ACCESSIBLE' : 'VERROUILLÉ';
-        return /* HTML */ `<div
-          class="research-node ${done
-            ? 'completed'
-            : running
-              ? 'running'
-              : ready
-                ? 'available'
-                : 'locked'}"
-          style="grid-column:${col};grid-row:${row}"
-          data-pinned="${pinnedResearch === t.id}"
-        >
-          <button
-            class="research-square"
-            data-research-node="${t.id}"
-            aria-label="${t.name} · ${status}"
-            aria-expanded="${pinnedResearch === t.id}"
-            aria-controls="research-detail-${t.id}"
-          >
-            ${researchIcon(t.id)}<span class="research-node-mark" aria-hidden="true"
-              >${done ? '✓' : running ? '◷' : ready ? '+' : '×'}</span
-            ></button
-          ><span class="research-node-name">${t.name}</span
-          ><span class="research-node-state">${status}</span>
-          <section class="research-detail" id="research-detail-${t.id}" aria-label="${t.name}">
-            <button
-              class="research-detail-close"
-              data-research-close="${t.id}"
-              aria-label="Fermer le dossier"
-            >
-              ×
-            </button>
-            <div class="resource-info">
-              <span class="serial"
-                >DOSSIER R–0${i + 1} / ${done ? 'VALIDÉ' : running ? 'EN COURS' : 'RECHERCHE'}</span
+    <div class="research-forest">
+      ${researchBranches
+        .map((branch) => {
+          const layout = researchLayout(branch);
+          return /* HTML */ `<section class="research-branch">
+            <h2>
+              ${branch}<small
+                >${layout.techs.filter((tech) => state.tech.includes(tech.id)).length} /
+                ${layout.techs.length}</small
               >
-              <h2>${t.name}</h2>
-              <p><strong>Effets :</strong> ${t.desc}</p>
-              <p>
-                <strong>Brevets :</strong> ${PRODUCTS.filter((product) => product.unlock === t.id)
-                  .map((product) => product.name)
-                  .join(', ')}.
-              </p>
-              <div class="tech-requirements">
-                <strong>Prérequis :</strong> ${t.requires.length
-                  ? t.requires.map((k) => TECHS.find((x) => x.id === k).name).join(', ')
-                  : 'Aucun'}
-              </div>
-              ${!done && !running
-                ? /* HTML */ `<div class="research-costs" aria-label="Ressources nécessaires">
-                    <strong class="research-cost-heading">Ressources nécessaires :</strong
-                    >${Object.entries(t.cost)
-                      .map(
-                        ([id, n]) =>
-                          /* HTML */ `<div class="research-cost">
-                            ${resourceIcon(id)}<span
-                              >${RESOURCES.find((resource) => resource.id === id).name}</span
-                            ><strong id="research-cost-${t.id}-${id}"></strong>
-                          </div>`,
-                      )
-                      .join('')}
-                  </div>`
-                : ''}${done
-                ? '<div class="done-label">✓ Technologie maîtrisée</div>'
-                : running
-                  ? /* HTML */ `<div class="meter"><i id="research-bar"></i></div>
-                      <div class="research-time" id="research-time"></div>`
-                  : /* HTML */ `<button
-                      class="upgrade full"
-                      data-action="research"
-                      data-id="${t.id}"
-                      id="research-${t.id}"
-                      ${!ready ? 'disabled' : ''}
+            </h2>
+            <div
+              class="research-tree technology-tree"
+              style="height:${layout.height}px"
+              aria-label="Arbre ${branch}"
+            >
+              <svg
+                class="research-links"
+                viewBox="0 0 320 ${layout.height}"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                ${layout.techs
+                  .flatMap((tech) =>
+                    tech.requires
+                      .filter((id) => layout.positions[id])
+                      .map((id) => {
+                        const from = layout.positions[id],
+                          to = layout.positions[tech.id];
+                        return /* HTML */ `<path
+                          class="${state.tech.includes(id) ? 'fulfilled' : ''}"
+                          d="M${from.x * 3.2} ${from.depth * 220 + 74} V${from.depth * 220 +
+                          202} H${to.x * 3.2} V${to.depth * 220 + 18}"
+                        />`;
+                      }),
+                  )
+                  .join('')}
+              </svg>
+              ${layout.techs
+                .map((t) => {
+                  const i = TECHS.indexOf(t);
+                  const done = state.tech.includes(t.id),
+                    running = state.research?.id === t.id,
+                    ready = t.requires.every((k) => state.tech.includes(k)),
+                    { x, depth } = layout.positions[t.id],
+                    status = done
+                      ? 'VALIDÉ'
+                      : running
+                        ? 'EN COURS'
+                        : ready
+                          ? 'ACCESSIBLE'
+                          : 'VERROUILLÉ';
+                  return /* HTML */ `<div
+                    class="research-node ${done
+                      ? 'completed'
+                      : running
+                        ? 'running'
+                        : ready
+                          ? 'available'
+                          : 'locked'}"
+                    style="left:${x}%;top:${depth * 220 + 18}px;--lanes:${layout.lanes}"
+                    data-pinned="${pinnedResearch === t.id}"
+                  >
+                    <button
+                      class="research-square"
+                      data-research-node="${t.id}"
+                      aria-label="${t.name} · ${status}"
+                      aria-expanded="${pinnedResearch === t.id}"
+                      aria-controls="research-detail-${t.id}"
                     >
-                      Lancer la recherche <small>${clock(researchTime(state, t))}</small>
-                    </button>`}
+                      ${researchIcon(t.id)}<span class="research-node-mark" aria-hidden="true"
+                        >${done ? '✓' : running ? '◷' : ready ? '+' : '×'}</span
+                      ></button
+                    ><span class="research-node-name">${t.name}</span
+                    ><span class="research-node-state">${status}</span>
+                    ${t.requires
+                      .filter((id) => TECHS.find((parent) => parent.id === id).branch !== t.branch)
+                      .map((id) => {
+                        const prerequisite = TECHS.find((parent) => parent.id === id);
+                        return /* HTML */ `<button
+                          class="research-prerequisite ${state.tech.includes(id) ? 'met' : ''}"
+                          data-research-jump="${id}"
+                          title="${prerequisite.branch} · ${prerequisite.name}"
+                        >
+                          ${state.tech.includes(id) ? '✓' : '↗'} ${prerequisite.name}
+                        </button>`;
+                      })
+                      .join('')}
+                    <section
+                      class="research-detail"
+                      id="research-detail-${t.id}"
+                      aria-label="${t.name}"
+                    >
+                      <button
+                        class="research-detail-close"
+                        data-research-close="${t.id}"
+                        aria-label="Fermer le dossier"
+                      >
+                        ×
+                      </button>
+                      <div class="resource-info">
+                        <span class="serial"
+                          >DOSSIER R–0${i + 1} /
+                          ${done ? 'VALIDÉ' : running ? 'EN COURS' : 'RECHERCHE'}</span
+                        >
+                        <h2>${t.name}</h2>
+                        <p><strong>Effets :</strong> ${t.desc}</p>
+                        <p>
+                          <strong>Brevets :</strong> ${PRODUCTS.filter(
+                            (product) => product.unlock === t.id,
+                          )
+                            .map((product) => product.name)
+                            .join(', ') || 'Amélioration industrielle'}.
+                        </p>
+                        <div class="tech-requirements">
+                          <strong>Prérequis :</strong> ${t.requires.length
+                            ? t.requires.map((k) => TECHS.find((x) => x.id === k).name).join(', ')
+                            : 'Aucun'}
+                        </div>
+                        ${!done && !running
+                          ? /* HTML */ `<div
+                              class="research-costs"
+                              aria-label="Ressources nécessaires"
+                            >
+                              <strong class="research-cost-heading">Ressources nécessaires :</strong
+                              >${Object.entries(t.cost)
+                                .map(
+                                  ([id, n]) =>
+                                    /* HTML */ `<div class="research-cost">
+                                      ${resourceIcon(id)}<span
+                                        >${RESOURCES.find((resource) => resource.id === id)
+                                          .name}</span
+                                      ><strong id="research-cost-${t.id}-${id}"></strong>
+                                    </div>`,
+                                )
+                                .join('')}
+                            </div>`
+                          : ''}${done
+                          ? '<div class="done-label">✓ Technologie maîtrisée</div>'
+                          : running
+                            ? /* HTML */ `<div class="meter"><i id="research-bar"></i></div>
+                                <div class="research-time" id="research-time"></div>`
+                            : /* HTML */ `<button
+                                class="upgrade full"
+                                data-action="research"
+                                data-id="${t.id}"
+                                id="research-${t.id}"
+                                ${!ready ? 'disabled' : ''}
+                              >
+                                Lancer la recherche <small>${clock(researchTime(state, t))}</small>
+                              </button>`}
+                      </div>
+                    </section>
+                  </div>`;
+                })
+                .join('')}
             </div>
-          </section>
-        </div>`;
-      }).join('')}
+          </section>`;
+        })
+        .join('')}
     </div>
     <div class="research-legend">
       <span>□ Verrouillé</span><span>＋ Accessible</span><span>◷ En cours</span
@@ -6118,7 +6859,7 @@ function updateProductionNumbers() {
               ? 'STOCK PLEIN'
               : !productionUnlocked(state, product)
                 ? 'PRÉREQUIS MANQUANTS'
-                : affordable(state, product.recipe)
+                : affordable(state, productionRecipe(state, product))
                   ? 'DÉMARRAGE'
                   : 'MATIÈRES MANQUANTES'
           : productionUnlocked(state, product) || line.remaining > 0
@@ -6249,6 +6990,15 @@ document.addEventListener('click', (e) => {
     pinnedResearch = null;
     renderContent();
     updateNumbers();
+    return;
+  }
+  if (button.dataset.researchJump) {
+    pinnedResearch = button.dataset.researchJump;
+    renderContent();
+    updateNumbers();
+    document
+      .querySelector(`[data-research-node="${pinnedResearch}"]`)
+      ?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
     return;
   }
   if (button.dataset.productionFilter) {

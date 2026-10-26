@@ -2786,3 +2786,123 @@ dialog p {
     --icon-size: 28px;
   }
 }
+
+/* Arbres indépendants : aucune liaison ne traverse une autre branche. */
+.research-forest {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.research-branch {
+  min-width: 0;
+  border: 2px solid #8b7a4d;
+  background: #141e11;
+}
+.research-branch > h2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 14px;
+  background: #29331d;
+  border-bottom: 1px solid #8b7a4d;
+  font: 15px var(--pixel);
+  color: #ecd79e;
+}
+.research-branch > h2 small {
+  font:
+    10px 'Courier New',
+    monospace;
+  color: #c9bc94;
+}
+.research-tree.technology-tree {
+  display: block;
+  width: 100%;
+  margin: 0;
+  border: 0;
+  isolation: auto;
+  box-shadow: none;
+}
+.technology-tree .research-node {
+  position: absolute;
+  width: calc(100% / var(--lanes) - 12px);
+  margin-left: calc(-50% / var(--lanes) + 6px);
+  justify-content: flex-start;
+  padding: 0;
+  gap: 5px;
+}
+.technology-tree .research-square {
+  width: 56px;
+  height: 56px;
+}
+.technology-tree .research-node-name {
+  max-width: 100%;
+  font-size: 9px;
+  line-height: 1.4;
+}
+.technology-tree .research-prerequisite {
+  max-width: 100%;
+  padding: 3px 5px;
+  border: 1px solid #82744a;
+  background: #202d1b;
+  color: #d8c795;
+  font:
+    9px/1.4 'Courier New',
+    monospace;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.technology-tree .research-prerequisite.met {
+  color: #c7d6a5;
+  border-color: #647b49;
+}
+/* Les fiches restent dans la fenêtre, même si leur nœud est au bord de la carte. */
+.technology-tree .research-node .research-detail {
+  position: fixed;
+  left: auto;
+  right: 18px;
+  top: 105px;
+  bottom: auto;
+  transform: none;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 125px);
+  overflow: auto;
+  z-index: 100;
+}
+.technology-tree .research-node[data-preview='true'],
+.technology-tree .research-node[data-pinned='true'],
+.technology-tree .research-node:focus-within {
+  z-index: 40;
+}
+@media (max-width: 760px) {
+  .technology-tree .research-node .research-detail {
+    top: 80px;
+    right: 12px;
+    max-height: calc(100vh - 100px);
+  }
+}
+
+.technology-tree .research-links {
+  z-index: 0;
+}
+.technology-tree .research-node {
+  z-index: 1;
+}
+.technology-tree .research-node[data-preview='true'],
+.technology-tree .research-node[data-pinned='true'],
+.technology-tree .research-node:focus-within {
+  z-index: 40;
+}
+.technology-tree .research-square {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+}
+.technology-tree .research-square .compact-icon {
+  --icon-size: 40px;
+  pointer-events: none;
+}

@@ -83,7 +83,7 @@ test('Production renders all 19 national cards and filters without missing image
     assert.ok(fs.existsSync(new URL(`dist/assets/production-${country}.png`, root)));
     assert.equal(ui.get('toggle-uniform').disabled, true);
     vm.runInContext(
-      "state.levels.cotton=1;state.tech=['steam'];state.credits=75;act(state,'patent','uniform');state.factories=1;act(state,'assign-factory','uniform');shell();",
+      "state.levels.cotton=1;state.tech=['sewing'];state.credits=75;act(state,'patent','uniform');state.factories=1;act(state,'assign-factory','uniform');shell();",
       ui.context,
     );
     assert.equal(ui.get('toggle-uniform').disabled, false);
@@ -101,7 +101,7 @@ test('Production renders all 19 national cards and filters without missing image
 test('A completed first item refreshes the production prerequisites', () => {
   const ui = mount();
   vm.runInContext(
-    "state=newGame('fr');state.levels.cotton=1;state.levels.wood=1;state.resources.cotton=4;state.resources.coal=2;state.tech=['steam'];state.credits=1000;act(state,'patent','uniform');state.factories=1;act(state,'assign-factory','uniform');view='production';shell();act(state,'toggle','uniform');last=Date.now()-8100;",
+    "state=newGame('fr');state.levels.cotton=1;state.levels.wood=1;state.resources.cotton=4;state.resources.coal=2;state.tech=['sewing','confection'];state.credits=1000;act(state,'patent','uniform');state.factories=1;act(state,'assign-factory','uniform');view='production';shell();act(state,'toggle','uniform');last=Date.now()-8100;",
     ui.context,
   );
   ui.timers[0]();
@@ -120,7 +120,7 @@ test('Patent catalog shows national images, research gates, affordability and ac
     assert.ok(html.includes(`production-${country}.png`));
     assert.ok(!/undefined|NaN|redevances/.test(html));
     assert.equal(ui.get('patent-uniform').disabled, true);
-    vm.runInContext("state.tech=['steam'];state.credits=74;updateNumbers();", ui.context);
+    vm.runInContext("state.tech=['sewing'];state.credits=74;updateNumbers();", ui.context);
     assert.equal(ui.get('patent-uniform').disabled, true);
     vm.runInContext('state.credits=75;updateNumbers();', ui.context);
     assert.equal(ui.get('patent-uniform').disabled, false);
@@ -138,8 +138,11 @@ test('Research displays live material costs and enables with materials and no go
   assert.ok(ui.get('#content').innerHTML.includes('Ressources nécessaires'));
   assert.ok(!ui.get('#content').innerHTML.includes('undefined'));
   assert.equal(ui.get('research-steam').disabled, true);
-  assert.equal(ui.get('research-cost-steam-coal').textContent, '0 / 60');
-  vm.runInContext('state.resources.coal=60;state.resources.cotton=20;updateNumbers();', ui.context);
+  assert.equal(ui.get('research-cost-steam-coal').textContent, '0 / 120');
+  vm.runInContext(
+    'state.resources.coal=120;state.resources.cotton=40;updateNumbers();',
+    ui.context,
+  );
   assert.equal(ui.get('research-steam').disabled, false);
   assert.equal(ui.get('research-cost-steam-coal')['data-missing'], 'false');
   ui.events.click({
@@ -154,14 +157,20 @@ test('Research tree renders prerequisite links and click-pinned dossiers', () =>
   const ui = mount();
   vm.runInContext("state=newGame('fr');view='research';shell();", ui.context);
   let html = ui.get('#content').innerHTML;
-  assert.equal((html.match(/data-research-node=/g) || []).length, 6);
-  assert.equal((html.match(/<path\s+class=/g) || []).length, 7);
-  assert.equal((html.match(/class="research-detail"/g) || []).length, 6);
+  assert.equal((html.match(/data-research-node=/g) || []).length, 29);
+  assert.equal(
+    (html.match(/<path\s+class=/g) || []).length,
+    vm.runInContext(
+      'TECHS.reduce((n,t)=>n+t.requires.filter(id=>TECHS.find(parent=>parent.id===id).branch===t.branch).length,0)',
+      ui.context,
+    ),
+  );
+  assert.equal((html.match(/class="research-detail"/g) || []).length, 29);
   assert.ok(html.includes('aria-controls="research-detail-steam"'));
   ui.events.click({ target: { closest: () => ({ dataset: { researchNode: 'chemistry' } }) } });
   html = ui.get('#content').innerHTML;
   assert.equal((html.match(/data-pinned="true"/g) || []).length, 1);
-  assert.ok(/aria-label=\"Chimie industrielle · VERROUILLÉ\"\s+aria-expanded=\"true\"/.test(html));
+  assert.ok(/aria-label=\"Chimie des poudres · ACCESSIBLE\"\s+aria-expanded=\"true\"/.test(html));
   ui.events.click({ target: { closest: () => ({ dataset: { researchClose: 'chemistry' } }) } });
   assert.ok(!ui.get('#content').innerHTML.includes('data-pinned="true"'));
   vm.runInContext(
@@ -169,9 +178,9 @@ test('Research tree renders prerequisite links and click-pinned dossiers', () =>
     ui.context,
   );
   html = ui.get('#content').innerHTML;
-  assert.ok(html.includes('Machines à vapeur · VALIDÉ'));
+  assert.ok(html.includes('Chaudières industrielles · VALIDÉ'));
   assert.ok(html.includes('Chaîne de montage · EN COURS'));
-  assert.ok(html.includes('Chimie industrielle · ACCESSIBLE'));
+  assert.ok(html.includes('Chimie des poudres · ACCESSIBLE'));
 });
 
 test('Research hover opens only after one continuous second on the square', () => {
@@ -220,7 +229,7 @@ test('Research hover opens only after one continuous second on the square', () =
 test('Production displays factory purchase and allocation controls', () => {
   const ui = mount();
   vm.runInContext(
-    "state=newGame('fr');view='production';state.tech=['steam'];state.credits=2000;state.levels.cotton=1;act(state,'patent','uniform');shell();",
+    "state=newGame('fr');view='production';state.tech=['sewing'];state.credits=2000;state.levels.cotton=1;act(state,'patent','uniform');shell();",
     ui.context,
   );
   assert.ok(ui.get('#content').innerHTML.includes('factory-icon'));
@@ -247,5 +256,53 @@ test('Game screens retain controls without detailed mechanics copy', () => {
       ),
     );
     assert.ok(!/undefined|NaN/.test(html));
+  }
+});
+
+test('Research shows seven separate trees with cross-branch references and no filters', () => {
+  const ui = mount();
+  vm.runInContext("state=newGame('fr');view='research';shell();", ui.context);
+  const html = ui.get('#content').innerHTML;
+  assert.equal((html.match(/class="research-branch"/g) || []).length, 7);
+  assert.equal((html.match(/data-research-node=/g) || []).length, 29);
+  assert.ok(!html.includes('data-research-branch'));
+  assert.ok(!html.includes('research-map-scroll'));
+  assert.ok(html.includes('data-research-jump="precision"'));
+  assert.ok(html.includes('data-research-jump="mixed_tracks"'));
+  ui.events.click({ target: { closest: () => ({ dataset: { researchJump: 'precision' } }) } });
+  assert.ok(ui.get('#content').innerHTML.includes('aria-controls="research-detail-precision"'));
+  assert.equal(vm.runInContext('pinnedResearch', ui.context), 'precision');
+});
+
+test('Local tree paths never cross unrelated paths or pass through other nodes', () => {
+  const ui = mount();
+  const layouts = vm.runInContext('researchBranches.map(researchLayout)', ui.context);
+  for (const layout of layouts) {
+    const edges = [];
+    for (const tech of layout.techs)
+      for (const parent of tech.requires) {
+        if (!layout.positions[parent]) continue;
+        const a = layout.positions[parent],
+          b = layout.positions[tech.id];
+        assert.equal(b.depth, a.depth + 1);
+        edges.push({ parent, child: tech.id, a, b });
+      }
+    for (const edge of edges)
+      for (const other of edges) {
+        if (edge === other || edge.parent === other.parent) continue;
+        if (edge.a.depth !== other.a.depth) continue;
+        const left = Math.min(edge.a.x, edge.b.x),
+          right = Math.max(edge.a.x, edge.b.x);
+        const otherLeft = Math.min(other.a.x, other.b.x),
+          otherRight = Math.max(other.a.x, other.b.x);
+        assert.ok(
+          right < otherLeft || otherRight < left,
+          'Les couloirs de deux sous-arbres doivent rester séparés',
+        );
+      }
+    for (const position of Object.values(layout.positions)) {
+      assert.ok(position.x > 0 && position.x < 100);
+      assert.ok(position.depth * 220 + 180 <= layout.height);
+    }
   }
 });

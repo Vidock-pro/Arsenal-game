@@ -61,3 +61,11 @@ python package-release.py
 ```
 
 Installer les outils de formatage avec `npm ci` si nécessaire. Pour appliquer le format, utiliser `npm run format`. La création du ZIP exclut `node_modules`, les caches Python et les archives précédentes.
+
+## Arbre technologique
+
+`TECHS` définit les 29 recherches : `branch` pour le domaine, `col` et `row` pour les anciens repères, `requires` pour les liens, `cost` pour les ressources et `time` pour la durée. L’ordre des définitions suit les prérequis. `PRODUCT_RESEARCH` associe les 19 produits aux recherches. `LEGACY_TECHS` et `legacyUnlock` servent uniquement à valider puis convertir les sauvegardes antérieures à la version 7.
+
+`productionRecipe` applique la réduction de matières de l’outillage sans modifier la recette de base ni le prix de vente. Le calcul du lot, le prélèvement et l’interface utilisent tous cette fonction. Les recettes effectives peuvent être fractionnaires ; les prix en or restent entiers.
+
+`researchLayout` construit un arbre par domaine : chaque sous-arbre réserve ses propres couloirs. Seuls les prérequis internes produisent un trait. Les autres deviennent des renvois cliquables ; toutes les conditions restent contrôlées par le moteur.
