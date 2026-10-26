@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {productionUnlocked,productionRequirements,productName,PRODUCT_NAMES,MARKET_PRICES,capacity,available,upgradeCost,COUNTRIES,PRODUCTS,researchTime,productTime,salePrice,hireCost,newGame,act,advance,RESOURCES,rate,validateSave,TECHS,PATENTS} from '../dist/engine.js';
+import {factoryCost,freeFactories,productionUnlocked,productionRequirements,productName,PRODUCT_NAMES,MARKET_PRICES,capacity,available,upgradeCost,COUNTRIES,PRODUCTS,researchTime,productTime,salePrice,hireCost,newGame,act,advance,RESOURCES,rate,validateSave,TECHS,PATENTS} from '../dist/engine.js';
 function legacyLines(){return ['rifle','truck','tank'].map(id=>({id,enabled:false,remaining:0,stock:0,made:0}));}
-function permit(s,id='uniform'){s.tech=['steam'];s.patents=[id];s.lines.find(l=>l.id===id).licensed=true;return s;}
+function permit(s,id='uniform'){s.tech=['steam'];s.patents=[id];s.lines.find(l=>l.id===id).licensed=true;s.factories=1;s.lines.find(l=>l.id===id).factories=1;return s;}
 function established(country){const s=newGame(country);s.credits=700;Object.assign(s.resources,{coal:70,cotton:100,wood:100,iron:90});s.levels.cotton=1;s.levels.wood=1;s.levels.iron=1;return s;}
 
 test('Each nation gets only its own 15 percent bonus',()=>{
@@ -25,7 +25,7 @@ test('Research and a paid patent are both required, with no recurring income',()
 test('Offline calculation matches one-second simulation and caps at 8 hours',()=>{let a=permit(established('de'));act(a,'toggle','uniform');act(a,'research','steam');let b=structuredClone(a);advance(a,600);for(let i=0;i<600;i++)advance(b,1);assert.deepEqual(a,b);let c=permit(established('fr'));advance(c,999999);assert.equal(c.elapsed,28800);assert.ok(c.resources.wood<=5000);});
 test('Pausing preserves in-flight work without consuming extra inputs',()=>{const s=permit(established('fr'));act(s,'toggle','uniform');advance(s,3);act(s,'toggle','uniform');const stock=structuredClone(s.resources);advance(s,20);assert.equal(s.lines[0].remaining,5);assert.deepEqual(s.resources,stock);act(s,'toggle','uniform');advance(s,5);assert.equal(s.lines[0].stock,1);});
 test('Save validation rejects malformed and malicious data',()=>{let s=established('fr');assert.deepEqual(validateSave(JSON.stringify(s)),s);assert.throws(()=>validateSave('{}'));s.credits=-1;assert.throws(()=>validateSave(s));s=established('fr');s.tech=['steam','steam'];assert.throws(()=>validateSave(s));s=established('fr');s.country='<img>';assert.throws(()=>validateSave(s));s=established('fr');s.lines[0].remaining=Infinity;assert.throws(()=>validateSave(s));});
-test('Complete production progression is reachable for every nation',()=>{for(const country of Object.keys(COUNTRIES)){const s=newGame(country);s.credits=1e11;for(const r of RESOURCES)s.resources[r.id]=4000;for(const t of TECHS){assert.ok(act(s,'research',t.id));advance(s,200);}for(const r of RESOURCES){if(!s.levels[r.id])assert.ok(act(s,'upgrade',r.id));s.resources[r.id]=4000;}for(const p of PRODUCTS){assert.ok(act(s,'patent',p.id));assert.ok(productionUnlocked(s,p));assert.ok(act(s,'toggle',p.id));advance(s,productTime(s,p));act(s,'toggle',p.id);assert.equal(s.lines.find(l=>l.id===p.id).made,1);}assert.ok(s.lines.every(l=>l.made===1));assert.deepEqual(validateSave(s),s);}});
+test('Complete production progression is reachable for every nation',()=>{for(const country of Object.keys(COUNTRIES)){const s=newGame(country);s.credits=1e11;for(const r of RESOURCES)s.resources[r.id]=4000;for(const t of TECHS){assert.ok(act(s,'research',t.id));advance(s,200);}for(const r of RESOURCES){if(!s.levels[r.id])assert.ok(act(s,'upgrade',r.id));s.resources[r.id]=4000;}s.factories=19;for(const p of PRODUCTS){assert.ok(act(s,'patent',p.id));assert.ok(act(s,'assign-factory',p.id));assert.ok(productionUnlocked(s,p));assert.ok(act(s,'toggle',p.id));advance(s,productTime(s,p));act(s,'toggle',p.id);assert.equal(s.lines.find(l=>l.id===p.id).made,1);}assert.ok(s.lines.every(l=>l.made===1));assert.deepEqual(validateSave(s),s);}});
 
 
 test('New game starts with only manual coal and empty treasury',()=>{
@@ -65,7 +65,7 @@ test('Payroll is identical offline and in quarter-second updates',()=>{
 });
 test('Save migration preserves legacy assets and validates new payroll',()=>{
  const old=established('fr');old.version=1;old.lines=legacyLines();old.resources.platinum=0;old.levels.platinum=0;delete old.workers;
- const migrated=validateSave(old);assert.equal(migrated.version,5);assert.equal(migrated.credits,700);assert.equal(migrated.resources.wood,100);assert.equal(rate(migrated,RESOURCES[0]),0);
+ const migrated=validateSave(old);assert.equal(migrated.version,6);assert.equal(migrated.credits,700);assert.equal(migrated.resources.wood,100);assert.equal(rate(migrated,RESOURCES[0]),0);
  const s=newGame('fr');s.credits=100;act(s,'hire','coal');advance(s,12.25);assert.deepEqual(validateSave(s),s);
  for(const value of [-1,61,Infinity,'60']){const invalid=structuredClone(s);invalid.workers.coal=[value];assert.throws(()=>validateSave(invalid));}
  const invalid=structuredClone(s);invalid.workers.wood=[60];assert.throws(()=>validateSave(invalid));
@@ -105,7 +105,7 @@ test('Version 2 migration retains workers, converts platinum, and preserves acce
  old.resources={coal:12,wood:30,iron:40,rubber:5,platinum:7};
  old.levels={coal:1,wood:2,iron:1,rubber:1,platinum:1};
  old.workers={coal:[40],wood:[25],iron:[],rubber:[],platinum:[12]};
- const s=validateSave(old);assert.equal(s.version,5);assert.equal(s.credits,52);assert.equal(s.resources.cotton,0);assert.equal(s.resources.wood,30);
+ const s=validateSave(old);assert.equal(s.version,6);assert.equal(s.credits,52);assert.equal(s.resources.cotton,0);assert.equal(s.resources.wood,30);
  assert.deepEqual(s.workers.coal,[40,12]);assert.deepEqual(s.workers.wood,[25]);assert.ok(act(s,'harvest','wood'));
  assert.equal('platinum' in s.resources,false);assert.deepEqual(validateSave(s),s);
  old.resources.platinum=-1;assert.throws(()=>validateSave(old));
@@ -158,7 +158,7 @@ test('Production timing carries fractional seconds consistently across updates',
 });
 test('Version 3 line migration preserves stock, in-flight work and old unlocks',()=>{
  const old=established('fr');old.version=3;old.lines=legacyLines();old.lines[0]={id:'rifle',enabled:true,remaining:5,stock:7,made:12};old.lines[2].stock=2;
- const s=validateSave(old);assert.equal(s.version,5);assert.equal(s.lines.length,19);
+ const s=validateSave(old);assert.equal(s.version,6);assert.equal(s.lines.length,19);
  const rifle=s.lines.find(l=>l.id==='rifle');assert.equal(rifle.stock,7);assert.equal(rifle.remaining,5);assert.equal(rifle.licensed,true);assert.equal(s.lines.find(l=>l.id==='medium_tank').stock,2);
  advance(s,5);assert.equal(rifle.stock,8);assert.equal(s.lines[0].made,0);assert.deepEqual(validateSave(s),s);
 });
@@ -168,7 +168,7 @@ test('Production save validation rejects missing, duplicated, unknown or malform
 
 test('Version 4 migration refunds royalty certificates once and preserves acquired lines',()=>{
  const old=established('fr');old.version=4;old.tech=['steam'];old.patents=['steam'];old.lines[0].licensed=true;old.lines[0].made=3;old.lines[0].stock=2;
- const s=validateSave(old);assert.equal(s.version,5);assert.equal(s.credits,950);assert.deepEqual(s.patents,['uniform']);assert.equal(s.lines[0].stock,2);assert.ok(productionUnlocked(s,PRODUCTS[0]));assert.deepEqual(validateSave(s),s);
+ const s=validateSave(old);assert.equal(s.version,6);assert.equal(s.credits,950);assert.deepEqual(s.patents,['uniform']);assert.equal(s.lines[0].stock,2);assert.ok(productionUnlocked(s,PRODUCTS[0]));assert.deepEqual(validateSave(s),s);
  const fresh=newGame('fr');fresh.version=4;assert.deepEqual(validateSave(fresh).patents,[]);
 });
 test('New saves cannot bypass licenses or research with the legacy flag',()=>{
@@ -184,4 +184,30 @@ test('Research consumes exact materials once, never gold, and rejects missing ma
 });
 test('Existing research continues on load without charging resources again',()=>{
  const s=newGame('fr');s.research={id:'steam',remaining:10};const loaded=validateSave(s);advance(loaded,10);assert.ok(loaded.tech.includes('steam'));assert.equal(loaded.credits,0);assert.ok(Object.values(loaded.resources).every(n=>n===0));
+});
+
+test('Factory prices rise every five purchases and unassigned lines cannot run',()=>{
+ const s=newGame('fr');s.credits=100000;
+ for(let i=0;i<16;i++){const price=Math.ceil(1000*1.3**Math.floor(i/5));assert.equal(factoryCost(s),price);const before=s.credits;assert.ok(act(s,'buy-factory'));assert.equal(s.credits,before-price);}
+ assert.equal(freeFactories(s),16);assert.equal(act(s,'assign-factory','uniform'),false);
+ s.tech=['steam'];act(s,'patent','uniform');s.levels.cotton=1;assert.equal(act(s,'toggle','uniform'),false);assert.ok(act(s,'assign-factory','uniform'));assert.ok(act(s,'toggle','uniform'));assert.ok(act(s,'release-factory','uniform'));assert.equal(s.lines[0].enabled,false);
+ s.credits=0;const before=s.factories;assert.equal(act(s,'buy-factory'),false);assert.equal(s.factories,before);
+});
+test('Factories produce paid batches, reserve factories during cycles and respect shortages',()=>{
+ const s=permit(established('fr'));s.factories=3;act(s,'assign-factory','uniform');act(s,'assign-factory','uniform');assert.equal(freeFactories(s),0);assert.equal(act(s,'assign-factory','uniform'),false);
+ act(s,'toggle','uniform');advance(s,1);assert.equal(s.resources.cotton,88);assert.equal(s.lines[0].batch,3);assert.ok(act(s,'release-factory','uniform'));assert.equal(freeFactories(s),0);assert.ok(act(s,'assign-factory','uniform'));
+ act(s,'toggle','uniform');advance(s,20);assert.equal(s.lines[0].remaining,7);act(s,'toggle','uniform');advance(s,7);assert.equal(s.lines[0].stock,3);assert.equal(s.lines[0].made,3);assert.equal(s.lines[0].batch,0);
+ assert.ok(act(s,'release-factory','uniform'));s.resources.cotton=4;advance(s,8);assert.equal(s.lines[0].stock,4);assert.equal(s.resources.cotton,0);assert.deepEqual(validateSave(s),s);
+});
+test('Factory batches survive save and offline updates without overfilling stocks',()=>{
+ const a=permit(established('us'));a.factories=3;a.lines[0].factories=3;a.lines[0].stock=9998;act(a,'toggle','uniform');advance(a,1);assert.equal(a.lines[0].batch,1);const b=validateSave(a);advance(a,30);for(let i=0;i<120;i++)advance(b,.25);assert.equal(a.lines[0].stock,9999);assert.equal(a.lines[0].stock,b.lines[0].stock);assert.deepEqual(a.resources,b.resources);
+});
+test('Factory migration preserves ongoing work and rejects over-allocation',()=>{
+ const old=permit(established('fr'));old.version=5;old.lines[0].remaining=3;old.lines[0].enabled=true;delete old.factories;for(const l of old.lines){delete l.factories;delete l.batch;}
+ const s=validateSave(old);assert.equal(s.factories,1);assert.equal(s.lines[0].batch,1);advance(s,3);assert.equal(s.lines[0].stock,1);assert.deepEqual(validateSave(s),s);
+ for(const mutate of [s=>s.factories=-1,s=>s.lines[0].factories=2,s=>s.lines[0].batch=2,s=>s.factories=1.5]){const bad=permit(established('fr'));mutate(bad);assert.throws(()=>validateSave(bad));}
+});
+
+test('Reassigned factories remain reserved until their paid batch finishes',()=>{
+ const s=permit(established('fr'));act(s,'toggle','uniform');advance(s,1);assert.ok(act(s,'release-factory','uniform'));assert.equal(s.lines[0].factories,0);assert.ok(act(s,'toggle','uniform'));assert.ok(act(s,'toggle','uniform'));assert.equal(freeFactories(s),0);assert.deepEqual(validateSave(s),s);advance(s,7);assert.equal(s.lines[0].stock,1);assert.equal(s.lines[0].enabled,false);assert.equal(freeFactories(s),1);assert.deepEqual(validateSave(s),s);
 });

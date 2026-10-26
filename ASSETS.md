@@ -23,3 +23,5 @@ Images générées par IA, fournies pour réutilisation avec le projet dans la m
 - `dist/assets/workforce-icons.png` : ouvrier casqué et pièces de salaire, pixel art transparent généré avec ImageGen intégré, deux cases carrées côte à côte.
 
 - `dist/assets/production-fr.png`, `production-us.png`, `production-de.png`, `production-su.png` : 19 équipements par nation, profils pixel art sur fond de table à dessin vert quadrillé, créés avec ImageGen intégré. Grilles de 5 colonnes × 4 lignes, dernière case vide. Les premières versions en perspective ont été écartées. Prompts : `tools/production-art-prompts.txt`.
+
+- `dist/assets/factory-icon.png` : usine industrielle illustrée en pixel art, tons olive et laiton, fond transparent ; générée avec imagegen pour Arsenal.

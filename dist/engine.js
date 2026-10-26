@@ -76,8 +76,12 @@ export const PATENTS=PRODUCTS.map(p=>({...p,cost:Math.max(75,Math.ceil(p.value*5
 const LEGACY_PATENT_COSTS={steam:250,assembly:500,alloys:650,chemistry:450,series:1000,logistics:900};
 export function newGame(country,now=Date.now()){
  if(!COUNTRIES[country])throw Error('Pays invalide');
- return {version:5,country,credits:0,resources:Object.fromEntries(RESOURCES.map(r=>[r.id,0])),levels:Object.fromEntries(RESOURCES.map(r=>[r.id,r.id==='coal'?1:0])),workers:Object.fromEntries(RESOURCES.map(r=>[r.id,[]])),tech:[],research:null,patents:[],lines:PRODUCTS.map(p=>({id:p.id,enabled:false,remaining:0,stock:0,made:0,licensed:false})),totalSold:0,lastSaved:now,elapsed:0};
+ return {version:6,factories:0,country,credits:0,resources:Object.fromEntries(RESOURCES.map(r=>[r.id,0])),levels:Object.fromEntries(RESOURCES.map(r=>[r.id,r.id==='coal'?1:0])),workers:Object.fromEntries(RESOURCES.map(r=>[r.id,[]])),tech:[],research:null,patents:[],lines:PRODUCTS.map(p=>({id:p.id,enabled:false,remaining:0,stock:0,made:0,factories:0,batch:0,licensed:false})),totalSold:0,lastSaved:now,elapsed:0};
 }
+export const MAX_FACTORIES=250;
+export const factoryCost=s=>Math.ceil(1000*1.3**Math.floor(s.factories/5));
+export const freeFactories=s=>s.factories-s.lines.reduce((n,l)=>n+Math.max(l.factories,l.batch),0);
+export const productionBatch=(s,p,l)=>Math.max(0,Math.min(l.factories,9999-l.stock,...Object.entries(p.recipe).map(([id,n])=>Math.floor(s.resources[id]/n))));
 export const capacity=(s,r=RESOURCES[0])=>Math.ceil(5000*RESOURCE_RATE_GROWTH**r.tier)*(s.tech.includes('logistics')?2:1);
 export const HIRE_COST=25, WAGE=2, PAY_PERIOD=60;
 // Round only the displayed/payable amount, not the exponential base.
@@ -107,18 +111,25 @@ export function advance(s,seconds){
   let budget=dt;
   while(budget>1e-8){
    if(line.remaining<=1e-8){
-    if(line.stock>=9999||!productionUnlocked(s,p)||!affordable(s,p.recipe))break;
-    for(const [id,n] of Object.entries(p.recipe))s.resources[id]-=n;
-    line.licensed=true;line.remaining=productTime(s,p);
+    const batch=productionBatch(s,p,line);if(!batch||!productionUnlocked(s,p))break;
+    for(const [id,n] of Object.entries(p.recipe))s.resources[id]-=n*batch;
+    line.batch=batch;line.licensed=true;line.remaining=productTime(s,p);
    }
    const used=Math.min(budget,line.remaining);line.remaining-=used;budget-=used;
-   if(line.remaining<=1e-8){line.remaining=0;line.stock++;line.made++;}
+   if(line.remaining<=1e-8){line.remaining=0;line.stock+=line.batch;line.made+=line.batch;line.batch=0;if(!line.factories){line.enabled=false;break;}}
   }
  }
 
  }return s;
 }
 export function act(s,type,id){
+ if(type==='buy-factory'){if(s.factories>=MAX_FACTORIES||s.credits<factoryCost(s))return false;s.credits-=factoryCost(s);s.factories++;return true;}
+ if(type==='assign-factory'||type==='release-factory'){
+  const l=s.lines.find(l=>l.id===id);if(!l)return false;
+  if(type==='assign-factory'){if((freeFactories(s)<1&&l.factories>=l.batch)||!s.patents.includes(id))return false;l.factories++;}
+  else {if(!l.factories)return false;l.factories--;if(!l.factories&&!l.remaining)l.enabled=false;}
+  return true;
+ }
  if(type==='harvest'){const r=RESOURCES.find(r=>r.id===id);if(!r||!unlocked(s,r)||s.resources[id]>=capacity(s,r))return false;s.resources[id]=Math.min(capacity(s,r),s.resources[id]+1);return true;}
  if(type==='upgrade'){const r=RESOURCES.find(r=>r.id===id);if(!r||!available(s,r)||s.levels[id]>=100||s.credits<upgradeCost(s,r))return false;s.credits-=upgradeCost(s,r);s.levels[id]++;return true;}
  if(type==='hire'){const r=RESOURCES.find(r=>r.id===id);if(!r||!unlocked(s,r)||s.workers[id].length>=100||s.credits<hireCost(s,r)+WAGE)return false;s.credits-=hireCost(s,r)+WAGE;s.workers[id].push(PAY_PERIOD);return true;}
@@ -126,7 +137,7 @@ export function act(s,type,id){
  if(['sell-resource','sell-ten','sell-all'].includes(type)){const r=RESOURCES.find(r=>r.id===id);if(!r)return false;const amount=type==='sell-all'?Math.floor(s.resources[id]):type==='sell-ten'?10:1;if(amount<=0||s.resources[id]<amount)return false;s.resources[id]-=amount;s.credits+=amount*MARKET_PRICES[id];return true;}
  if(type==='research'){const t=TECHS.find(t=>t.id===id);if(!t||s.research||s.tech.includes(id)||!t.requires.every(k=>s.tech.includes(k))||!affordable(s,t.cost))return false;for(const [resource,amount] of Object.entries(t.cost))s.resources[resource]-=amount;s.research={id,remaining:researchTime(s,t)};return true;}
  if(type==='patent'){const p=PATENTS.find(p=>p.id===id);if(!p||patentRequirements(s,p).length||s.patents.includes(id)||s.credits<p.cost)return false;s.credits-=p.cost;s.patents.push(id);s.lines.find(l=>l.id===id).licensed=true;return true;}
- if(type==='toggle'){const l=s.lines.find(l=>l.id===id),p=PRODUCTS.find(p=>p.id===id);if(!l||(!l.enabled&&l.remaining<=0&&!productionUnlocked(s,p)))return false;l.enabled=!l.enabled;return true;}
+ if(type==='toggle'){const l=s.lines.find(l=>l.id===id),p=PRODUCTS.find(p=>p.id===id);if(!l||(!l.enabled&&((!l.factories&&!l.batch)||(l.remaining<=0&&!productionUnlocked(s,p)))))return false;l.enabled=!l.enabled;return true;}
  if(type==='sell'){const l=s.lines.find(l=>l.id===id),p=PRODUCTS.find(p=>p.id===id);if(!l||!l.stock)return false;s.credits+=l.stock*salePrice(s,p);s.totalSold+=l.stock;l.stock=0;return true;}
  return false;
 }
@@ -134,7 +145,7 @@ export function validateSave(raw){
  const s=typeof raw==='string'?JSON.parse(raw):structuredClone(raw);
  const finite=(n,max=1e12)=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=max;
  const unique=a=>new Set(a).size===a.length;
- if(!s||![1,2,3,4,5].includes(s.version)||!COUNTRIES[s.country]||!finite(s.credits)||!finite(s.elapsed)||!finite(s.totalSold)||!finite(s.lastSaved,Date.now()+60000))throw Error('Sauvegarde invalide');
+ if(!s||![1,2,3,4,5,6].includes(s.version)||!COUNTRIES[s.country]||!finite(s.credits)||!finite(s.elapsed)||!finite(s.totalSold)||!finite(s.lastSaved,Date.now()+60000))throw Error('Sauvegarde invalide');
  // Migrate old five-resource saves without resetting existing sites or payroll.
  if(s.version<3){
   const legacy=['coal','wood','iron','platinum','rubber'];
@@ -150,15 +161,15 @@ export function validateSave(raw){
   s.version=3;
  }
  for(const r of RESOURCES)if(!finite(s.resources?.[r.id],1e12)||!Number.isInteger(s.levels?.[r.id])||s.levels[r.id]<0||s.levels[r.id]>100)throw Error('Ressources invalides');
- for(const key of ['tech','patents'])if(!Array.isArray(s[key])||!unique(s[key])||s[key].some(id=>!(key==='patents'&&s.version===5?PATENTS:TECHS).some(t=>t.id===id)))throw Error('Technologies invalides');
- if(s.tech.some(id=>!TECHS.find(t=>t.id===id).requires.every(k=>s.tech.includes(k)))||s.patents.some(id=>!s.tech.includes(s.version===5?PRODUCTS.find(p=>p.id===id).unlock:id)))throw Error('Progression incohérente');
+ for(const key of ['tech','patents'])if(!Array.isArray(s[key])||!unique(s[key])||s[key].some(id=>!(key==='patents'&&s.version>=5?PATENTS:TECHS).some(t=>t.id===id)))throw Error('Technologies invalides');
+ if(s.tech.some(id=>!TECHS.find(t=>t.id===id).requires.every(k=>s.tech.includes(k)))||s.patents.some(id=>!s.tech.includes(s.version>=5?PRODUCTS.find(p=>p.id===id).unlock:id)))throw Error('Progression incohérente');
  if(s.research&&(!TECHS.some(t=>t.id===s.research.id)||s.tech.includes(s.research.id)||!finite(s.research.remaining,200)||!TECHS.find(t=>t.id===s.research.id).requires.every(k=>s.tech.includes(k))))throw Error('Recherche invalide');
  const legacyLines=s.version<4;
  if(!Array.isArray(s.lines)||s.lines.length!==(legacyLines?3:PRODUCTS.length)||!unique(s.lines.map(l=>l.id)))throw Error('Lignes invalides');
  for(const l of s.lines)if(!(legacyLines?['rifle','truck','tank'].includes(l.id):PRODUCTS.some(p=>p.id===l.id))||typeof l.enabled!=='boolean'||!finite(l.remaining,300)||!Number.isInteger(l.stock)||!finite(l.stock,9999)||!Number.isInteger(l.made)||!finite(l.made)||(!legacyLines&&typeof l.licensed!=='boolean'))throw Error('Production invalide');
  if(legacyLines){
   const old=Object.fromEntries(s.lines.map(l=>[l.id==='tank'?'medium_tank':l.id,l]));
-  s.lines=PRODUCTS.map(p=>old[p.id]?{...old[p.id],id:p.id,licensed:true}:{id:p.id,enabled:false,remaining:0,stock:0,made:0,licensed:false});
+  s.lines=PRODUCTS.map(p=>old[p.id]?{...old[p.id],id:p.id,licensed:true}:{id:p.id,enabled:false,remaining:0,stock:0,made:0,factories:0,batch:0,licensed:false});
   s.version=4;
  }
  if(s.version<5){
@@ -171,6 +182,11 @@ export function validateSave(raw){
   if(s.research&&s.tech.includes(s.research.id)){s.credits+=({steam:240,assembly:450,alloys:650,chemistry:400,series:1300,logistics:1000})[s.research.id];s.research=null;}
   s.version=5;
  }
+ if(s.version<6){
+  for(const l of s.lines){l.factories=l.licensed?1:0;l.batch=l.remaining>0?1:0;}
+  s.factories=s.lines.reduce((n,l)=>n+l.factories,0);s.version=6;
+ }
+ if(!Number.isInteger(s.factories)||!finite(s.factories,MAX_FACTORIES)||s.lines.some(l=>!Number.isInteger(l.factories)||!finite(l.factories,MAX_FACTORIES)||!Number.isInteger(l.batch)||!finite(l.batch,MAX_FACTORIES)||(l.remaining>0)!==(l.batch>0)||l.stock+l.batch>9999||(l.factories>0&&!l.licensed)||(l.enabled&&!l.factories&&!l.batch))||freeFactories(s)<0)throw Error('Usines invalides');
  if(!finite(s.credits)||s.lines.some(l=>l.licensed!==s.patents.includes(l.id)||((l.enabled||l.remaining>0||l.made>0||l.stock>0)&&!l.licensed)))throw Error('Brevets incohérents');
  for(const r of RESOURCES){const crew=s.workers?.[r.id];if(!Array.isArray(crew)||crew.length>100||crew.some(t=>!finite(t,PAY_PERIOD))||(crew.length&&!unlocked(s,r)))throw Error('Ouvriers invalides');}
  return s;

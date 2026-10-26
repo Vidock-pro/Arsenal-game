@@ -217,3 +217,10 @@ button:hover:not(:disabled),a:hover{filter:brightness(1.12)}button:active:not(:d
 .research-detail .resource-info p strong,.research-detail .tech-requirements strong,.research-detail .research-cost-heading{font-weight:700;color:#eee0b4}
 .research-detail .research-costs{margin:8px 0;gap:4px;padding:7px}
 .research-detail .research-cost-heading{font-size:10px;line-height:1.4}
+
+.factory-icon{width:36px;height:36px;flex:none;filter:drop-shadow(2px 2px #090e06)}
+.factory-pool,.factory-allocation{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px;background:#182313;border:1px solid #948052;margin:10px 0;color:#e4d7ab}
+.factory-pool>div{flex:1;min-width:130px}.factory-pool p{margin:6px 0;font-size:12px}.factory-pool small,.factory-allocation small{font:10px/1.5 'Courier New',monospace}.factory-pool>strong{font-size:12px}
+.factory-allocation strong{font:22px var(--pixel);color:#ecd07c}.factory-allocation button{width:34px;height:34px;padding:0;font-size:20px}.factory-allocation small{flex:1;min-width:140px}
+
+.factory-icon{width:44px;height:44px;object-fit:contain;image-rendering:pixelated;filter:none}.factory-pool>.factory-icon{width:56px;height:56px}

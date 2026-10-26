@@ -220,6 +220,13 @@ button:hover:not(:disabled),a:hover{filter:brightness(1.12)}button:active:not(:d
 .research-detail .resource-info p strong,.research-detail .tech-requirements strong,.research-detail .research-cost-heading{font-weight:700;color:#eee0b4}
 .research-detail .research-costs{margin:8px 0;gap:4px;padding:7px}
 .research-detail .research-cost-heading{font-size:10px;line-height:1.4}
+
+.factory-icon{width:36px;height:36px;flex:none;filter:drop-shadow(2px 2px #090e06)}
+.factory-pool,.factory-allocation{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px;background:#182313;border:1px solid #948052;margin:10px 0;color:#e4d7ab}
+.factory-pool>div{flex:1;min-width:130px}.factory-pool p{margin:6px 0;font-size:12px}.factory-pool small,.factory-allocation small{font:10px/1.5 'Courier New',monospace}.factory-pool>strong{font-size:12px}
+.factory-allocation strong{font:22px var(--pixel);color:#ecd07c}.factory-allocation button{width:34px;height:34px;padding:0;font-size:20px}.factory-allocation small{flex:1;min-width:140px}
+
+.factory-icon{width:44px;height:44px;object-fit:contain;image-rendering:pixelated;filter:none}.factory-pool>.factory-icon{width:56px;height:56px}
 </style><div id="app"></div><div id="toast" role="status" aria-live="polite"></div><script>/** Arsenal: deterministic, browser-independent game rules. No dependencies. */
 const COUNTRIES={
  fr:{name:'France',motto:'L’ingéniosité au service de l’industrie',bonus:'Recherche +15 %',icon:'FR'},
@@ -298,8 +305,12 @@ const PATENTS=PRODUCTS.map(p=>({...p,cost:Math.max(75,Math.ceil(p.value*5))}));
 const LEGACY_PATENT_COSTS={steam:250,assembly:500,alloys:650,chemistry:450,series:1000,logistics:900};
 function newGame(country,now=Date.now()){
  if(!COUNTRIES[country])throw Error('Pays invalide');
- return {version:5,country,credits:0,resources:Object.fromEntries(RESOURCES.map(r=>[r.id,0])),levels:Object.fromEntries(RESOURCES.map(r=>[r.id,r.id==='coal'?1:0])),workers:Object.fromEntries(RESOURCES.map(r=>[r.id,[]])),tech:[],research:null,patents:[],lines:PRODUCTS.map(p=>({id:p.id,enabled:false,remaining:0,stock:0,made:0,licensed:false})),totalSold:0,lastSaved:now,elapsed:0};
+ return {version:6,factories:0,country,credits:0,resources:Object.fromEntries(RESOURCES.map(r=>[r.id,0])),levels:Object.fromEntries(RESOURCES.map(r=>[r.id,r.id==='coal'?1:0])),workers:Object.fromEntries(RESOURCES.map(r=>[r.id,[]])),tech:[],research:null,patents:[],lines:PRODUCTS.map(p=>({id:p.id,enabled:false,remaining:0,stock:0,made:0,factories:0,batch:0,licensed:false})),totalSold:0,lastSaved:now,elapsed:0};
 }
+const MAX_FACTORIES=250;
+const factoryCost=s=>Math.ceil(1000*1.3**Math.floor(s.factories/5));
+const freeFactories=s=>s.factories-s.lines.reduce((n,l)=>n+Math.max(l.factories,l.batch),0);
+const productionBatch=(s,p,l)=>Math.max(0,Math.min(l.factories,9999-l.stock,...Object.entries(p.recipe).map(([id,n])=>Math.floor(s.resources[id]/n))));
 const capacity=(s,r=RESOURCES[0])=>Math.ceil(5000*RESOURCE_RATE_GROWTH**r.tier)*(s.tech.includes('logistics')?2:1);
 const HIRE_COST=25, WAGE=2, PAY_PERIOD=60;
 // Round only the displayed/payable amount, not the exponential base.
@@ -329,18 +340,25 @@ function advance(s,seconds){
   let budget=dt;
   while(budget>1e-8){
    if(line.remaining<=1e-8){
-    if(line.stock>=9999||!productionUnlocked(s,p)||!affordable(s,p.recipe))break;
-    for(const [id,n] of Object.entries(p.recipe))s.resources[id]-=n;
-    line.licensed=true;line.remaining=productTime(s,p);
+    const batch=productionBatch(s,p,line);if(!batch||!productionUnlocked(s,p))break;
+    for(const [id,n] of Object.entries(p.recipe))s.resources[id]-=n*batch;
+    line.batch=batch;line.licensed=true;line.remaining=productTime(s,p);
    }
    const used=Math.min(budget,line.remaining);line.remaining-=used;budget-=used;
-   if(line.remaining<=1e-8){line.remaining=0;line.stock++;line.made++;}
+   if(line.remaining<=1e-8){line.remaining=0;line.stock+=line.batch;line.made+=line.batch;line.batch=0;if(!line.factories){line.enabled=false;break;}}
   }
  }
 
  }return s;
 }
 function act(s,type,id){
+ if(type==='buy-factory'){if(s.factories>=MAX_FACTORIES||s.credits<factoryCost(s))return false;s.credits-=factoryCost(s);s.factories++;return true;}
+ if(type==='assign-factory'||type==='release-factory'){
+  const l=s.lines.find(l=>l.id===id);if(!l)return false;
+  if(type==='assign-factory'){if((freeFactories(s)<1&&l.factories>=l.batch)||!s.patents.includes(id))return false;l.factories++;}
+  else {if(!l.factories)return false;l.factories--;if(!l.factories&&!l.remaining)l.enabled=false;}
+  return true;
+ }
  if(type==='harvest'){const r=RESOURCES.find(r=>r.id===id);if(!r||!unlocked(s,r)||s.resources[id]>=capacity(s,r))return false;s.resources[id]=Math.min(capacity(s,r),s.resources[id]+1);return true;}
  if(type==='upgrade'){const r=RESOURCES.find(r=>r.id===id);if(!r||!available(s,r)||s.levels[id]>=100||s.credits<upgradeCost(s,r))return false;s.credits-=upgradeCost(s,r);s.levels[id]++;return true;}
  if(type==='hire'){const r=RESOURCES.find(r=>r.id===id);if(!r||!unlocked(s,r)||s.workers[id].length>=100||s.credits<hireCost(s,r)+WAGE)return false;s.credits-=hireCost(s,r)+WAGE;s.workers[id].push(PAY_PERIOD);return true;}
@@ -348,7 +366,7 @@ function act(s,type,id){
  if(['sell-resource','sell-ten','sell-all'].includes(type)){const r=RESOURCES.find(r=>r.id===id);if(!r)return false;const amount=type==='sell-all'?Math.floor(s.resources[id]):type==='sell-ten'?10:1;if(amount<=0||s.resources[id]<amount)return false;s.resources[id]-=amount;s.credits+=amount*MARKET_PRICES[id];return true;}
  if(type==='research'){const t=TECHS.find(t=>t.id===id);if(!t||s.research||s.tech.includes(id)||!t.requires.every(k=>s.tech.includes(k))||!affordable(s,t.cost))return false;for(const [resource,amount] of Object.entries(t.cost))s.resources[resource]-=amount;s.research={id,remaining:researchTime(s,t)};return true;}
  if(type==='patent'){const p=PATENTS.find(p=>p.id===id);if(!p||patentRequirements(s,p).length||s.patents.includes(id)||s.credits<p.cost)return false;s.credits-=p.cost;s.patents.push(id);s.lines.find(l=>l.id===id).licensed=true;return true;}
- if(type==='toggle'){const l=s.lines.find(l=>l.id===id),p=PRODUCTS.find(p=>p.id===id);if(!l||(!l.enabled&&l.remaining<=0&&!productionUnlocked(s,p)))return false;l.enabled=!l.enabled;return true;}
+ if(type==='toggle'){const l=s.lines.find(l=>l.id===id),p=PRODUCTS.find(p=>p.id===id);if(!l||(!l.enabled&&((!l.factories&&!l.batch)||(l.remaining<=0&&!productionUnlocked(s,p)))))return false;l.enabled=!l.enabled;return true;}
  if(type==='sell'){const l=s.lines.find(l=>l.id===id),p=PRODUCTS.find(p=>p.id===id);if(!l||!l.stock)return false;s.credits+=l.stock*salePrice(s,p);s.totalSold+=l.stock;l.stock=0;return true;}
  return false;
 }
@@ -356,7 +374,7 @@ function validateSave(raw){
  const s=typeof raw==='string'?JSON.parse(raw):structuredClone(raw);
  const finite=(n,max=1e12)=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=max;
  const unique=a=>new Set(a).size===a.length;
- if(!s||![1,2,3,4,5].includes(s.version)||!COUNTRIES[s.country]||!finite(s.credits)||!finite(s.elapsed)||!finite(s.totalSold)||!finite(s.lastSaved,Date.now()+60000))throw Error('Sauvegarde invalide');
+ if(!s||![1,2,3,4,5,6].includes(s.version)||!COUNTRIES[s.country]||!finite(s.credits)||!finite(s.elapsed)||!finite(s.totalSold)||!finite(s.lastSaved,Date.now()+60000))throw Error('Sauvegarde invalide');
  // Migrate old five-resource saves without resetting existing sites or payroll.
  if(s.version<3){
   const legacy=['coal','wood','iron','platinum','rubber'];
@@ -372,15 +390,15 @@ function validateSave(raw){
   s.version=3;
  }
  for(const r of RESOURCES)if(!finite(s.resources?.[r.id],1e12)||!Number.isInteger(s.levels?.[r.id])||s.levels[r.id]<0||s.levels[r.id]>100)throw Error('Ressources invalides');
- for(const key of ['tech','patents'])if(!Array.isArray(s[key])||!unique(s[key])||s[key].some(id=>!(key==='patents'&&s.version===5?PATENTS:TECHS).some(t=>t.id===id)))throw Error('Technologies invalides');
- if(s.tech.some(id=>!TECHS.find(t=>t.id===id).requires.every(k=>s.tech.includes(k)))||s.patents.some(id=>!s.tech.includes(s.version===5?PRODUCTS.find(p=>p.id===id).unlock:id)))throw Error('Progression incohérente');
+ for(const key of ['tech','patents'])if(!Array.isArray(s[key])||!unique(s[key])||s[key].some(id=>!(key==='patents'&&s.version>=5?PATENTS:TECHS).some(t=>t.id===id)))throw Error('Technologies invalides');
+ if(s.tech.some(id=>!TECHS.find(t=>t.id===id).requires.every(k=>s.tech.includes(k)))||s.patents.some(id=>!s.tech.includes(s.version>=5?PRODUCTS.find(p=>p.id===id).unlock:id)))throw Error('Progression incohérente');
  if(s.research&&(!TECHS.some(t=>t.id===s.research.id)||s.tech.includes(s.research.id)||!finite(s.research.remaining,200)||!TECHS.find(t=>t.id===s.research.id).requires.every(k=>s.tech.includes(k))))throw Error('Recherche invalide');
  const legacyLines=s.version<4;
  if(!Array.isArray(s.lines)||s.lines.length!==(legacyLines?3:PRODUCTS.length)||!unique(s.lines.map(l=>l.id)))throw Error('Lignes invalides');
  for(const l of s.lines)if(!(legacyLines?['rifle','truck','tank'].includes(l.id):PRODUCTS.some(p=>p.id===l.id))||typeof l.enabled!=='boolean'||!finite(l.remaining,300)||!Number.isInteger(l.stock)||!finite(l.stock,9999)||!Number.isInteger(l.made)||!finite(l.made)||(!legacyLines&&typeof l.licensed!=='boolean'))throw Error('Production invalide');
  if(legacyLines){
   const old=Object.fromEntries(s.lines.map(l=>[l.id==='tank'?'medium_tank':l.id,l]));
-  s.lines=PRODUCTS.map(p=>old[p.id]?{...old[p.id],id:p.id,licensed:true}:{id:p.id,enabled:false,remaining:0,stock:0,made:0,licensed:false});
+  s.lines=PRODUCTS.map(p=>old[p.id]?{...old[p.id],id:p.id,licensed:true}:{id:p.id,enabled:false,remaining:0,stock:0,made:0,factories:0,batch:0,licensed:false});
   s.version=4;
  }
  if(s.version<5){
@@ -393,6 +411,11 @@ function validateSave(raw){
   if(s.research&&s.tech.includes(s.research.id)){s.credits+=({steam:240,assembly:450,alloys:650,chemistry:400,series:1300,logistics:1000})[s.research.id];s.research=null;}
   s.version=5;
  }
+ if(s.version<6){
+  for(const l of s.lines){l.factories=l.licensed?1:0;l.batch=l.remaining>0?1:0;}
+  s.factories=s.lines.reduce((n,l)=>n+l.factories,0);s.version=6;
+ }
+ if(!Number.isInteger(s.factories)||!finite(s.factories,MAX_FACTORIES)||s.lines.some(l=>!Number.isInteger(l.factories)||!finite(l.factories,MAX_FACTORIES)||!Number.isInteger(l.batch)||!finite(l.batch,MAX_FACTORIES)||(l.remaining>0)!==(l.batch>0)||l.stock+l.batch>9999||(l.factories>0&&!l.licensed)||(l.enabled&&!l.factories&&!l.batch))||freeFactories(s)<0)throw Error('Usines invalides');
  if(!finite(s.credits)||s.lines.some(l=>l.licensed!==s.patents.includes(l.id)||((l.enabled||l.remaining>0||l.made>0||l.stock>0)&&!l.licensed)))throw Error('Brevets incohérents');
  for(const r of RESOURCES){const crew=s.workers?.[r.id];if(!Array.isArray(crew)||crew.length>100||crew.some(t=>!finite(t,PAY_PERIOD))||(crew.length&&!unlocked(s,r)))throw Error('Ouvriers invalides');}
  return s;
@@ -438,12 +461,13 @@ function harvest(){return `<div class="section-intro"><p>Chaque clic rapporte 1 
  }).join('')}</div>`;}
 function market(){return `<div class="section-intro"><p>Vendez vos matières premières pour financer vos ouvriers et de nouvelles exploitations.</p><span>PRIX FIXES · PAIEMENT IMMÉDIAT</span></div><div class="market-grid">${RESOURCES.map(r=>`<article class="storage-panel market-card"><h2 class="resource-name">${resourceIcon(r.id)}${r.name}</h2><p class="market-price">${money(MARKET_PRICES[r.id])} or <small>/ unité</small></p><p>En réserve : <strong id="stock-${r.id}"></strong></p><div class="market-actions"><button class="secondary" data-action="sell-resource" data-id="${r.id}" id="sell-resource-${r.id}">Vendre 1 · ${money(MARKET_PRICES[r.id])} or</button><button class="secondary" data-action="sell-ten" data-id="${r.id}" id="sell-ten-${r.id}">Vendre 10 · ${money(MARKET_PRICES[r.id]*10)} or</button><button class="upgrade" data-action="sell-all" data-id="${r.id}" id="sell-all-${r.id}"></button></div></article>`).join('')}</div>`;}
 function vehicle(id){const p=PRODUCTS.find(p=>p.id===id);return `<div class="production-sprite" role="img" aria-label="${productName(state,p)}, vue de côté sur une table à dessin industrielle"><img src="dist/assets/production-${state.country}.png" alt="" draggable="false" style="left:${-(p.tier%5)*100}%;top:${-Math.floor(p.tier/5)*100}%"></div>`;}
+function factoryIcon(){return '<img class="factory-icon" src="dist/assets/factory-icon.png" alt="" aria-hidden="true" draggable="false">';}
 function production(){
  const groups=['all',...new Set(PRODUCTS.map(p=>p.kind))];
  const selected=PRODUCTS.filter(p=>productionFilter==='all'||p.kind===productionFilter);
- return `<div class="section-intro"><p>Recherchez la technologie, achetez le brevet, puis lancez la fabrication. Les matières sont consommées au lancement du cycle.</p><span>${PRODUCTS.filter(p=>productionUnlocked(state,p)).length} / ${PRODUCTS.length} ATELIERS ACCESSIBLES</span></div><nav class="production-filters" aria-label="Catégories de production">${groups.map(group=>`<button class="secondary ${productionFilter===group?'selected':''}" data-production-filter="${group}" aria-pressed="${productionFilter===group}">${group==='all'?'Tout':group}</button>`).join('')}</nav><div class="production-list">${selected.map(p=>{
+ return `<div class="section-intro"><p>Recherchez la technologie, achetez le brevet, puis affectez vos usines. Chaque usine produit une unité par cycle ; les matières sont consommées pour chaque unité.</p><span>${PRODUCTS.filter(p=>productionUnlocked(state,p)).length} / ${PRODUCTS.length} ATELIERS ACCESSIBLES</span></div><section class="factory-pool">${factoryIcon()}<div><strong>PARC INDUSTRIEL</strong><p id="factory-summary"></p><small>Prix ×1,3 tous les 5 achats · base 1 000 or · les usines en cours se libèrent en fin de cycle</small></div><button class="upgrade" data-action="buy-factory" id="buy-factory"></button></section><nav class="production-filters" aria-label="Catégories de production">${groups.map(group=>`<button class="secondary ${productionFilter===group?'selected':''}" data-production-filter="${group}" aria-pressed="${productionFilter===group}">${group==='all'?'Tout':group}</button>`).join('')}</nav><div class="production-list">${selected.map(p=>{
  const l=state.lines.find(l=>l.id===p.id),requirements=productionRequirements(state,p),lock=requirements.length>0,number=String(p.tier+1).padStart(2,'0');
- return `<article class="production-card ${lock?'production-locked':''}"><div class="product-art"><span class="serial">ATELIER ${number} / ${p.kind}</span>${vehicle(p.id)}<span class="blueprint-label">PLAN D’ENSEMBLE · ${COUNTRIES[state.country].icon} / ${number}</span></div><div class="product-details"><div class="product-heading"><div><p class="product-category">${number} · ${p.name}</p><h2>${productName(state,p)}</h2></div><span id="status-${p.id}" class="status"></span></div><div class="recipe" aria-label="Matières par unité">${Object.entries(p.recipe).map(([id,n])=>`<span title="${RESOURCES.find(r=>r.id===id).name}">${resourceIcon(id)}<b>${fmt(n)}</b><small>${RESOURCES.find(r=>r.id===id).name}</small></span>`).join('')}</div>${lock?`<div class="production-requirements"><strong>À DÉBLOQUER</strong><ul>${requirements.map(reason=>`<li>${reason}</li>`).join('')}</ul>${p.unlock&&!state.tech.includes(p.unlock)?'<button class="secondary" data-view="research">Ouvrir la recherche →</button>':''}${!state.patents.includes(p.id)?'<button class="upgrade" data-view="patents">Acheter le brevet →</button>':''}</div>`:''}<div class="production-stats"><span>${dec(productTime(state,p))} s / unité</span><span>${money(salePrice(state,p))} or / unité</span><span id="made-${p.id}"></span></div><div class="meter"><i id="progress-${p.id}"></i></div><div class="card-actions"><button class="secondary" data-action="toggle" data-id="${p.id}" id="toggle-${p.id}"></button><button class="upgrade" data-action="sell" data-id="${p.id}" id="sell-${p.id}"></button></div></div></article>`;
+ return `<article class="production-card ${lock?'production-locked':''}"><div class="product-art"><span class="serial">ATELIER ${number} / ${p.kind}</span>${vehicle(p.id)}<span class="blueprint-label">PLAN D’ENSEMBLE · ${COUNTRIES[state.country].icon} / ${number}</span></div><div class="product-details"><div class="product-heading"><div><p class="product-category">${number} · ${p.name}</p><h2>${productName(state,p)}</h2></div><span id="status-${p.id}" class="status"></span></div><div class="recipe" aria-label="Matières par unité">${Object.entries(p.recipe).map(([id,n])=>`<span title="${RESOURCES.find(r=>r.id===id).name}">${resourceIcon(id)}<b>${fmt(n)}</b><small>${RESOURCES.find(r=>r.id===id).name}</small></span>`).join('')}</div>${lock?`<div class="production-requirements"><strong>À DÉBLOQUER</strong><ul>${requirements.map(reason=>`<li>${reason}</li>`).join('')}</ul>${p.unlock&&!state.tech.includes(p.unlock)?'<button class="secondary" data-view="research">Ouvrir la recherche →</button>':''}${!state.patents.includes(p.id)?'<button class="upgrade" data-view="patents">Acheter le brevet →</button>':''}</div>`:''}<div class="factory-allocation">${factoryIcon()}<strong id="factories-${p.id}"></strong><button class="secondary" data-action="release-factory" data-id="${p.id}" id="release-factory-${p.id}" aria-label="Retirer une usine — ${p.name}">−</button><button class="upgrade" data-action="assign-factory" data-id="${p.id}" id="assign-factory-${p.id}" aria-label="Affecter une usine — ${p.name}">+</button><small id="batch-${p.id}"></small></div><div class="production-stats"><span>${dec(productTime(state,p))} s / cycle</span><span>${money(salePrice(state,p))} or / unité</span><span id="made-${p.id}"></span></div><div class="meter"><i id="progress-${p.id}"></i></div><div class="card-actions"><button class="secondary" data-action="toggle" data-id="${p.id}" id="toggle-${p.id}"></button><button class="upgrade" data-action="sell" data-id="${p.id}" id="sell-${p.id}"></button></div></div></article>`;
  }).join('')}</div>`;
 }
 const researchPositions={steam:[2,1],alloys:[1,2],assembly:[2,2],chemistry:[3,2],series:[1,3],logistics:[3,3]};
@@ -477,7 +501,7 @@ function updateNumbers(){if(screen!=='game')return;text('credits',money(state.cr
  disable('sell-resource-'+r.id,quantity<1);disable('sell-ten-'+r.id,quantity<10);disable('sell-all-'+r.id,quantity<1);
  text('sell-all-'+r.id,`Tout vendre (${fmt(quantity)}) · ${money(quantity*MARKET_PRICES[r.id])} or`);
 }
- for(const p of PRODUCTS){const l=state.lines.find(l=>l.id===p.id);text('status-'+p.id,l.enabled?(l.remaining>0?'EN PRODUCTION':l.stock>=9999?'STOCK PLEIN':!productionUnlocked(state,p)?'PRÉREQUIS MANQUANTS':affordable(state,p.recipe)?'DÉMARRAGE':'MATIÈRES MANQUANTES'):productionUnlocked(state,p)||l.remaining>0?'À L’ARRÊT':'VERROUILLÉ');disable('toggle-'+p.id,!l.enabled&&l.remaining<=0&&!productionUnlocked(state,p));text('toggle-'+p.id,l.enabled?'Ⅱ Suspendre':'▶ Lancer la production');text('sell-'+p.id,`Vendre ${l.stock} · ${fmt(l.stock*salePrice(state,p))} ◉`);disable('sell-'+p.id,!l.stock);text('made-'+p.id,`${l.made} unités fabriquées`);text('warehouse-'+p.id,`${l.stock} en stock`);width('progress-'+p.id,l.remaining>0?100*(1-l.remaining/productTime(state,p)):0);}
+ text('factory-summary',state.factories+' usines · '+freeFactories(state)+' disponibles');text('buy-factory',state.factories>=MAX_FACTORIES?'Limite atteinte':'Acheter · '+money(factoryCost(state))+' or');disable('buy-factory',state.factories>=MAX_FACTORIES||state.credits<factoryCost(state));for(const p of PRODUCTS){const l=state.lines.find(l=>l.id===p.id);text('factories-'+p.id,l.factories);text('batch-'+p.id,l.remaining>0?l.batch+' en cours · '+l.factories+' usines au prochain cycle':l.factories+' unités max / cycle · '+productionBatch(state,p,l)+' possibles');disable('assign-factory-'+p.id,(freeFactories(state)<1&&l.factories>=l.batch)||!state.patents.includes(p.id));disable('release-factory-'+p.id,!l.factories);text('status-'+p.id,!l.factories&&!l.batch?'AUCUNE USINE':l.enabled?(l.remaining>0?'EN PRODUCTION':l.stock>=9999?'STOCK PLEIN':!productionUnlocked(state,p)?'PRÉREQUIS MANQUANTS':affordable(state,p.recipe)?'DÉMARRAGE':'MATIÈRES MANQUANTES'):productionUnlocked(state,p)||l.remaining>0?'À L’ARRÊT':'VERROUILLÉ');disable('toggle-'+p.id,!l.enabled&&((!l.factories&&!l.batch)||(l.remaining<=0&&!productionUnlocked(state,p))));text('toggle-'+p.id,l.enabled?'Ⅱ Suspendre':'▶ Lancer la production');text('sell-'+p.id,`Vendre ${l.stock} · ${fmt(l.stock*salePrice(state,p))} ◉`);disable('sell-'+p.id,!l.stock);text('made-'+p.id,`${l.made} unités fabriquées`);text('warehouse-'+p.id,`${l.stock} en stock`);width('progress-'+p.id,l.remaining>0?100*(1-l.remaining/productTime(state,p)):0);}
  for(const t of TECHS){disable('research-'+t.id,!!state.research||state.tech.includes(t.id)||!affordable(state,t.cost)||!t.requires.every(k=>state.tech.includes(k)));for(const [id,n] of Object.entries(t.cost)){text('research-cost-'+t.id+'-'+id,fmt(state.resources[id])+' / '+fmt(n));const el=document.getElementById('research-cost-'+t.id+'-'+id);if(el)el.setAttribute('data-missing',String(state.resources[id]<n));}}
  if(state.research){const t=TECHS.find(t=>t.id===state.research.id);width('research-bar',100*(1-state.research.remaining/researchTime(state,t)));text('research-time',`${clock(state.research.remaining)} · Recherche en cours`);}
  for(const p of PATENTS)disable('patent-'+p.id,state.patents.includes(p.id)||patentRequirements(state,p).length>0||state.credits<p.cost);
