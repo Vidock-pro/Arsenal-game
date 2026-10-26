@@ -31,11 +31,15 @@ Ouvrez http://localhost:8000. Sur Windows, remplacez `python` par `py` si néces
 - L’embauche coûte 25 × 1,3 puissance le nombre d’ouvriers déjà engagés sur le site, arrondi à l’or supérieur, plus 2 or pour la première minute. Le salaire reste fixé à 2 or par minute et par ouvrier, payés d’avance. Sans or, le travail se met en pause ; il reprend lorsque les fonds sont disponibles. Les salaires s’appliquent également hors ligne et lorsque le stock est plein.
 - Les boutons − et + permettent de libérer ou d’engager un ouvrier. Libérer un ouvrier réduit le prix de la prochaine embauche ; les salaires déjà payés ne sont pas remboursés.
 - Les améliorations augmentent le rendement des ouvriers ; le clic reste à +1.
-- Les trois ateliers existants sont conservés en attendant le futur arbre de production, de l’uniforme au bombardier. La recette du blindé utilise désormais du nickel à la place du platine. Les usages décrits sur les nouvelles cartes préparent les futures chaînes de production ; ces transformations ne sont pas encore implémentées.
+- Production comporte 19 étapes : uniforme → matériel de soutien → munition de pistolet → pistolet → grenade → munition de fusil → fusil → mitrailleuse → obus → canon d’artillerie → jeep → camion → half-track → char léger → char moyen → char lourd → avion de reconnaissance → avion de chasse → bombardier.
+- Chaque étape demande un premier exemplaire de la précédente, ses exploitations de matières premières et, selon l’équipement, une recherche. Les conditions sont affichées sur chaque carte. Des filtres permettent de sélectionner équipement, armement, artillerie, véhicules, blindés ou aviation.
+- Les ingrédients sont consommés au début du cycle, jamais en pause. Une ligne en attente de ressources reprend lorsqu’elles sont disponibles. Le stockage d’équipements est limité à 9 999 unités par ligne ; vendre libère la place.
+- Chaque nation possède 19 appellations et illustrations propres. Les visuels sont des vues de côté sur fond vert quadrillé de table à dessin industrielle. Les variantes nationales ont les mêmes recettes de jeu ; les bonus de nation s’appliquent séparément.
+- Les recettes utilisent directement les 12 matières premières en unités abstraites. Le prix de base d’un équipement dépasse la valeur marchande de ses ingrédients, avec une marge croissante selon le palier. La production de matières intermédiaires (tissu, acier, carburant raffiné) n’est pas encore un système séparé.
 
 ### Compatibilité des anciennes parties
 
-Les sauvegardes v1/v2 passent en version 3. Les exploitations existantes restent utilisables même si les nouveaux sites intermédiaires ne sont pas encore ouverts. Les nouvelles ressources commencent à zéro. Le platine est converti à son ancien prix (6 or par unité) et ses ouvriers rejoignent le charbon ; si la limite de 100 ouvriers est atteinte, les ouvriers excédentaires sont compensés à hauteur de l’embauche de base et de leur salaire prépayé restant. La migration ne remet pas la partie à zéro.
+Les sauvegardes v1/v2/v3 passent en version 4. Les exploitations existantes restent utilisables même si les nouveaux sites intermédiaires ne sont pas encore ouverts. Les nouvelles ressources commencent à zéro. Le platine est converti à son ancien prix (6 or par unité) et ses ouvriers rejoignent le charbon ; si la limite de 100 ouvriers est atteinte, les ouvriers excédentaires sont compensés à hauteur de l’embauche de base et de leur salaire prépayé restant. La migration ne remet pas la partie à zéro. Les anciennes lignes fusil et camion conservent leur état ; l’ancienne ligne char devient char moyen. Stocks, travail en cours et nombres fabriqués sont conservés. Ces trois lignes bénéficient d’une licence de continuité ; les autres suivent le nouveau parcours.
 
 ### Les quatre pays
 
@@ -46,7 +50,7 @@ Les sauvegardes v1/v2 passent en version 3. Les exploitations existantes restent
 | Allemagne | Prix de vente des équipements +15 % | Karabiner 98k | Panzer IV |
 | URSS | Récolte +15 % | Mosin-Nagant | T-34 |
 
-La campagne est fictive : le millésime 1936 est une ambiance de départ et non une simulation chronologique exacte. Les équipements disposent de sprites pixel art ; les USA réutilisent provisoirement les illustrations françaises. Ces illustrations restent des interprétations artistiques. Les bonus de recherche et de production multiplient la vitesse par 1,15. Le bonus allemand concerne uniquement les équipements, avec un prix final arrondi à l’or supérieur. Le clic manuel reste à +1 pour toutes les nations. Les valeurs, recettes et brevets sont des mécaniques ludiques, pas des instructions techniques historiques.
+La campagne est fictive : le millésime 1936 est une ambiance de départ et non une simulation chronologique exacte. Les équipements disposent de sprites pixel art ; chaque nation possède sa propre planche de 19 équipements. Ces illustrations restent des interprétations artistiques. Les bonus de recherche et de production multiplient la vitesse par 1,15. Le bonus allemand concerne uniquement les équipements, avec un prix final arrondi à l’or supérieur. Le clic manuel reste à +1 pour toutes les nations. Les valeurs, recettes et brevets sont des mécaniques ludiques, pas des instructions techniques historiques.
 
 ## Sauvegarde
 
@@ -95,4 +99,15 @@ Code sous licence MIT : réutilisation, modification, redistribution et usage co
 
 ## Périmètre de cette première version
 
-12 ressources, 3 lignes de production par nation, 6 recherches, 6 brevets, écran de stocks et sauvegardes. Les illustrations d'exploitation proviennent des maquettes ; les équipements de production sont des SVG schématiques. Pas encore de sons, de campagne scénarisée, de gestion d'énergie/ouvriers ni de prestige. L'équilibrage vise un premier prototype jouable.
+12 ressources, 19 lignes de production par nation, 6 recherches, 6 brevets, écran de stocks et sauvegardes. Les illustrations d'exploitation proviennent des maquettes ; les équipements sont illustrés en pixel art sur des planches de dessin industriel. Pas encore de sons, de campagne scénarisée, de simulation énergétique séparée ni de prestige. L'équilibrage vise un premier prototype jouable.
+
+
+## Références visuelles de production
+
+Les modèles sont des inspirations historiques adaptées à un monde alternatif, et non des reproductions muséographiques exactes. Les vêtements et kits sont présentés à plat ; véhicules et armes en profil. La catégorie « Jeep » comprend les véhicules légers nationaux équivalents. Les véhicules américains des Forces françaises libres sont explicitement identifiés ; le M26 américain correspond à la fin de guerre en 1945.
+
+- Musée des Blindés / ministère des Armées : https://www.defense.gouv.fr/chemins-memoire/tourisme-memoire/lieux-memoire/musees-du-ministere-armees-anciens-combattants/musee-blindes
+- B1 bis : https://museedesblindes.fr/les_chars/b1-bis/
+- National Museum of the USAF, Piper L-4 : https://www.nationalmuseum.af.mil/Visit/Museum-Exhibits/Fact-Sheets/Display/Article/197424/piper-l-4a-grasshopper/
+- USAF, avions de 1939-1945 : https://www.afhistory.af.mil/FAQs/Fact-Sheets/Article/459025/army-air-forces-aircraft-a-definitive-moment/
+- Tank Museum, M26 en 1945 : https://tankmuseum.org/article/bridge-at-remagen
