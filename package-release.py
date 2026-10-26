@@ -1,16 +1,76 @@
-"""Build the standalone player and reproducible source archive (Python stdlib)."""
-from pathlib import Path
-import zipfile
+"""Assemble le jeu autonome et son archive source, sans dépendance Python externe."""
+
 import base64
-root = Path(__file__).resolve().parent
-engine = (root / 'dist/engine.js').read_text().replace('export ', '')
-app = (root / 'dist/app.js').read_text().split('\n', 1)[1]
-app = app.replace('src="assets/', 'src="dist/assets/').replace('href="arsenal-source.zip" download', 'href="README.md"')
-css = ((root / 'dist/style.css').read_text() + '\n' + (root / 'dist/pixel-skin.css').read_text()).replace("url('assets/", "url('dist/assets/")
-css = css.replace("url('dist/assets/arsenal-pixel.ttf')", "url('data:font/ttf;base64," + base64.b64encode((root / 'dist/assets/arsenal-pixel.ttf').read_bytes()).decode() + "')")
-standalone = '<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arsenal</title><style>' + css + '</style><div id="app"></div><div id="toast" role="status" aria-live="polite"></div><script>' + engine + '\n' + app + '</script></html>'
-(root / 'JOUER.html').write_text(standalone)
-files = [p for p in root.rglob('*') if p.is_file() and not any(x in p.relative_to(root).parts for x in ['.git','.openai','node_modules','__pycache__']) and p.suffix not in ['.zip','.tar','.gz']]
-with zipfile.ZipFile(root / 'dist/arsenal-source.zip','w',zipfile.ZIP_DEFLATED) as z:
-    for p in sorted(files): z.write(p,Path('arsenal') / p.relative_to(root))
-print('Created JOUER.html and dist/arsenal-source.zip')
+import re
+import zipfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+EXCLUDED_DIRECTORIES = {".git", ".openai", "node_modules", "__pycache__"}
+ARCHIVE_SUFFIXES = {".zip", ".tar", ".gz"}
+
+
+def read_source(relative_path):
+    """Utilise UTF-8 aussi sur Windows pour préserver les accents."""
+    return (ROOT / relative_path).read_text(encoding="utf-8")
+
+
+def build_player():
+    """Regroupe les sources dans une page ouvrable directement depuis le disque."""
+    # Le moteur et l’interface partagent ici le même script, sans import de module.
+    engine = re.sub(r"^export\s+", "", read_source("dist/engine.js"), flags=re.MULTILINE)
+    app = re.sub(
+        r"import\s*\{[\s\S]*?\}\s*from\s*['\"]\./engine\.js['\"];?",
+        "", read_source("dist/app.js"), count=1,
+    )
+    app = app.replace('src="assets/', 'src="dist/assets/')
+    app = app.replace('href="arsenal-source.zip" download', 'href="README.md"')
+
+    # La page est à la racine ; les images restent dans dist/assets.
+    css = read_source("dist/style.css") + "\n" + read_source("dist/pixel-skin.css")
+    css = re.sub(r"url\(([\"']?)assets/", r"url(\1dist/assets/", css)
+    font_bytes = (ROOT / "dist/assets/arsenal-pixel.ttf").read_bytes()
+    font_url = "data:font/ttf;base64," + base64.b64encode(font_bytes).decode("ascii")
+    css = css.replace("dist/assets/arsenal-pixel.ttf", font_url)
+
+    page = f'''<!doctype html>
+<!-- Fichier généré : modifier dist/ puis relancer python package-release.py. -->
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Arsenal</title>
+    <style>
+{css}
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script>
+{engine}
+{app}
+    </script>
+  </body>
+</html>
+'''
+    (ROOT / "JOUER.html").write_text(page, encoding="utf-8")
+
+
+def build_archive():
+    """Emporte les sources et images, sans outils installés ni anciennes archives."""
+    files = (
+        path for path in ROOT.rglob("*")
+        if path.is_file()
+        and not EXCLUDED_DIRECTORIES.intersection(path.relative_to(ROOT).parts)
+        and path.suffix not in ARCHIVE_SUFFIXES
+    )
+    with zipfile.ZipFile(ROOT / "dist/arsenal-source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(files):
+            archive.write(path, Path("arsenal") / path.relative_to(ROOT))
+
+
+if __name__ == "__main__":
+    build_player()
+    build_archive()
+    print("Created JOUER.html and dist/arsenal-source.zip")

@@ -136,3 +136,11 @@ Les modèles sont des inspirations historiques adaptées à un monde alternatif,
 Une nouvelle partie commence sans usine. Dans Production, achetez des usines puis affectez-les avec les boutons + et −. Une usine produit un objet par cycle ; le lot est limité par les matières disponibles et la place en stock. Chaque objet consomme sa recette entière, au lancement du cycle. Le prix d’une usine est `ceil(1000 × 1,3^floor(nombre acheté / 5))` : achats 1–5 à 1 000 or, 6–10 à 1 300, 11–15 à 1 690. Le parc est limité à 250 usines.
 
 Les modifications d’affectation concernent le prochain cycle. Les usines participant à un lot déjà payé restent réservées jusqu’à son achèvement, même en pause. Les sauvegardes antérieures passent en version 6 et reçoivent une usine par ligne acquise ; les lots en cours restent d’une unité. L’icône d’usine est une illustration pixel art sur fond transparent, dans la palette olive et laiton.
+
+## Lire et modifier les sources
+
+Le guide [CODE.md](CODE.md) décrit les fichiers, les principales fonctions et le parcours d’une action. Les commentaires du moteur et de l’interface expliquent les décisions utiles en français. Les explications détaillées d’équilibrage restent dans ce README ; l’interface conserve les prix, coûts, prérequis et états nécessaires pour jouer.
+
+Pour conserver la même mise en forme après une modification : `npm ci`, puis `npm run format`. `npm run format:check` vérifie le format sans modifier les fichiers. Prettier est seulement un outil de développement ; le jeu ne charge aucune dépendance JavaScript externe. `npm test` fonctionne sans installer Prettier.
+
+Après modification des sources, lancer `python package-release.py` pour régénérer `JOUER.html` et l’archive source. L’assemblage utilise explicitement UTF-8 sur tous les systèmes et accepte les imports sur plusieurs lignes.
