@@ -139,3 +139,19 @@ button:hover:not(:disabled),a:hover{filter:brightness(1.12)}button:active:not(:d
 .sidebar nav button .menu-icon{display:block;position:relative;overflow:hidden;width:38px;height:38px;min-width:38px;flex:0 0 38px;mix-blend-mode:normal;background:none;image-rendering:pixelated}
 .menu-icon img{position:absolute;display:block;width:300%;height:200%;max-width:none;pointer-events:none;image-rendering:pixelated}
 @media(max-width:760px){.sidebar nav button .menu-icon{width:30px;height:30px;min-width:30px;flex-basis:30px}}
+
+.workforce-icon{position:relative;display:inline-block;overflow:hidden;vertical-align:middle;background:none}
+.workforce-icon img{position:absolute;top:0;width:200%;height:100%;max-width:none;display:block;image-rendering:pixelated;pointer-events:none}
+
+.wallet>.workforce-icon{width:36px;height:36px;flex:0 0 36px;text-shadow:none}
+@media(max-width:760px){.wallet>.workforce-icon{width:28px;height:28px;flex-basis:28px}}
+
+/* Icon-only reserves wrap into rows instead of a horizontal scroller. */
+.topbar .resource-stocks{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px;min-width:0;max-width:100%;overflow:visible;padding:0}
+.topbar .resource-stock{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;gap:3px;padding:5px 2px}
+.topbar .resource-stock .resource-icon{width:24px;height:24px;flex:none}
+.topbar .resource-stock strong{margin:0;min-width:0;font-size:14px;line-height:1.2;text-align:center;font-variant-numeric:tabular-nums}
+.topbar .resource-stock:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+@media(min-width:1401px) and (max-width:1700px){.topbar .resource-stocks{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:760px){.topbar .resource-stocks{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:380px){.topbar .resource-stocks{grid-template-columns:repeat(4,minmax(0,1fr))}}

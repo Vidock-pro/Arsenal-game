@@ -49,15 +49,15 @@ export const capacity=(s,r=RESOURCES[0])=>Math.ceil(5000*RESOURCE_RATE_GROWTH**r
 export const HIRE_COST=25, WAGE=2, PAY_PERIOD=60;
 // Round only the displayed/payable amount, not the exponential base.
 export const hireCost=(s,r)=>Math.ceil(HIRE_COST*1.3**s.workers[r.id].length);
-export const MARKET_PRICES=Object.fromEntries(RESOURCES.map(r=>[r.id,1.5**r.tier]));
+export const MARKET_PRICES=Object.fromEntries(RESOURCES.map(r=>[r.id,Math.ceil(1.5**r.tier)]));
 export const available=(s,r)=>s.levels[r.id]>0||!r.previous||s.levels[r.previous]>0;
 export const unlocked=(s,r)=>s.levels[r.id]>0&&available(s,r);
 export const activeWorkers=(s,r)=>s.workers[r.id].filter(t=>t>1e-8).length;
 export const rate=(s,r)=>unlocked(s,r)?r.rate*s.levels[r.id]*activeWorkers(s,r)*(s.country==='su'?1.15:1)*(s.tech.includes('steam')?1.2:1)*(s.tech.includes('logistics')?1.25:1):0;
-export const upgradeCost=(s,r)=>Math.floor(r.cost*1.65**s.levels[r.id]);
+export const upgradeCost=(s,r)=>Math.ceil(r.cost*1.65**s.levels[r.id]);
 export const researchTime=(s,t)=>t.time/(s.country==='fr'?1.15:1);
 export const productTime=(s,p)=>p.time/(s.country==='us'?1.15:1)/(s.tech.includes('assembly')?1.25:1);
-export const salePrice=(s,p)=>Math.floor(p.value*(s.country==='de'?1.15:1)*(s.tech.includes('series')?1.25:1));
+export const salePrice=(s,p)=>Math.ceil(p.value*(s.country==='de'?1.15:1)*(s.tech.includes('series')?1.25:1));
 export const affordable=(s,cost)=>Object.entries(cost).every(([k,v])=>s.resources[k]>=v);
 export function advance(s,seconds){
  let left=Math.max(0,Math.min(28800,Number(seconds)||0));
