@@ -68,4 +68,9 @@ Installer les outils de formatage avec `npm ci` si nécessaire. Pour appliquer l
 
 `productionRecipe` applique la réduction de matières de l’outillage sans modifier la recette de base ni le prix de vente. Le calcul du lot, le prélèvement et l’interface utilisent tous cette fonction. Les recettes effectives peuvent être fractionnaires ; les prix en or restent entiers.
 
-`researchLayout` construit un arbre par domaine : chaque sous-arbre réserve ses propres couloirs. Seuls les prérequis internes produisent un trait. Les autres deviennent des renvois cliquables ; toutes les conditions restent contrôlées par le moteur.
+`researchLayout` construit un seul arbre enraciné dans le Bureau d’études. Le premier prérequis définit le parent principal ; chaque sous-arbre réserve ses propres couloirs. Les autres prérequis deviennent des renvois cliquables, sans traits traversants. Toutes les conditions restent contrôlées par le moteur.
+
+
+## Télégrammes
+
+`notify` ajoute les dépêches à une file, affichée une notification à la fois. `checkPayrollNotice` détecte les interruptions de salaire, y compris lorsqu’une partie des ouvriers reste payée. Le son est synthétisé avec Web Audio après une interaction ; son absence ne bloque pas le jeu. Le bouton de son conserve sa préférence séparément de la sauvegarde. Le papier est dessiné en CSS, avec une animation désactivée si le système demande moins de mouvement.

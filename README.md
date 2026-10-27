@@ -41,11 +41,11 @@ Ouvrez http://localhost:8000. Sur Windows, remplacez `python` par `py` si néces
 
 ### Arbre des recherches
 
-29 recherches en sept branches : Textile, Armement, Munitions, Véhicules, Blindés, Aviation et Industrie. Chaque domaine présente son propre arbre vertical, sans filtres ni liaisons traversant les autres domaines. Les prérequis extérieurs sont affichés sous forme de renvois cliquables. Les bifurcations internes occupent des couloirs distincts, sans croisement. Les arbres se répartissent sur plusieurs colonnes selon la largeur disponible. Le survol d’une seconde ouvre la fiche ; le clic la garde ouverte, y compris sur écran tactile.
+29 recherches dans un seul arbre, reliées au Bureau d’études, sans catégories ni filtres. Chaque recherche est reliée à son premier prérequis ; les prérequis supplémentaires restent visibles sous forme de renvois cliquables et dans sa fiche. Les sous-arbres occupent des couloirs distincts, sans croisement. La carte défile sur les petits écrans. Le survol d’une seconde ouvre la fiche ; le clic la garde ouverte, y compris sur écran tactile.
 
 Les coûts en ressources des 29 recherches ont été doublés : la confection initiale demande 60 charbon et 80 coton, et les chaudières 120 charbon et 40 coton. Les durées et prérequis restent identiques. Les ressources sont consommées une seule fois au lancement. Une seule recherche est active à la fois. Les 19 équipements ont chacun une recherche dédiée, suivie de l’achat de leur brevet en or. La progression des brevets conserve l’exigence d’un premier exemplaire de l’équipement précédent. Le début est : Machines à coudre industrielles → brevet Uniforme → première production.
 
-Les coûts, durées et prérequis complets sont centralisés dans `TECHS` (`dist/engine.js`). Les positions affichées sont calculées à partir des prérequis internes ; `col` et `row` conservent les anciens repères du catalogue. Les branches suivent le schéma proposé : presses et poudres se rejoignent pour les cartouches ; motorisation et métallurgie se rejoignent pour les blindés ; confection et motorisation se rejoignent pour l’aviation.
+Les coûts, durées et prérequis complets sont centralisés dans `TECHS` (`dist/engine.js`). Les positions affichées sont calculées à partir du premier prérequis de chaque recherche ; `col` et `row` conservent les anciens repères du catalogue. Les branches suivent le schéma proposé : presses et poudres se rejoignent pour les cartouches ; motorisation et métallurgie se rejoignent pour les blindés ; confection et motorisation se rejoignent pour l’aviation.
 
 Les recherches facultatives d’Industrie apportent : chaudières +20 % de récolte, électrification +15 % de vitesse de production, chaîne de montage +25 % de vitesse, outillage −10 % de matières consommées, contrôle qualité +25 % au prix de vente. Les bonus de vitesse se multiplient. Les recettes réduites peuvent contenir des fractions, conservées dans les stocks ; les transactions en or restent arrondies à l’entier supérieur. Transport industriel conserve l’ancien bonus logistique (+25 % de récolte et capacité doublée).
 
@@ -139,3 +139,14 @@ Le guide [CODE.md](CODE.md) décrit les fichiers, les principales fonctions et l
 Pour conserver la même mise en forme après une modification : `npm ci`, puis `npm run format`. `npm run format:check` vérifie le format sans modifier les fichiers. Prettier est seulement un outil de développement ; le jeu ne charge aucune dépendance JavaScript externe. `npm test` fonctionne sans installer Prettier.
 
 Après modification des sources, lancer `python package-release.py` pour régénérer `JOUER.html` et l’archive source. L’assemblage utilise explicitement UTF-8 sur tous les systèmes et accepte les imports sur plusieurs lignes.
+
+
+## Ambiance sonore
+
+Le menu de sélection des nations joue « Dogs of War » (`dogs-of-war-menu-loop.wav`). La partie joue « Medal of Honor Rising Sun Main Theme » (`rising-sun-game-loop.wav`). Les deux boucles proviennent des MP3 fournis par l’utilisateur, avec raccord fondu et niveau de fond modéré.
+
+Un seul lecteur change de piste entre le menu et la partie. Choisir une autre nation dans le menu ou naviguer entre les onglets en partie ne redémarre pas la musique. La lecture commence après une interaction, se met en pause lorsque l’onglet est masqué et reprend à son retour. Le bouton Musique et le volume conservent leurs réglages. Le son des télégrammes reste indépendant.
+
+L’ancienne composition originale « Quart de nuit » et son script `compose-music.py` sont conservés dans les sources mais ne sont plus utilisés par le lecteur.
+
+Les deux pistes musicales sont atténuées par un gain de 0,12 (environ −18 dB), appliqué après le réglage du joueur, y compris aux préférences existantes. Les télégrammes ne sont pas concernés.

@@ -2787,35 +2787,18 @@ dialog p {
   }
 }
 
-/* Arbres indépendants : aucune liaison ne traverse une autre branche. */
-.research-forest {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
-  gap: 16px;
-  align-items: start;
-}
-.research-branch {
-  min-width: 0;
+/* Une carte unique ; les couloirs conservent une largeur lisible sur petit écran. */
+.research-map-scroll {
+  max-width: 100%;
+  overflow: auto;
   border: 2px solid #8b7a4d;
   background: #141e11;
+  scrollbar-width: thin;
+  scrollbar-color: #8b7a4d #141e11;
 }
-.research-branch > h2 {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 14px;
+.research-root .research-square {
+  border: 2px solid #bda55e;
   background: #29331d;
-  border-bottom: 1px solid #8b7a4d;
-  font: 15px var(--pixel);
-  color: #ecd79e;
-}
-.research-branch > h2 small {
-  font:
-    10px 'Courier New',
-    monospace;
-  color: #c9bc94;
 }
 .research-tree.technology-tree {
   display: block;
@@ -2905,4 +2888,283 @@ dialog p {
 .technology-tree .research-square .compact-icon {
   --icon-size: 40px;
   pointer-events: none;
+}
+
+/* Papier de dépêche : la feuille avance par petits à-coups sous le rouleau. */
+#toast {
+  left: auto;
+  right: 22px;
+  bottom: 22px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  padding: 18px 20px 12px;
+  border: 1px solid #817044;
+  border-top: 7px solid #3e3e2a;
+  background: repeating-linear-gradient(0deg, #00000004 0 1px, transparent 1px 4px), #ded0a1;
+  color: #302b1c;
+  box-shadow:
+    0 8px 22px #0009,
+    inset 0 0 22px #9c7b3833;
+  font:
+    13px/1.55 'Courier New',
+    monospace;
+  transform: translateY(16px);
+  visibility: hidden;
+  z-index: 200;
+}
+#toast.show {
+  transform: translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+  animation: telegram-print 0.8s steps(12, end);
+}
+.telegram-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-bottom: 2px solid #766440;
+  padding-bottom: 8px;
+}
+.telegram-heading strong {
+  font-size: 20px;
+  letter-spacing: 3px;
+}
+.telegram-heading span {
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+#telegram-message {
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+.telegram-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px dashed #8e7c53;
+  padding-top: 8px;
+}
+.telegram-footer > span {
+  flex: 1;
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+.telegram-footer button {
+  color: #302b1c;
+  background: transparent;
+  border: 1px solid #8e7c53;
+  padding: 4px 6px;
+  font:
+    11px 'Courier New',
+    monospace;
+  cursor: pointer;
+}
+.telegram-footer button:focus-visible {
+  outline: 2px solid #302b1c;
+  outline-offset: 2px;
+}
+@keyframes telegram-print {
+  from {
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-12px);
+  }
+  to {
+    clip-path: inset(0);
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #toast.show {
+    animation: none;
+  }
+  #toast {
+    transition: none;
+  }
+}
+@media (max-width: 600px) {
+  #toast {
+    right: 16px;
+    bottom: 16px;
+  }
+}
+
+/* Le coût visible correspond au montant total débité à l’embauche. */
+.resource-card .worker-counter {
+  grid-column: 1 / -1;
+}
+.worker-label {
+  font:
+    bold 12px 'Courier New',
+    monospace;
+  color: #e5d5a5;
+}
+.resource-card .worker-controls {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: stretch;
+  min-width: 0;
+}
+.worker-hire-price {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #e2c566;
+  font:
+    bold 12px/1.4 'Courier New',
+    monospace;
+}
+.resource-card .worker-wages {
+  grid-row: 3;
+}
+
+/* Commandes de la bande sonore, séparées du son des dépêches. */
+.topbar .music-toggle {
+  flex: 0 0 auto;
+  padding: 8px;
+  min-height: 36px;
+  font:
+    bold 10px 'Courier New',
+    monospace;
+}
+.music-settings {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  padding: 14px;
+  border: 1px solid #8b7a4d;
+}
+.music-settings label,
+.music-settings input {
+  grid-column: 1 / -1;
+}
+.music-settings input {
+  width: 100%;
+  accent-color: #c6ac59;
+}
+
+.menu-music-volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font:
+    12px 'Courier New',
+    monospace;
+}
+.menu-music-volume input {
+  width: 110px;
+  accent-color: #c6ac59;
+}
+
+/* Bouton de musique compact, à l’extrémité droite des deux en-têtes. */
+.music-toggle,
+.topbar .music-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 9px;
+  color: #e2c566;
+  border: 1px solid #8b7a4d;
+  background: #202719;
+  box-shadow: inset 0 0 0 2px #10170d;
+}
+.music-toggle svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.music-toggle[aria-pressed='false'] {
+  color: #b4ac8a;
+}
+.music-toggle:focus-visible {
+  outline: 2px solid #ecd79e;
+  outline-offset: 3px;
+}
+.title-top .music-toggle {
+  margin-left: auto;
+}
+
+/* Les commandes restent dans le bandeau supérieur, quelle que soit la largeur. */
+.topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 12px;
+}
+.brand-banner {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #b3a171;
+  padding: 4px 8px;
+  background: #292e1f url('assets/materials-atlas.png');
+  box-shadow: inset 0 0 0 2px #171c0d;
+}
+.topbar .brand-banner .wordmark {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.header-controls .icon-btn {
+  width: 44px;
+  height: 44px;
+  padding: 6px;
+}
+.topbar .nation-label {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: start;
+  border-left: 0;
+  padding-left: 0;
+}
+.topbar .wallet {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+}
+.topbar .resource-stocks {
+  grid-column: 1 / -1;
+  grid-row: 3;
+}
+@media (max-width: 400px) {
+  .brand-banner {
+    padding: 4px;
+    gap: 4px;
+  }
+  .header-controls {
+    gap: 4px;
+  }
+  .topbar .brand-banner .wordmark small {
+    font-size: 7px;
+    letter-spacing: 0;
+  }
+}
+
+.title-top .title-settings {
+  margin-left: auto;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 6px;
 }

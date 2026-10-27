@@ -821,3 +821,22 @@ test('Current saves reject a technology without its full prerequisites', () => {
   s.research = { id: 'aviation', remaining: 10 };
   assert.throws(() => validateSave(s));
 });
+
+test('Manual harvest increases with site upgrades and respects storage capacity', () => {
+  for (const country of Object.keys(COUNTRIES)) {
+    const s = newGame(country),
+      coal = RESOURCES.find((r) => r.id === 'coal');
+    s.credits = 100000;
+    for (let level = 1; level <= 5; level++) {
+      const before = s.resources.coal;
+      assert.ok(act(s, 'harvest', 'coal'));
+      assert.equal(s.resources.coal - before, level);
+      if (level < 5) assert.ok(act(s, 'upgrade', 'coal'));
+    }
+    s.resources.coal = capacity(s, coal) - 2;
+    assert.ok(act(s, 'harvest', 'coal'));
+    assert.equal(s.resources.coal, capacity(s, coal));
+    assert.equal(act(s, 'harvest', 'coal'), false);
+    assert.equal(act(s, 'harvest', 'cotton'), false);
+  }
+});

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const root = new URL('../', import.meta.url);
-function mount() {
+function mount(options = {}) {
   const nodes = new Map(),
     events = {},
     timers = [],
@@ -28,7 +28,7 @@ function mount() {
   };
   const context = vm.createContext({
     structuredClone,
-    localStorage: { getItem: () => null, setItem() {} },
+    localStorage: { getItem: options.getItem || (() => null), setItem() {} },
     document: {
       querySelector: get,
       getElementById: get,
@@ -36,7 +36,7 @@ function mount() {
         events[name] = fn;
       },
     },
-    window: { addEventListener() {} },
+    window: { Audio: options.Audio, addEventListener() {} },
     setInterval(fn) {
       timers.push(fn);
     },
@@ -160,10 +160,7 @@ test('Research tree renders prerequisite links and click-pinned dossiers', () =>
   assert.equal((html.match(/data-research-node=/g) || []).length, 29);
   assert.equal(
     (html.match(/<path\s+class=/g) || []).length,
-    vm.runInContext(
-      'TECHS.reduce((n,t)=>n+t.requires.filter(id=>TECHS.find(parent=>parent.id===id).branch===t.branch).length,0)',
-      ui.context,
-    ),
+    vm.runInContext('TECHS.length', ui.context),
   );
   assert.equal((html.match(/class="research-detail"/g) || []).length, 29);
   assert.ok(html.includes('aria-controls="research-detail-steam"'));
@@ -259,14 +256,16 @@ test('Game screens retain controls without detailed mechanics copy', () => {
   }
 });
 
-test('Research shows seven separate trees with cross-branch references and no filters', () => {
+test('Research shows one connected tree without categories or filters', () => {
   const ui = mount();
   vm.runInContext("state=newGame('fr');view='research';shell();", ui.context);
   const html = ui.get('#content').innerHTML;
-  assert.equal((html.match(/class="research-branch"/g) || []).length, 7);
+  assert.equal((html.match(/class="research-tree technology-tree"/g) || []).length, 1);
+  assert.ok(!html.includes('class="research-branch"'));
+  assert.ok(html.includes('Bureau d’études'));
   assert.equal((html.match(/data-research-node=/g) || []).length, 29);
   assert.ok(!html.includes('data-research-branch'));
-  assert.ok(!html.includes('research-map-scroll'));
+  assert.ok(html.includes('research-map-scroll'));
   assert.ok(html.includes('data-research-jump="precision"'));
   assert.ok(html.includes('data-research-jump="mixed_tracks"'));
   ui.events.click({ target: { closest: () => ({ dataset: { researchJump: 'precision' } }) } });
@@ -274,13 +273,13 @@ test('Research shows seven separate trees with cross-branch references and no fi
   assert.equal(vm.runInContext('pinnedResearch', ui.context), 'precision');
 });
 
-test('Local tree paths never cross unrelated paths or pass through other nodes', () => {
+test('Single tree paths never cross unrelated paths or pass through other nodes', () => {
   const ui = mount();
-  const layouts = vm.runInContext('researchBranches.map(researchLayout)', ui.context);
+  const layouts = vm.runInContext('[researchLayout()]', ui.context);
   for (const layout of layouts) {
     const edges = [];
     for (const tech of layout.techs)
-      for (const parent of tech.requires) {
+      for (const parent of [layout.parents[tech.id]]) {
         if (!layout.positions[parent]) continue;
         const a = layout.positions[parent],
           b = layout.positions[tech.id];
@@ -305,4 +304,166 @@ test('Local tree paths never cross unrelated paths or pass through other nodes',
       assert.ok(position.depth * 220 + 180 <= layout.height);
     }
   }
+});
+
+test('Telegrams queue simultaneous events and work without audio support', () => {
+  const ui = mount();
+  vm.runInContext("notify('Recherche terminée');notify('Salaires impayés');", ui.context);
+  assert.equal(ui.get('#telegram-message').textContent, 'Recherche terminée');
+  assert.ok(ui.get('#toast').innerHTML.includes('TÉLÉGRAMME'));
+  ui.elapse(6500);
+  ui.elapse(300);
+  assert.equal(ui.get('#telegram-message').textContent, 'Salaires impayés');
+  ui.events.click({ target: { closest: () => ({ dataset: { action: 'telegram-close' } }) } });
+  ui.elapse(300);
+  assert.equal(vm.runInContext('telegramActive', ui.context), false);
+});
+
+test('Unpaid workers trigger one telegram per interruption, including partial crews', () => {
+  const ui = mount();
+  vm.runInContext(
+    "state=newGame('fr');state.workers.coal=[0,30];checkPayrollNotice();checkPayrollNotice();",
+    ui.context,
+  );
+  assert.match(ui.get('#telegram-message').textContent, /Salaires impayés/);
+  assert.equal(vm.runInContext('telegramQueue.length', ui.context), 0);
+  vm.runInContext(
+    'state.workers.coal=[30,30];checkPayrollNotice();state.workers.coal=[0,0];checkPayrollNotice();',
+    ui.context,
+  );
+  assert.equal(vm.runInContext('telegramQueue.length', ui.context), 1);
+});
+
+test('Telegram sound preference toggles without blocking game actions', () => {
+  const ui = mount(),
+    button = { dataset: { action: 'telegram-sound' }, setAttribute() {} };
+  ui.events.click({ target: { closest: () => button } });
+  assert.equal(vm.runInContext('telegramMuted', ui.context), true);
+  assert.equal(button.textContent, 'Son coupé');
+  ui.events.click({ target: { closest: () => button } });
+  assert.equal(vm.runInContext('telegramMuted', ui.context), false);
+});
+
+test('Music uses one looping player, remembers volume and pauses in hidden tabs', () => {
+  const ui = mount();
+  let creates = 0,
+    plays = 0,
+    pauses = 0;
+  ui.context.window.Audio = class {
+    constructor(src) {
+      this.src = src;
+      creates++;
+    }
+    play() {
+      plays++;
+      return Promise.resolve();
+    }
+    pause() {
+      pauses++;
+    }
+  };
+  vm.runInContext("screen='game';syncMusic();syncMusic();", ui.context);
+  assert.equal(creates, 1);
+  assert.equal(vm.runInContext('musicPlayer.loop', ui.context), true);
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/rising-sun-game-loop.wav');
+  ui.events.input({ target: { id: 'music-volume', value: '18' } });
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0.18 * 0.12);
+  ui.events.input({ target: { id: 'music-volume', value: '100' } });
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0.12);
+  vm.runInContext('syncMusic();', ui.context);
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0.12);
+  ui.context.document.hidden = true;
+  ui.events.visibilitychange();
+  assert.equal(pauses, 1);
+  ui.context.document.hidden = false;
+  ui.events.visibilitychange();
+  assert.equal(plays, 4);
+  ui.events.click({ target: { closest: () => ({ dataset: { action: 'music-toggle' } }) } });
+  assert.equal(vm.runInContext('musicEnabled', ui.context), false);
+  assert.equal(pauses, 2);
+  ui.events.visibilitychange();
+  assert.equal(plays, 4);
+});
+
+test('Menu theme loops and switches to the game track without creating a second player', () => {
+  const ui = mount();
+  let creates = 0,
+    pauses = 0;
+  ui.context.window.Audio = class {
+    constructor(src) {
+      this.src = src;
+      creates++;
+    }
+    play() {
+      return Promise.resolve();
+    }
+    pause() {
+      pauses++;
+    }
+  };
+  vm.runInContext('syncMusic();', ui.context);
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/dogs-of-war-menu-loop.wav');
+  assert.equal(vm.runInContext('musicPlayer.loop', ui.context), true);
+  vm.runInContext("state=newGame('fr');shell();", ui.context);
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/rising-sun-game-loop.wav');
+  vm.runInContext('title();', ui.context);
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/dogs-of-war-menu-loop.wav');
+  vm.runInContext("selected='us';title();", ui.context);
+  assert.equal(creates, 1);
+  assert.equal(pauses, 2);
+  assert.ok(!ui.get('#app').innerHTML.includes('menu-music-volume'));
+});
+
+test('Title offers settings and retries blocked autoplay on a background click', async () => {
+  let attempts = 0;
+  const ui = mount({
+    Audio: class {
+      constructor(src) {
+        this.src = src;
+        this.paused = true;
+      }
+      pause() {
+        this.paused = true;
+      }
+      play() {
+        attempts++;
+        if (attempts === 1) return Promise.reject(new Error('Autoplay blocked'));
+        this.paused = false;
+        return Promise.resolve();
+      }
+    },
+  });
+  assert.equal(attempts, 1);
+  assert.ok(ui.get('#app').innerHTML.includes('title-settings'));
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/dogs-of-war-menu-loop.wav');
+  await Promise.resolve();
+  ui.events.click({ target: { closest: () => null } });
+  assert.equal(attempts, 2);
+  assert.equal(vm.runInContext('musicPlayer.paused', ui.context), false);
+});
+
+test('Initial autoplay respects a saved music-off preference', () => {
+  let creates = 0;
+  const ui = mount({
+    getItem: (key) => (key === 'arsenal.music.enabled' ? 'false' : null),
+    Audio: class {
+      constructor() {
+        creates++;
+      }
+    },
+  });
+  ui.events.click({ target: { closest: () => null } });
+  ui.events.keydown({ key: 'Enter' });
+  assert.equal(creates, 0);
+});
+
+test('Title settings show menu audio and disable export before a game exists', () => {
+  const ui = mount();
+  const dialog = { innerHTML: '', addEventListener() {}, showModal() {} };
+  ui.context.document.createElement = () => dialog;
+  ui.context.document.body = { append() {} };
+  vm.runInContext('settings();', ui.context);
+  assert.ok(dialog.innerHTML.includes('Dogs of War · Musique du menu'));
+  assert.ok(dialog.innerHTML.includes('Retour au menu'));
+  assert.match(dialog.innerHTML, /data-action="export"\s+disabled/);
 });

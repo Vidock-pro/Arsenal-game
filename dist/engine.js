@@ -1096,7 +1096,11 @@ export function act(state, type, id) {
     const resource = RESOURCES.find((resource) => resource.id === id);
     if (!resource || !unlocked(state, resource) || state.resources[id] >= capacity(state, resource))
       return false;
-    state.resources[id] = Math.min(capacity(state, resource), state.resources[id] + 1);
+    // Un niveau de site apporte une unité par clic, dans la limite du stock.
+    state.resources[id] = Math.min(
+      capacity(state, resource),
+      state.resources[id] + state.levels[id],
+    );
     return true;
   }
   if (type === 'upgrade') {

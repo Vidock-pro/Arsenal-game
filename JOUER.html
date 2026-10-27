@@ -4110,35 +4110,18 @@ dialog p {
   }
 }
 
-/* Arbres indépendants : aucune liaison ne traverse une autre branche. */
-.research-forest {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
-  gap: 16px;
-  align-items: start;
-}
-.research-branch {
-  min-width: 0;
+/* Une carte unique ; les couloirs conservent une largeur lisible sur petit écran. */
+.research-map-scroll {
+  max-width: 100%;
+  overflow: auto;
   border: 2px solid #8b7a4d;
   background: #141e11;
+  scrollbar-width: thin;
+  scrollbar-color: #8b7a4d #141e11;
 }
-.research-branch > h2 {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 14px;
+.research-root .research-square {
+  border: 2px solid #bda55e;
   background: #29331d;
-  border-bottom: 1px solid #8b7a4d;
-  font: 15px var(--pixel);
-  color: #ecd79e;
-}
-.research-branch > h2 small {
-  font:
-    10px 'Courier New',
-    monospace;
-  color: #c9bc94;
 }
 .research-tree.technology-tree {
   display: block;
@@ -4228,6 +4211,285 @@ dialog p {
 .technology-tree .research-square .compact-icon {
   --icon-size: 40px;
   pointer-events: none;
+}
+
+/* Papier de dépêche : la feuille avance par petits à-coups sous le rouleau. */
+#toast {
+  left: auto;
+  right: 22px;
+  bottom: 22px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  padding: 18px 20px 12px;
+  border: 1px solid #817044;
+  border-top: 7px solid #3e3e2a;
+  background: repeating-linear-gradient(0deg, #00000004 0 1px, transparent 1px 4px), #ded0a1;
+  color: #302b1c;
+  box-shadow:
+    0 8px 22px #0009,
+    inset 0 0 22px #9c7b3833;
+  font:
+    13px/1.55 'Courier New',
+    monospace;
+  transform: translateY(16px);
+  visibility: hidden;
+  z-index: 200;
+}
+#toast.show {
+  transform: translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+  animation: telegram-print 0.8s steps(12, end);
+}
+.telegram-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-bottom: 2px solid #766440;
+  padding-bottom: 8px;
+}
+.telegram-heading strong {
+  font-size: 20px;
+  letter-spacing: 3px;
+}
+.telegram-heading span {
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+#telegram-message {
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+.telegram-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px dashed #8e7c53;
+  padding-top: 8px;
+}
+.telegram-footer > span {
+  flex: 1;
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+.telegram-footer button {
+  color: #302b1c;
+  background: transparent;
+  border: 1px solid #8e7c53;
+  padding: 4px 6px;
+  font:
+    11px 'Courier New',
+    monospace;
+  cursor: pointer;
+}
+.telegram-footer button:focus-visible {
+  outline: 2px solid #302b1c;
+  outline-offset: 2px;
+}
+@keyframes telegram-print {
+  from {
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-12px);
+  }
+  to {
+    clip-path: inset(0);
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #toast.show {
+    animation: none;
+  }
+  #toast {
+    transition: none;
+  }
+}
+@media (max-width: 600px) {
+  #toast {
+    right: 16px;
+    bottom: 16px;
+  }
+}
+
+/* Le coût visible correspond au montant total débité à l’embauche. */
+.resource-card .worker-counter {
+  grid-column: 1 / -1;
+}
+.worker-label {
+  font:
+    bold 12px 'Courier New',
+    monospace;
+  color: #e5d5a5;
+}
+.resource-card .worker-controls {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: stretch;
+  min-width: 0;
+}
+.worker-hire-price {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #e2c566;
+  font:
+    bold 12px/1.4 'Courier New',
+    monospace;
+}
+.resource-card .worker-wages {
+  grid-row: 3;
+}
+
+/* Commandes de la bande sonore, séparées du son des dépêches. */
+.topbar .music-toggle {
+  flex: 0 0 auto;
+  padding: 8px;
+  min-height: 36px;
+  font:
+    bold 10px 'Courier New',
+    monospace;
+}
+.music-settings {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  padding: 14px;
+  border: 1px solid #8b7a4d;
+}
+.music-settings label,
+.music-settings input {
+  grid-column: 1 / -1;
+}
+.music-settings input {
+  width: 100%;
+  accent-color: #c6ac59;
+}
+
+.menu-music-volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font:
+    12px 'Courier New',
+    monospace;
+}
+.menu-music-volume input {
+  width: 110px;
+  accent-color: #c6ac59;
+}
+
+/* Bouton de musique compact, à l’extrémité droite des deux en-têtes. */
+.music-toggle,
+.topbar .music-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 9px;
+  color: #e2c566;
+  border: 1px solid #8b7a4d;
+  background: #202719;
+  box-shadow: inset 0 0 0 2px #10170d;
+}
+.music-toggle svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.music-toggle[aria-pressed='false'] {
+  color: #b4ac8a;
+}
+.music-toggle:focus-visible {
+  outline: 2px solid #ecd79e;
+  outline-offset: 3px;
+}
+.title-top .music-toggle {
+  margin-left: auto;
+}
+
+/* Les commandes restent dans le bandeau supérieur, quelle que soit la largeur. */
+.topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 12px;
+}
+.brand-banner {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #b3a171;
+  padding: 4px 8px;
+  background: #292e1f url('dist/assets/materials-atlas.png');
+  box-shadow: inset 0 0 0 2px #171c0d;
+}
+.topbar .brand-banner .wordmark {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.header-controls .icon-btn {
+  width: 44px;
+  height: 44px;
+  padding: 6px;
+}
+.topbar .nation-label {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: start;
+  border-left: 0;
+  padding-left: 0;
+}
+.topbar .wallet {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+}
+.topbar .resource-stocks {
+  grid-column: 1 / -1;
+  grid-row: 3;
+}
+@media (max-width: 400px) {
+  .brand-banner {
+    padding: 4px;
+    gap: 4px;
+  }
+  .header-controls {
+    gap: 4px;
+  }
+  .topbar .brand-banner .wordmark small {
+    font-size: 7px;
+    letter-spacing: 0;
+  }
+}
+
+.title-top .title-settings {
+  margin-left: auto;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 6px;
 }
 
     </style>
@@ -5334,7 +5596,11 @@ function act(state, type, id) {
     const resource = RESOURCES.find((resource) => resource.id === id);
     if (!resource || !unlocked(state, resource) || state.resources[id] >= capacity(state, resource))
       return false;
-    state.resources[id] = Math.min(capacity(state, resource), state.resources[id] + 1);
+    // Un niveau de site apporte une unité par clic, dans la limite du stock.
+    state.resources[id] = Math.min(
+      capacity(state, resource),
+      state.resources[id] + state.levels[id],
+    );
     return true;
   }
   if (type === 'upgrade') {
@@ -5712,12 +5978,168 @@ const names = {
   storage: 'Stockage',
 };
 const icons = { harvest: '⚒', production: '⚙', research: '⚗', patents: '▤', storage: '▥' };
-// Affiche brièvement un message après une action.
-function notify(t) {
-  $('#toast').textContent = t;
-  $('#toast').classList.add('show');
+// Un seul lecteur : thème du menu ou ambiance de partie, sans superposition.
+// Atténuation commune aux deux pistes, y compris pour les volumes déjà mémorisés.
+const MUSIC_BACKGROUND_GAIN = 0.12;
+let musicPlayer = null,
+  musicTrack = null,
+  musicEnabled = true,
+  musicVolume = 0.35;
+try {
+  musicEnabled = localStorage.getItem('arsenal.music.enabled') !== 'false';
+  const storedVolume = localStorage.getItem('arsenal.music.volume');
+  if (storedVolume !== null && Number.isFinite(Number(storedVolume)))
+    musicVolume = Math.max(0, Math.min(1, Number(storedVolume)));
+} catch {}
+function syncMusic() {
+  if (!musicEnabled || document.hidden) {
+    musicPlayer?.pause();
+    return;
+  }
+  const track =
+    screen === 'title' ? 'dist/assets/dogs-of-war-menu-loop.wav' : 'dist/assets/rising-sun-game-loop.wav';
+  if (!musicPlayer) {
+    if (!window.Audio) return;
+    musicPlayer = new window.Audio(track);
+    musicTrack = track;
+    musicPlayer.loop = true;
+    musicPlayer.preload = 'auto';
+  }
+  if (musicTrack !== track) {
+    musicPlayer.pause();
+    musicPlayer.src = track;
+    musicTrack = track;
+  }
+  musicPlayer.volume = musicVolume * MUSIC_BACKGROUND_GAIN;
+  // La lecture attend un geste si le navigateur bloque le démarrage automatique.
+  musicPlayer.play()?.catch(() => {});
+}
+// Pictogramme vectoriel lisible, sans dépendre des emojis du système.
+function musicSpeakerIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M3 9h4l5-4v14l-5-4H3z" fill="currentColor"/>
+    ${
+      musicEnabled
+        ? '<path d="M16 8a6 6 0 0 1 0 8M19 5a10 10 0 0 1 0 14"/>'
+        : '<path d="m16 9 6 6m0-6-6 6"/>'
+    }
+  </svg>`;
+}
+function musicButton() {
+  const label = `${musicEnabled ? 'Couper' : 'Activer'} la musique`;
+  return `<button type="button" class="secondary music-toggle" data-action="music-toggle" aria-pressed="${musicEnabled}" aria-label="${label}" title="${label}">${musicSpeakerIcon()}</button>`;
+}
+function refreshMusicButtons() {
+  document.querySelectorAll?.('[data-action="music-toggle"]').forEach((button) => {
+    button.innerHTML = musicSpeakerIcon();
+    button.setAttribute('title', `${musicEnabled ? 'Couper' : 'Activer'} la musique`);
+    button.setAttribute('aria-pressed', String(musicEnabled));
+    button.setAttribute('aria-label', `${musicEnabled ? 'Couper' : 'Activer'} la musique`);
+  });
+}
+document.addEventListener('input', (event) => {
+  if (event.target.id !== 'music-volume') return;
+  musicVolume = Math.max(0, Math.min(1, Number(event.target.value) / 100));
+  if (musicPlayer) musicPlayer.volume = musicVolume * MUSIC_BACKGROUND_GAIN;
+  try {
+    localStorage.setItem('arsenal.music.volume', String(musicVolume));
+  } catch {}
+});
+// Les dépêches attendent leur tour : deux événements simultanés restent lisibles.
+const telegramQueue = [];
+let telegramActive = false,
+  telegramAudio = null,
+  wagesBlocked = false;
+let telegramMuted = false;
+try {
+  telegramMuted = localStorage.getItem('arsenal.telegram.muted') === 'true';
+} catch {}
+
+// Le navigateur autorise le son après un geste du joueur. Aucun fichier audio à charger.
+function unlockTelegramAudio() {
+  if (telegramMuted) return;
+  try {
+    const Audio = window.AudioContext || window.webkitAudioContext;
+    if (!Audio) return;
+    telegramAudio ||= new Audio();
+    if (telegramAudio.state === 'suspended') telegramAudio.resume().catch(() => {});
+  } catch {
+    /* Le télégramme reste visible si le son est indisponible. */
+  }
+}
+function playTelegramSound() {
+  if (telegramMuted || !telegramAudio || telegramAudio.state !== 'running') return;
+  try {
+    const audio = telegramAudio,
+      duration = 0.8;
+    const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * duration), audio.sampleRate);
+    const samples = buffer.getChannelData(0);
+    // Bruit de papier ponctué de petits claquements de rouleau, à faible volume.
+    for (let i = 0; i < samples.length; i++) {
+      const t = i / audio.sampleRate;
+      const pulse = t % 0.085 < 0.012 ? 1 : 0.16;
+      samples[i] = (Math.random() * 2 - 1) * pulse * (1 - t / duration);
+    }
+    const source = audio.createBufferSource(),
+      filter = audio.createBiquadFilter(),
+      gain = audio.createGain();
+    source.buffer = buffer;
+    filter.type = 'bandpass';
+    filter.frequency.value = 1600;
+    filter.Q.value = 0.7;
+    gain.gain.value = 0.09;
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(audio.destination);
+    source.onended = () => {
+      source.disconnect();
+      filter.disconnect();
+      gain.disconnect();
+    };
+    source.start();
+  } catch {
+    /* Une erreur audio ne doit jamais interrompre la partie. */
+  }
+}
+function showNextTelegram() {
+  if (telegramActive || !telegramQueue.length) return;
+  telegramActive = true;
+  const message = telegramQueue.shift(),
+    toast = $('#toast');
+  toast.innerHTML = `<div class="telegram-heading"><strong>TÉLÉGRAMME</strong><span>ARSENAL · SERVICE DES DÉPÊCHES</span></div>
+    <p id="telegram-message" role="status" aria-live="polite" aria-atomic="true"></p>
+    <div class="telegram-footer"><span>FIN DE TRANSMISSION</span><button data-action="telegram-sound" aria-pressed="${telegramMuted}">${telegramMuted ? 'Son coupé' : 'Son actif'}</button><button data-action="telegram-close" aria-label="Fermer le télégramme">×</button></div>`;
+  $('#telegram-message').textContent = message;
+  toast.classList.add('show');
+  playTelegramSound();
+  toastTimer = setTimeout(closeTelegram, Math.max(6500, message.length * 55));
+}
+function closeTelegram() {
+  if (!telegramActive) return;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => $('#toast').classList.remove('show'), 3500);
+  $('#toast').classList.remove('show');
+  toastTimer = setTimeout(() => {
+    telegramActive = false;
+    showNextTelegram();
+  }, 300);
+}
+function notify(message) {
+  if (!telegramQueue.includes(message)) telegramQueue.push(message);
+  showNextTelegram();
+}
+// Signale une interruption une seule fois, jusqu’à la reprise du paiement.
+function checkPayrollNotice() {
+  const stopped = RESOURCES.filter((resource) =>
+    state.workers[resource.id].some((time) => time <= 1e-8),
+  );
+  const blocked = stopped.length > 0 && state.credits < WAGE;
+  if (blocked && !wagesBlocked)
+    notify(
+      'Salaires impayés. Récolte suspendue pour les ouvriers non rémunérés : ' +
+        stopped.map((resource) => resource.name).join(', ') +
+        '.',
+    );
+  wagesBlocked = blocked;
 }
 // Enregistre la partie ; une erreur de stockage ne doit pas bloquer le jeu.
 function save() {
@@ -5862,11 +6284,20 @@ function management() {
 // Affiche le choix de nation et les commandes de reprise de partie.
 function title() {
   screen = 'title';
+  if (musicPlayer) syncMusic();
   $('#app').innerHTML = /* HTML */ `<main class="title-screen">
     <header class="title-top">
       <a class="brand" href="#">A<span class="brand-rule"></span></a
       ><span>JEU DE GESTION INDUSTRIELLE · 1914—1945</span
       ><span class="edition">ÉDITION PIXEL / 0.2</span>
+      <button
+        class="icon-btn title-settings"
+        data-action="settings"
+        aria-label="Paramètres"
+        title="Paramètres"
+      >
+        ☰
+      </button>
     </header>
     <div class="title-body">
       <div class="eyebrow"><i></i> LES INDUSTRIES DE GUERRE</div>
@@ -5936,12 +6367,20 @@ function goal() {
 // Reconstruit la structure de l’écran, puis ses compteurs.
 function shell() {
   screen = 'game';
+  if (musicPlayer) syncMusic();
   const c = COUNTRIES[state.country];
   $('#app').innerHTML = /* HTML */ `<div class="game-shell">
     <header class="topbar">
-      <button class="wordmark" data-action="home">
-        ARSENAL<small>LES INDUSTRIES DE GUERRE</small>
-      </button>
+      <div class="brand-banner">
+        <button class="wordmark" data-action="home">
+          ARSENAL<small>LES INDUSTRIES DE GUERRE</small>
+        </button>
+        <div class="header-controls" aria-label="Paramètres et musique">
+          <button class="icon-btn" data-action="settings" aria-label="Sauvegarde et paramètres">
+            ☰
+          </button>
+        </div>
+      </div>
       <div class="nation-label">
         ${flag(state.country)}<span>${c.name}<small>${c.bonus}</small></span>
       </div>
@@ -5963,9 +6402,6 @@ function shell() {
         ${wageIcon()}
         <div><small>TRÉSORERIE</small><strong id="credits"></strong></div>
       </div>
-      <button class="icon-btn" data-action="settings" aria-label="Sauvegarde et paramètres">
-        ☰
-      </button>
     </header>
     <aside class="sidebar">
       <div class="sidebar-label">COMPLEXE INDUSTRIEL</div>
@@ -6072,7 +6508,7 @@ function harvest() {
                       data-id="${resource.id}"
                       id="harvest-${resource.id}"
                     >
-                      Récolter +1</button
+                      Récolter +${state.levels[resource.id]}</button
                     ><button
                       class="upgrade"
                       data-action="upgrade"
@@ -6087,7 +6523,8 @@ function harvest() {
                       role="group"
                       aria-label="Ouvriers engagés"
                     >
-                      ${workerIcon()}<strong id="workers-${resource.id}">0</strong
+                      ${workerIcon()}<span class="worker-label">Ouvrier</span
+                      ><strong id="workers-${resource.id}">0</strong
                       ><span
                         class="worker-status"
                         id="worker-status-${resource.id}"
@@ -6118,8 +6555,10 @@ function harvest() {
                           resource,
                         )} or + ${WAGE} or pour la première minute "
                       >
-                        +
-                      </button>
+                        +</button
+                      ><span class="worker-hire-price" id="hire-price-${resource.id}"
+                        >${money(hireCost(state, resource) + WAGE)} or</span
+                      >
                     </div>
                     <div
                       class="worker-wages"
@@ -6326,15 +6765,6 @@ function production() {
         .join('')}
     </div>`;
 }
-const researchBranches = [
-  'Textile',
-  'Armement',
-  'Munitions',
-  'Véhicules',
-  'Blindés',
-  'Aviation',
-  'Industrie',
-];
 // Réutilise les pictogrammes compacts pour garder la même palette que les autres écrans.
 function researchIcon(id) {
   const materials = {
@@ -6373,201 +6803,184 @@ function researchIcon(id) {
           : 8;
   return compactIcon('ui-icons-simple.png', icon, 3, 3, 'technology-icon');
 }
-// Chaque branche forme un arbre local : les sous-arbres occupent des couloirs distincts.
-// Les prérequis d’une autre branche sont des renvois cliquables, jamais des traits traversants.
-function researchLayout(branch) {
-  const techs = TECHS.filter((tech) => tech.branch === branch);
-  const ids = new Set(techs.map((tech) => tech.id));
-  const children = (id) => techs.filter((tech) => tech.requires.includes(id));
-  const roots = techs.filter((tech) => !tech.requires.some((id) => ids.has(id)));
+// Le premier prérequis dessine la branche principale. Les autres restent des renvois.
+// Chaque sous-arbre possède ses couloirs pour éviter tout croisement.
+function researchLayout() {
+  const root = 'research-root';
+  const techs = TECHS;
+  const parents = Object.fromEntries(techs.map((tech) => [tech.id, tech.requires[0] || root]));
+  const children = (id) => techs.filter((tech) => parents[tech.id] === id);
   const leaves = (id) =>
     Math.max(
       1,
       children(id).reduce((total, child) => total + leaves(child.id), 0),
     );
-  const lanes = roots.reduce((total, root) => total + leaves(root.id), 0);
+  const lanes = leaves(root);
   const positions = {};
   let cursor = 0;
-  function place(tech, depth) {
+  function place(id, depth) {
     const start = cursor,
-      descendants = children(tech.id);
-    if (descendants.length) descendants.forEach((child) => place(child, depth + 1));
+      descendants = children(id);
+    if (descendants.length) descendants.forEach((child) => place(child.id, depth + 1));
     else cursor++;
-    positions[tech.id] = { x: ((start + cursor) / 2 / lanes) * 100, depth };
+    positions[id] = { x: ((start + cursor) / 2 / lanes) * 100, depth };
   }
-  roots.forEach((root) => place(root, 0));
+  place(root, 0);
   return {
+    root,
     techs,
+    parents,
     positions,
     lanes,
+    width: lanes * 160,
     height: (Math.max(...Object.values(positions).map((position) => position.depth)) + 1) * 220,
   };
 }
 function research() {
+  const layout = researchLayout();
   return /* HTML */ `<div class="section-intro">
       <p>Consultez les dossiers de recherche.</p>
       <span>${state.tech.length} / ${TECHS.length} RECHERCHES</span>
     </div>
-    <div class="research-forest">
-      ${researchBranches
-        .map((branch) => {
-          const layout = researchLayout(branch);
-          return /* HTML */ `<section class="research-branch">
-            <h2>
-              ${branch}<small
-                >${layout.techs.filter((tech) => state.tech.includes(tech.id)).length} /
-                ${layout.techs.length}</small
-              >
-            </h2>
-            <div
-              class="research-tree technology-tree"
-              style="height:${layout.height}px"
-              aria-label="Arbre ${branch}"
+    <div class="research-map-scroll" tabindex="0" aria-label="Arbre de technologie">
+      <div
+        class="research-tree technology-tree"
+        style="height:${layout.height}px;min-width:${layout.width}px"
+      >
+        <div
+          class="research-node research-root"
+          style="left:${layout.positions[layout.root].x}%;top:18px;--lanes:${layout.lanes}"
+        >
+          <span class="research-square"
+            >${compactIcon('ui-icons-simple.png', 3, 3, 3, 'technology-icon')}</span
+          >
+          <span class="research-node-name">Bureau d’études</span>
+        </div>
+        <svg
+          class="research-links"
+          viewBox="0 0 320 ${layout.height}"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          ${layout.techs
+            .flatMap((tech) =>
+              [layout.parents[tech.id]].map((id) => {
+                const from = layout.positions[id],
+                  to = layout.positions[tech.id];
+                return /* HTML */ `<path
+                  class="${id === layout.root || state.tech.includes(id) ? 'fulfilled' : ''}"
+                  d="M${from.x * 3.2} ${from.depth * 220 + 74} V${from.depth * 220 + 202} H${to.x *
+                  3.2} V${to.depth * 220 + 18}"
+                />`;
+              }),
+            )
+            .join('')}
+        </svg>
+        ${layout.techs
+          .map((t) => {
+            const i = TECHS.indexOf(t);
+            const done = state.tech.includes(t.id),
+              running = state.research?.id === t.id,
+              ready = t.requires.every((k) => state.tech.includes(k)),
+              { x, depth } = layout.positions[t.id],
+              status = done ? 'VALIDÉ' : running ? 'EN COURS' : ready ? 'ACCESSIBLE' : 'VERROUILLÉ';
+            return /* HTML */ `<div
+              class="research-node ${done
+                ? 'completed'
+                : running
+                  ? 'running'
+                  : ready
+                    ? 'available'
+                    : 'locked'}"
+              style="left:${x}%;top:${depth * 220 + 18}px;--lanes:${layout.lanes}"
+              data-pinned="${pinnedResearch === t.id}"
             >
-              <svg
-                class="research-links"
-                viewBox="0 0 320 ${layout.height}"
-                preserveAspectRatio="none"
-                aria-hidden="true"
+              <button
+                class="research-square"
+                data-research-node="${t.id}"
+                aria-label="${t.name} · ${status}"
+                aria-expanded="${pinnedResearch === t.id}"
+                aria-controls="research-detail-${t.id}"
               >
-                ${layout.techs
-                  .flatMap((tech) =>
-                    tech.requires
-                      .filter((id) => layout.positions[id])
-                      .map((id) => {
-                        const from = layout.positions[id],
-                          to = layout.positions[tech.id];
-                        return /* HTML */ `<path
-                          class="${state.tech.includes(id) ? 'fulfilled' : ''}"
-                          d="M${from.x * 3.2} ${from.depth * 220 + 74} V${from.depth * 220 +
-                          202} H${to.x * 3.2} V${to.depth * 220 + 18}"
-                        />`;
-                      }),
-                  )
-                  .join('')}
-              </svg>
-              ${layout.techs
-                .map((t) => {
-                  const i = TECHS.indexOf(t);
-                  const done = state.tech.includes(t.id),
-                    running = state.research?.id === t.id,
-                    ready = t.requires.every((k) => state.tech.includes(k)),
-                    { x, depth } = layout.positions[t.id],
-                    status = done
-                      ? 'VALIDÉ'
-                      : running
-                        ? 'EN COURS'
-                        : ready
-                          ? 'ACCESSIBLE'
-                          : 'VERROUILLÉ';
-                  return /* HTML */ `<div
-                    class="research-node ${done
-                      ? 'completed'
-                      : running
-                        ? 'running'
-                        : ready
-                          ? 'available'
-                          : 'locked'}"
-                    style="left:${x}%;top:${depth * 220 + 18}px;--lanes:${layout.lanes}"
-                    data-pinned="${pinnedResearch === t.id}"
+                ${researchIcon(t.id)}<span class="research-node-mark" aria-hidden="true"
+                  >${done ? '✓' : running ? '◷' : ready ? '+' : '×'}</span
+                ></button
+              ><span class="research-node-name">${t.name}</span
+              ><span class="research-node-state">${status}</span>
+              ${t.requires
+                .filter((id) => id !== layout.parents[t.id])
+                .map((id) => {
+                  const prerequisite = TECHS.find((parent) => parent.id === id);
+                  return /* HTML */ `<button
+                    class="research-prerequisite ${state.tech.includes(id) ? 'met' : ''}"
+                    data-research-jump="${id}"
+                    title="Prérequis supplémentaire : ${prerequisite.name}"
                   >
-                    <button
-                      class="research-square"
-                      data-research-node="${t.id}"
-                      aria-label="${t.name} · ${status}"
-                      aria-expanded="${pinnedResearch === t.id}"
-                      aria-controls="research-detail-${t.id}"
-                    >
-                      ${researchIcon(t.id)}<span class="research-node-mark" aria-hidden="true"
-                        >${done ? '✓' : running ? '◷' : ready ? '+' : '×'}</span
-                      ></button
-                    ><span class="research-node-name">${t.name}</span
-                    ><span class="research-node-state">${status}</span>
-                    ${t.requires
-                      .filter((id) => TECHS.find((parent) => parent.id === id).branch !== t.branch)
-                      .map((id) => {
-                        const prerequisite = TECHS.find((parent) => parent.id === id);
-                        return /* HTML */ `<button
-                          class="research-prerequisite ${state.tech.includes(id) ? 'met' : ''}"
-                          data-research-jump="${id}"
-                          title="${prerequisite.branch} · ${prerequisite.name}"
-                        >
-                          ${state.tech.includes(id) ? '✓' : '↗'} ${prerequisite.name}
-                        </button>`;
-                      })
-                      .join('')}
-                    <section
-                      class="research-detail"
-                      id="research-detail-${t.id}"
-                      aria-label="${t.name}"
-                    >
-                      <button
-                        class="research-detail-close"
-                        data-research-close="${t.id}"
-                        aria-label="Fermer le dossier"
-                      >
-                        ×
-                      </button>
-                      <div class="resource-info">
-                        <span class="serial"
-                          >DOSSIER R–0${i + 1} /
-                          ${done ? 'VALIDÉ' : running ? 'EN COURS' : 'RECHERCHE'}</span
-                        >
-                        <h2>${t.name}</h2>
-                        <p><strong>Effets :</strong> ${t.desc}</p>
-                        <p>
-                          <strong>Brevets :</strong> ${PRODUCTS.filter(
-                            (product) => product.unlock === t.id,
-                          )
-                            .map((product) => product.name)
-                            .join(', ') || 'Amélioration industrielle'}.
-                        </p>
-                        <div class="tech-requirements">
-                          <strong>Prérequis :</strong> ${t.requires.length
-                            ? t.requires.map((k) => TECHS.find((x) => x.id === k).name).join(', ')
-                            : 'Aucun'}
-                        </div>
-                        ${!done && !running
-                          ? /* HTML */ `<div
-                              class="research-costs"
-                              aria-label="Ressources nécessaires"
-                            >
-                              <strong class="research-cost-heading">Ressources nécessaires :</strong
-                              >${Object.entries(t.cost)
-                                .map(
-                                  ([id, n]) =>
-                                    /* HTML */ `<div class="research-cost">
-                                      ${resourceIcon(id)}<span
-                                        >${RESOURCES.find((resource) => resource.id === id)
-                                          .name}</span
-                                      ><strong id="research-cost-${t.id}-${id}"></strong>
-                                    </div>`,
-                                )
-                                .join('')}
-                            </div>`
-                          : ''}${done
-                          ? '<div class="done-label">✓ Technologie maîtrisée</div>'
-                          : running
-                            ? /* HTML */ `<div class="meter"><i id="research-bar"></i></div>
-                                <div class="research-time" id="research-time"></div>`
-                            : /* HTML */ `<button
-                                class="upgrade full"
-                                data-action="research"
-                                data-id="${t.id}"
-                                id="research-${t.id}"
-                                ${!ready ? 'disabled' : ''}
-                              >
-                                Lancer la recherche <small>${clock(researchTime(state, t))}</small>
-                              </button>`}
-                      </div>
-                    </section>
-                  </div>`;
+                    ${state.tech.includes(id) ? '✓' : '↗'} ${prerequisite.name}
+                  </button>`;
                 })
                 .join('')}
-            </div>
-          </section>`;
-        })
-        .join('')}
+              <section class="research-detail" id="research-detail-${t.id}" aria-label="${t.name}">
+                <button
+                  class="research-detail-close"
+                  data-research-close="${t.id}"
+                  aria-label="Fermer le dossier"
+                >
+                  ×
+                </button>
+                <div class="resource-info">
+                  <span class="serial"
+                    >DOSSIER R–0${i + 1} /
+                    ${done ? 'VALIDÉ' : running ? 'EN COURS' : 'RECHERCHE'}</span
+                  >
+                  <h2>${t.name}</h2>
+                  <p><strong>Effets :</strong> ${t.desc}</p>
+                  <p>
+                    <strong>Brevets :</strong> ${PRODUCTS.filter(
+                      (product) => product.unlock === t.id,
+                    )
+                      .map((product) => product.name)
+                      .join(', ') || 'Amélioration industrielle'}.
+                  </p>
+                  <div class="tech-requirements">
+                    <strong>Prérequis :</strong> ${t.requires.length
+                      ? t.requires.map((k) => TECHS.find((x) => x.id === k).name).join(', ')
+                      : 'Aucun'}
+                  </div>
+                  ${!done && !running
+                    ? /* HTML */ `<div class="research-costs" aria-label="Ressources nécessaires">
+                        <strong class="research-cost-heading">Ressources nécessaires :</strong
+                        >${Object.entries(t.cost)
+                          .map(
+                            ([id, n]) =>
+                              /* HTML */ `<div class="research-cost">
+                                ${resourceIcon(id)}<span
+                                  >${RESOURCES.find((resource) => resource.id === id).name}</span
+                                ><strong id="research-cost-${t.id}-${id}"></strong>
+                              </div>`,
+                          )
+                          .join('')}
+                      </div>`
+                    : ''}${done
+                    ? '<div class="done-label">✓ Technologie maîtrisée</div>'
+                    : running
+                      ? /* HTML */ `<div class="meter"><i id="research-bar"></i></div>
+                          <div class="research-time" id="research-time"></div>`
+                      : /* HTML */ `<button
+                          class="upgrade full"
+                          data-action="research"
+                          data-id="${t.id}"
+                          id="research-${t.id}"
+                          ${!ready ? 'disabled' : ''}
+                        >
+                          Lancer la recherche <small>${clock(researchTime(state, t))}</small>
+                        </button>`}
+                </div>
+              </section>
+            </div>`;
+          })
+          .join('')}
+      </div>
     </div>
     <div class="research-legend">
       <span>□ Verrouillé</span><span>＋ Accessible</span><span>◷ En cours</span
@@ -6786,6 +7199,7 @@ function updateResourceNumbers() {
       active = activeWorkers(state, resource),
       quantity = Math.floor(state.resources[resource.id]);
     text('workers-' + resource.id, crew.length);
+    text('hire-price-' + resource.id, money(hireCost(state, resource) + WAGE) + ' or');
     text('payroll-' + resource.id, crew.length * WAGE);
     const crewStatus = !crew.length
       ? 'Aucun ouvrier'
@@ -6892,19 +7306,39 @@ function settings() {
   const d = document.createElement('dialog');
   d.innerHTML = /* HTML */ `<form method="dialog">
     <div class="modal-header">
-      <h2>Archives de l’industrie</h2>
+      <h2>Paramètres</h2>
       <button class="icon-btn" aria-label="Fermer">×</button>
     </div>
     <p>
       Votre partie est sauvegardée dans ce navigateur. Exportez-la pour changer d’appareil ou
       conserver une copie.
     </p>
+    <section class="music-settings" aria-label="Ambiance musicale">
+      <strong
+        >${screen === 'title'
+          ? 'Dogs of War · Musique du menu'
+          : 'Rising Sun · Musique de partie'}</strong
+      >
+      ${musicButton()}
+      <label for="music-volume">Volume de la musique</label>
+      <input
+        id="music-volume"
+        type="range"
+        min="0"
+        max="100"
+        step="1"
+        value="${Math.round(musicVolume * 100)}"
+      />
+    </section>
     <div class="modal-actions">
-      <button type="button" class="primary" data-action="export">Exporter la sauvegarde</button
+      <button type="button" class="primary" data-action="export" ${!state ? 'disabled' : ''}>
+        Exporter la sauvegarde</button
       ><button type="button" class="secondary" data-action="import">Importer une sauvegarde</button
       ><a class="secondary" href="README.md">Télécharger le code source ↗</a>
     </div>
-    <button class="secondary full">Retour à l’usine</button>
+    <button class="secondary full">
+      ${screen === 'title' ? 'Retour au menu' : 'Retour à l’usine'}
+    </button>
   </form>`;
   document.body.append(d);
   d.addEventListener('close', () => d.remove());
@@ -6912,6 +7346,7 @@ function settings() {
 }
 // Exporte une copie de la sauvegarde au format JSON.
 function download() {
+  if (!state) return;
   save();
   const url = URL.createObjectURL(
     new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }),
@@ -6975,9 +7410,16 @@ document.addEventListener('pointerout', (e) => {
       );
   }
 });
+// Le premier geste clavier peut aussi débloquer le son après un refus d’autoplay.
+document.addEventListener('keydown', (event) => {
+  if (event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
+  if (!musicPlayer || musicPlayer.paused) syncMusic();
+});
 // Les boutons décrivent leur action dans leurs attributs data-* ; le moteur la valide.
 document.addEventListener('click', (e) => {
+  unlockTelegramAudio();
   const button = e.target.closest('button,a');
+  if (button?.dataset.action !== 'music-toggle') syncMusic();
   if (!button) return;
   if (button.dataset.researchNode) {
     pinnedResearch =
@@ -7019,6 +7461,29 @@ document.addEventListener('click', (e) => {
   }
   const a = button.dataset.action;
   if (!a) return;
+  if (a === 'music-toggle') {
+    musicEnabled = !musicEnabled;
+    try {
+      localStorage.setItem('arsenal.music.enabled', String(musicEnabled));
+    } catch {}
+    syncMusic();
+    refreshMusicButtons();
+    return;
+  }
+  if (a === 'telegram-close') {
+    closeTelegram();
+    return;
+  }
+  if (a === 'telegram-sound') {
+    telegramMuted = !telegramMuted;
+    button.textContent = telegramMuted ? 'Son coupé' : 'Son actif';
+    button.setAttribute('aria-pressed', String(telegramMuted));
+    try {
+      localStorage.setItem('arsenal.telegram.muted', String(telegramMuted));
+    } catch {}
+    if (!telegramMuted) unlockTelegramAudio();
+    return;
+  }
   if (a === 'start') {
     if (
       state &&
@@ -7028,6 +7493,7 @@ document.addEventListener('click', (e) => {
     )
       return;
     state = newGame(selected);
+    wagesBlocked = false;
     view = 'harvest';
     last = Date.now();
     save();
@@ -7077,6 +7543,7 @@ setInterval(() => {
     const before = state.tech.length,
       completed = state.lines.filter((line) => line.made > 0).length;
     advance(state, (now - last) / 1000);
+    checkPayrollNotice();
     if (state.tech.length !== before) {
       if (screen === 'game') shell();
       notify('Recherche terminée : ' + TECHS.find((t) => t.id === state.tech.at(-1)).name);
@@ -7094,9 +7561,12 @@ setInterval(() => {
 setInterval(save, 5000);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) save();
+  if (musicPlayer) syncMusic();
 });
 window.addEventListener('pagehide', save);
 title();
+// Tente le démarrage dès l’ouverture ; un refus sera retenté au premier geste.
+syncMusic();
 
     </script>
   </body>
