@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  productionRecipe,
   factoryCost,
   freeFactories,
   productionUnlocked,
@@ -36,8 +37,13 @@ function legacyLines() {
     made: 0,
   }));
 }
+function grant(s, id) {
+  for (const parent of TECHS.find((t) => t.id === id).requires) grant(s, parent);
+  if (!s.tech.includes(id)) s.tech.push(id);
+}
 function permit(s, id = 'uniform') {
-  s.tech = ['steam'];
+  s.tech = [];
+  grant(s, PRODUCTS.find((p) => p.id === id).unlock);
   s.patents = [id];
   s.lines.find((l) => l.id === id).licensed = true;
   s.factories = 1;
@@ -66,7 +72,7 @@ test('Each nation gets only its own 15 percent bonus', () => {
     s.resources.coal = 1;
     act(s, 'sell-resource', 'coal');
     assert.equal(s.credits, gold + 1);
-    s.tech = ['steam', 'assembly', 'alloys', 'series'];
+    grant(s, 'series');
     assert.equal(salePrice(s, PRODUCTS[0]), Math.ceil(14 * 1.25 * (id === 'de' ? 1.15 : 1)));
     assert.doesNotThrow(() => validateSave(s));
   }
@@ -103,7 +109,7 @@ test('Blocked actions never spend funds', () => {
 test('Research and a paid patent are both required, with no recurring income', () => {
   const s = established('fr');
   assert.equal(act(s, 'patent', 'uniform'), false);
-  assert.ok(act(s, 'research', 'steam'));
+  assert.ok(act(s, 'research', 'sewing'));
   assert.equal(act(s, 'patent', 'uniform'), false);
   advance(s, 27);
   assert.equal(act(s, 'toggle', 'uniform'), false);
@@ -167,6 +173,7 @@ test('Complete production progression is reachable for every nation', () => {
     s.credits = 1e11;
     for (const r of RESOURCES) s.resources[r.id] = 4000;
     for (const t of TECHS) {
+      for (const r of RESOURCES) s.resources[r.id] = 4000;
       assert.ok(act(s, 'research', t.id));
       advance(s, 200);
     }
@@ -281,7 +288,7 @@ test('Save migration preserves legacy assets and validates new payroll', () => {
   old.levels.platinum = 0;
   delete old.workers;
   const migrated = validateSave(old);
-  assert.equal(migrated.version, 6);
+  assert.equal(migrated.version, 7);
   assert.equal(migrated.credits, 700);
   assert.equal(migrated.resources.wood, 100);
   assert.equal(rate(migrated, RESOURCES[0]), 0);
@@ -380,7 +387,7 @@ test('Version 2 migration retains workers, converts platinum, and preserves acce
   old.levels = { coal: 1, wood: 2, iron: 1, rubber: 1, platinum: 1 };
   old.workers = { coal: [40], wood: [25], iron: [], rubber: [], platinum: [12] };
   const s = validateSave(old);
-  assert.equal(s.version, 6);
+  assert.equal(s.version, 7);
   assert.equal(s.credits, 52);
   assert.equal(s.resources.cotton, 0);
   assert.equal(s.resources.wood, 30);
@@ -469,7 +476,7 @@ test('Production gates previous item, resource sites and research separately', (
   assert.equal(act(s, 'toggle', 'support'), false);
   assert.equal(act(s, 'toggle', 'pistol'), false);
   s.lines[0].made = 1;
-  s.tech = ['steam'];
+  grant(s, 'confection');
   assert.equal(productionUnlocked(s, PRODUCTS[1]), false);
   assert.ok(act(s, 'patent', 'support'));
   assert.ok(productionUnlocked(s, PRODUCTS[1]));
@@ -477,7 +484,7 @@ test('Production gates previous item, resource sites and research separately', (
   s.lines[2].made = 1;
   s.levels.copper = 1;
   assert.ok(productionRequirements(s, pistol).some((x) => x.startsWith('Recherche')));
-  s.tech = ['steam'];
+  grant(s, 'precision');
   s.credits = 10000;
   assert.ok(act(s, 'patent', 'pistol'));
   assert.ok(productionUnlocked(s, pistol));
@@ -510,7 +517,7 @@ test('Full finished stock pauses consumption until a sale', () => {
 });
 test('Production timing carries fractional seconds consistently across updates', () => {
   const a = permit(established('us'));
-  a.tech = ['steam', 'assembly'];
+  grant(a, 'assembly');
   act(a, 'toggle', 'uniform');
   const b = structuredClone(a);
   advance(a, 70);
@@ -526,7 +533,7 @@ test('Version 3 line migration preserves stock, in-flight work and old unlocks',
   old.lines[0] = { id: 'rifle', enabled: true, remaining: 5, stock: 7, made: 12 };
   old.lines[2].stock = 2;
   const s = validateSave(old);
-  assert.equal(s.version, 6);
+  assert.equal(s.version, 7);
   assert.equal(s.lines.length, 19);
   const rifle = s.lines.find((l) => l.id === 'rifle');
   assert.equal(rifle.stock, 7);
@@ -561,7 +568,7 @@ test('Version 4 migration refunds royalty certificates once and preserves acquir
   old.lines[0].made = 3;
   old.lines[0].stock = 2;
   const s = validateSave(old);
-  assert.equal(s.version, 6);
+  assert.equal(s.version, 7);
   assert.equal(s.credits, 950);
   assert.deepEqual(s.patents, ['uniform']);
   assert.equal(s.lines[0].stock, 2);
@@ -626,7 +633,7 @@ test('Factory prices rise every five purchases and unassigned lines cannot run',
   }
   assert.equal(freeFactories(s), 16);
   assert.equal(act(s, 'assign-factory', 'uniform'), false);
-  s.tech = ['steam'];
+  s.tech = ['sewing'];
   act(s, 'patent', 'uniform');
   s.levels.cotton = 1;
   assert.equal(act(s, 'toggle', 'uniform'), false);
@@ -686,6 +693,7 @@ test('Factory batches survive save and offline updates without overfilling stock
 test('Factory migration preserves ongoing work and rejects over-allocation', () => {
   const old = permit(established('fr'));
   old.version = 5;
+  old.tech = ['steam'];
   old.lines[0].remaining = 3;
   old.lines[0].enabled = true;
   delete old.factories;
@@ -726,4 +734,109 @@ test('Reassigned factories remain reserved until their paid batch finishes', () 
   assert.equal(s.lines[0].enabled, false);
   assert.equal(freeFactories(s), 1);
   assert.deepEqual(validateSave(s), s);
+});
+
+test('Technology graph has unique positions, no cycles and all equipment prerequisites', () => {
+  assert.equal(TECHS.length, 29);
+  assert.equal(new Set(TECHS.map((t) => t.id)).size, 29);
+  assert.equal(new Set(TECHS.map((t) => `${t.col},${t.row}`)).size, 29);
+  const visit = (id, path = []) => {
+    assert.ok(!path.includes(id));
+    const tech = TECHS.find((t) => t.id === id);
+    assert.ok(tech);
+    for (const parent of tech.requires) {
+      assert.ok(TECHS.find((t) => t.id === parent).row < tech.row);
+      visit(parent, [...path, id]);
+    }
+  };
+  for (const tech of TECHS) {
+    visit(tech.id);
+    for (const [id, n] of Object.entries(tech.cost)) {
+      assert.ok(RESOURCES.some((r) => r.id === id));
+      assert.ok(Number.isInteger(n) && n > 0);
+    }
+  }
+  assert.equal(PRODUCTS[0].unlock, 'sewing');
+  assert.equal(new Set(PRODUCTS.map((p) => p.unlock)).size, 19);
+  for (const product of PRODUCTS) visit(product.unlock);
+});
+test('Optional industrial research applies speed, material and sale bonuses independently', () => {
+  const s = permit(established('us')),
+    p = PRODUCTS[0];
+  const original = structuredClone(p.recipe),
+    baseTime = productTime(s, p),
+    baseSale = salePrice(s, p);
+  grant(s, 'electricity');
+  assert.equal(productTime(s, p), baseTime / 1.15);
+  grant(s, 'assembly');
+  assert.ok(Math.abs(productTime(s, p) - baseTime / 1.15 / 1.25) < 1e-10);
+  grant(s, 'tooling');
+  assert.equal(productionRecipe(s, p).cotton, 3.6);
+  s.resources.cotton = 3.6;
+  s.resources.coal = 1.8;
+  assert.ok(act(s, 'toggle', 'uniform'));
+  advance(s, productTime(s, p));
+  assert.equal(s.lines[0].stock, 1);
+  assert.ok(s.resources.cotton < 1e-8);
+  assert.deepEqual(p.recipe, original);
+  assert.equal(salePrice(s, p), baseSale);
+  grant(s, 'series');
+  assert.equal(salePrice(s, p), Math.ceil(p.value * 1.25));
+  assert.deepEqual(validateSave(s), s);
+});
+test('Version 6 technology migration preserves owned equipment and paid work', () => {
+  const old = newGame('fr');
+  old.version = 6;
+  old.tech = ['steam'];
+  old.patents = ['uniform'];
+  old.lines[0].licensed = true;
+  old.lines[0].factories = 1;
+  old.factories = 1;
+  old.lines[0].remaining = 4;
+  old.lines[0].batch = 1;
+  old.lines[0].enabled = true;
+  old.research = { id: 'assembly', remaining: 20 };
+  old.levels.cotton = 1;
+  const next = validateSave(old);
+  assert.equal(next.version, 7);
+  assert.ok(next.tech.includes('sewing'));
+  assert.ok(next.tech.includes('precision'));
+  assert.ok(next.tech.includes('electricity'));
+  assert.equal(next.research.remaining, 20);
+  assert.equal(next.lines[0].remaining, 4);
+  assert.equal(next.lines[0].batch, 1);
+  assert.deepEqual(validateSave(next), next);
+  advance(next, 20);
+  assert.ok(next.tech.includes('assembly'));
+  assert.equal(next.lines[0].stock, 1);
+  const bad = structuredClone(old);
+  bad.tech = ['assembly'];
+  assert.throws(() => validateSave(bad));
+});
+test('Current saves reject a technology without its full prerequisites', () => {
+  const s = newGame('fr');
+  s.tech = ['multiengine'];
+  assert.throws(() => validateSave(s));
+  s.tech = ['sewing'];
+  s.research = { id: 'aviation', remaining: 10 };
+  assert.throws(() => validateSave(s));
+});
+
+test('Manual harvest increases with site upgrades and respects storage capacity', () => {
+  for (const country of Object.keys(COUNTRIES)) {
+    const s = newGame(country),
+      coal = RESOURCES.find((r) => r.id === 'coal');
+    s.credits = 100000;
+    for (let level = 1; level <= 5; level++) {
+      const before = s.resources.coal;
+      assert.ok(act(s, 'harvest', 'coal'));
+      assert.equal(s.resources.coal - before, level);
+      if (level < 5) assert.ok(act(s, 'upgrade', 'coal'));
+    }
+    s.resources.coal = capacity(s, coal) - 2;
+    assert.ok(act(s, 'harvest', 'coal'));
+    assert.equal(s.resources.coal, capacity(s, coal));
+    assert.equal(act(s, 'harvest', 'coal'), false);
+    assert.equal(act(s, 'harvest', 'cotton'), false);
+  }
 });

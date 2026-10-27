@@ -3,6 +3,7 @@ import {
   factoryCost,
   freeFactories,
   productionBatch,
+  productionRecipe,
   patentRequirements,
   productName,
   productionUnlocked,
@@ -70,12 +71,168 @@ const names = {
   storage: 'Stockage',
 };
 const icons = { harvest: '⚒', production: '⚙', research: '⚗', patents: '▤', storage: '▥' };
-// Affiche brièvement un message après une action.
-function notify(t) {
-  $('#toast').textContent = t;
-  $('#toast').classList.add('show');
+// Un seul lecteur : thème du menu ou ambiance de partie, sans superposition.
+// Atténuation commune aux deux pistes, y compris pour les volumes déjà mémorisés.
+const MUSIC_BACKGROUND_GAIN = 0.12;
+let musicPlayer = null,
+  musicTrack = null,
+  musicEnabled = true,
+  musicVolume = 0.35;
+try {
+  musicEnabled = localStorage.getItem('arsenal.music.enabled') !== 'false';
+  const storedVolume = localStorage.getItem('arsenal.music.volume');
+  if (storedVolume !== null && Number.isFinite(Number(storedVolume)))
+    musicVolume = Math.max(0, Math.min(1, Number(storedVolume)));
+} catch {}
+function syncMusic() {
+  if (!musicEnabled || document.hidden) {
+    musicPlayer?.pause();
+    return;
+  }
+  const track =
+    screen === 'title' ? 'assets/dogs-of-war-menu-loop.wav' : 'assets/rising-sun-game-loop.wav';
+  if (!musicPlayer) {
+    if (!window.Audio) return;
+    musicPlayer = new window.Audio(track);
+    musicTrack = track;
+    musicPlayer.loop = true;
+    musicPlayer.preload = 'auto';
+  }
+  if (musicTrack !== track) {
+    musicPlayer.pause();
+    musicPlayer.src = track;
+    musicTrack = track;
+  }
+  musicPlayer.volume = musicVolume * MUSIC_BACKGROUND_GAIN;
+  // La lecture attend un geste si le navigateur bloque le démarrage automatique.
+  musicPlayer.play()?.catch(() => {});
+}
+// Pictogramme vectoriel lisible, sans dépendre des emojis du système.
+function musicSpeakerIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M3 9h4l5-4v14l-5-4H3z" fill="currentColor"/>
+    ${
+      musicEnabled
+        ? '<path d="M16 8a6 6 0 0 1 0 8M19 5a10 10 0 0 1 0 14"/>'
+        : '<path d="m16 9 6 6m0-6-6 6"/>'
+    }
+  </svg>`;
+}
+function musicButton() {
+  const label = `${musicEnabled ? 'Couper' : 'Activer'} la musique`;
+  return `<button type="button" class="secondary music-toggle" data-action="music-toggle" aria-pressed="${musicEnabled}" aria-label="${label}" title="${label}">${musicSpeakerIcon()}</button>`;
+}
+function refreshMusicButtons() {
+  document.querySelectorAll?.('[data-action="music-toggle"]').forEach((button) => {
+    button.innerHTML = musicSpeakerIcon();
+    button.setAttribute('title', `${musicEnabled ? 'Couper' : 'Activer'} la musique`);
+    button.setAttribute('aria-pressed', String(musicEnabled));
+    button.setAttribute('aria-label', `${musicEnabled ? 'Couper' : 'Activer'} la musique`);
+  });
+}
+document.addEventListener('input', (event) => {
+  if (event.target.id !== 'music-volume') return;
+  musicVolume = Math.max(0, Math.min(1, Number(event.target.value) / 100));
+  if (musicPlayer) musicPlayer.volume = musicVolume * MUSIC_BACKGROUND_GAIN;
+  try {
+    localStorage.setItem('arsenal.music.volume', String(musicVolume));
+  } catch {}
+});
+// Les dépêches attendent leur tour : deux événements simultanés restent lisibles.
+const telegramQueue = [];
+let telegramActive = false,
+  telegramAudio = null,
+  wagesBlocked = false;
+let telegramMuted = false;
+try {
+  telegramMuted = localStorage.getItem('arsenal.telegram.muted') === 'true';
+} catch {}
+
+// Le navigateur autorise le son après un geste du joueur. Aucun fichier audio à charger.
+function unlockTelegramAudio() {
+  if (telegramMuted) return;
+  try {
+    const Audio = window.AudioContext || window.webkitAudioContext;
+    if (!Audio) return;
+    telegramAudio ||= new Audio();
+    if (telegramAudio.state === 'suspended') telegramAudio.resume().catch(() => {});
+  } catch {
+    /* Le télégramme reste visible si le son est indisponible. */
+  }
+}
+function playTelegramSound() {
+  if (telegramMuted || !telegramAudio || telegramAudio.state !== 'running') return;
+  try {
+    const audio = telegramAudio,
+      duration = 0.8;
+    const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * duration), audio.sampleRate);
+    const samples = buffer.getChannelData(0);
+    // Bruit de papier ponctué de petits claquements de rouleau, à faible volume.
+    for (let i = 0; i < samples.length; i++) {
+      const t = i / audio.sampleRate;
+      const pulse = t % 0.085 < 0.012 ? 1 : 0.16;
+      samples[i] = (Math.random() * 2 - 1) * pulse * (1 - t / duration);
+    }
+    const source = audio.createBufferSource(),
+      filter = audio.createBiquadFilter(),
+      gain = audio.createGain();
+    source.buffer = buffer;
+    filter.type = 'bandpass';
+    filter.frequency.value = 1600;
+    filter.Q.value = 0.7;
+    gain.gain.value = 0.09;
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(audio.destination);
+    source.onended = () => {
+      source.disconnect();
+      filter.disconnect();
+      gain.disconnect();
+    };
+    source.start();
+  } catch {
+    /* Une erreur audio ne doit jamais interrompre la partie. */
+  }
+}
+function showNextTelegram() {
+  if (telegramActive || !telegramQueue.length) return;
+  telegramActive = true;
+  const message = telegramQueue.shift(),
+    toast = $('#toast');
+  toast.innerHTML = `<div class="telegram-heading"><strong>TÉLÉGRAMME</strong><span>ARSENAL · SERVICE DES DÉPÊCHES</span></div>
+    <p id="telegram-message" role="status" aria-live="polite" aria-atomic="true"></p>
+    <div class="telegram-footer"><span>FIN DE TRANSMISSION</span><button data-action="telegram-sound" aria-pressed="${telegramMuted}">${telegramMuted ? 'Son coupé' : 'Son actif'}</button><button data-action="telegram-close" aria-label="Fermer le télégramme">×</button></div>`;
+  $('#telegram-message').textContent = message;
+  toast.classList.add('show');
+  playTelegramSound();
+  toastTimer = setTimeout(closeTelegram, Math.max(6500, message.length * 55));
+}
+function closeTelegram() {
+  if (!telegramActive) return;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => $('#toast').classList.remove('show'), 3500);
+  $('#toast').classList.remove('show');
+  toastTimer = setTimeout(() => {
+    telegramActive = false;
+    showNextTelegram();
+  }, 300);
+}
+function notify(message) {
+  if (!telegramQueue.includes(message)) telegramQueue.push(message);
+  showNextTelegram();
+}
+// Signale une interruption une seule fois, jusqu’à la reprise du paiement.
+function checkPayrollNotice() {
+  const stopped = RESOURCES.filter((resource) =>
+    state.workers[resource.id].some((time) => time <= 1e-8),
+  );
+  const blocked = stopped.length > 0 && state.credits < WAGE;
+  if (blocked && !wagesBlocked)
+    notify(
+      'Salaires impayés. Récolte suspendue pour les ouvriers non rémunérés : ' +
+        stopped.map((resource) => resource.name).join(', ') +
+        '.',
+    );
+  wagesBlocked = blocked;
 }
 // Enregistre la partie ; une erreur de stockage ne doit pas bloquer le jeu.
 function save() {
@@ -207,7 +364,7 @@ function management() {
         draggable="false"
       />
       <div class="management-stat">
-        <span>Technologies</span><strong>${state.tech.length} / 6</strong>
+        <span>Technologies</span><strong>${state.tech.length} / ${TECHS.length}</strong>
       </div>
       <div class="management-stat">
         <span>Brevets</span><strong>${state.patents.length} / ${PRODUCTS.length}</strong>
@@ -220,11 +377,20 @@ function management() {
 // Affiche le choix de nation et les commandes de reprise de partie.
 function title() {
   screen = 'title';
+  if (musicPlayer) syncMusic();
   $('#app').innerHTML = /* HTML */ `<main class="title-screen">
     <header class="title-top">
       <a class="brand" href="#">A<span class="brand-rule"></span></a
       ><span>JEU DE GESTION INDUSTRIELLE · 1914—1945</span
       ><span class="edition">ÉDITION PIXEL / 0.2</span>
+      <button
+        class="icon-btn title-settings"
+        data-action="settings"
+        aria-label="Paramètres"
+        title="Paramètres"
+      >
+        ☰
+      </button>
     </header>
     <div class="title-body">
       <div class="eyebrow"><i></i> LES INDUSTRIES DE GUERRE</div>
@@ -287,20 +453,27 @@ function goal() {
   if (!state.totalSold) return 'Première livraison : vendez votre premier lot dans Production.';
   if (state.research)
     return 'Vos ingénieurs travaillent. Rassemblez les ressources nécessaires à la prochaine avancée.';
-  if (!state.tech.length)
-    return 'Rassemblez du charbon et du coton pour rechercher Machines à vapeur.';
+  if (!state.tech.length) return 'Préparez votre atelier de confection.';
   if (!state.patents.length) return 'Achetez votre première licence de production dans Brevets.';
   return 'Développez vos ateliers, approvisionnez la recherche et débloquez les blindés.';
 }
 // Reconstruit la structure de l’écran, puis ses compteurs.
 function shell() {
   screen = 'game';
+  if (musicPlayer) syncMusic();
   const c = COUNTRIES[state.country];
   $('#app').innerHTML = /* HTML */ `<div class="game-shell">
     <header class="topbar">
-      <button class="wordmark" data-action="home">
-        ARSENAL<small>LES INDUSTRIES DE GUERRE</small>
-      </button>
+      <div class="brand-banner">
+        <button class="wordmark" data-action="home">
+          ARSENAL<small>LES INDUSTRIES DE GUERRE</small>
+        </button>
+        <div class="header-controls" aria-label="Paramètres et musique">
+          <button class="icon-btn" data-action="settings" aria-label="Sauvegarde et paramètres">
+            ☰
+          </button>
+        </div>
+      </div>
       <div class="nation-label">
         ${flag(state.country)}<span>${c.name}<small>${c.bonus}</small></span>
       </div>
@@ -322,9 +495,6 @@ function shell() {
         ${wageIcon()}
         <div><small>TRÉSORERIE</small><strong id="credits"></strong></div>
       </div>
-      <button class="icon-btn" data-action="settings" aria-label="Sauvegarde et paramètres">
-        ☰
-      </button>
     </header>
     <aside class="sidebar">
       <div class="sidebar-label">COMPLEXE INDUSTRIEL</div>
@@ -431,7 +601,7 @@ function harvest() {
                       data-id="${resource.id}"
                       id="harvest-${resource.id}"
                     >
-                      Récolter +1</button
+                      Récolter +${state.levels[resource.id]}</button
                     ><button
                       class="upgrade"
                       data-action="upgrade"
@@ -446,7 +616,8 @@ function harvest() {
                       role="group"
                       aria-label="Ouvriers engagés"
                     >
-                      ${workerIcon()}<strong id="workers-${resource.id}">0</strong
+                      ${workerIcon()}<span class="worker-label">Ouvrier</span
+                      ><strong id="workers-${resource.id}">0</strong
                       ><span
                         class="worker-status"
                         id="worker-status-${resource.id}"
@@ -477,8 +648,10 @@ function harvest() {
                           resource,
                         )} or + ${WAGE} or pour la première minute "
                       >
-                        +
-                      </button>
+                        +</button
+                      ><span class="worker-hire-price" id="hire-price-${resource.id}"
+                        >${money(hireCost(state, resource) + WAGE)} or</span
+                      >
                     </div>
                     <div
                       class="worker-wages"
@@ -613,7 +786,7 @@ function production() {
                 <span id="status-${product.id}" class="status"></span>
               </div>
               <div class="recipe" aria-label="Matières par unité">
-                ${Object.entries(product.recipe)
+                ${Object.entries(productionRecipe(state, product))
                   .map(
                     ([id, n]) =>
                       /* HTML */ `<span
@@ -685,147 +858,222 @@ function production() {
         .join('')}
     </div>`;
 }
-const researchPositions = {
-  steam: [2, 1],
-  alloys: [1, 2],
-  assembly: [2, 2],
-  chemistry: [3, 2],
-  series: [1, 3],
-  logistics: [3, 3],
-};
+// Réutilise les pictogrammes compacts pour garder la même palette que les autres écrans.
 function researchIcon(id) {
-  const drawings = {
-    steam:
-      '<path d="M7 23h18v-9H7zM10 14V7h5v7m10 3h4v6h-4M5 27h25M18 10V5h5v5"/><path d="M10 19h4m4 0h4"/>',
-    assembly:
-      '<path d="M4 23h24v6H4zM7 23V13h7v10m5 0V13h7v10M4 7h24M10 7v6m12-6v6"/><path d="M8 26h2m5 0h2m5 0h2"/>',
-    alloys: '<path d="m5 24 5-8h12l5 8v4H5zM8 12l4-7h8l4 7zM10 16l5 8m7-8-5 8M5 24h22"/>',
-    chemistry:
-      '<path d="M11 4h10m-8 0v10L5 26v3h22v-3l-8-12V4M9 21h14"/><path d="M12 25h3m4-8h2"/>',
-    series:
-      '<path d="M3 5h10v9H3zM19 5h10v9H19zM3 20h10v9H3zM19 20h10v9H19zM13 9h6m5 5v6M13 25h6"/>',
-    logistics:
-      '<path d="M3 10h16v14H3zM19 15h6l4 6v3H19M23 15v6h6"/><path d="M6 24v5h5v-5m11 0v5h5v-5M6 6h10"/>',
+  const materials = {
+    sewing: 'cotton',
+    confection: 'cotton',
+    chemistry: 'gunpowder',
+    cartridges: 'copper',
+    casting: 'iron',
+    rifle_cartridges: 'copper',
+    long_arms: 'wood',
+    armor: 'manganese',
+    alloys: 'nickel',
+    airframes: 'bauxite',
+    steam: 'coal',
+    electricity: 'copper',
+    engines: 'oil',
+    heavy_engines: 'oil',
+    aero_engines: 'oil',
+    light_armor: 'iron',
   };
-  return /* HTML */ `<svg
-    viewBox="0 0 32 34"
-    aria-hidden="true"
-    shape-rendering="crispEdges"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-  >
-    ${drawings[id]}
-  </svg>`;
+  if (materials[id]) return resourceIcon(materials[id]);
+  const icon = [
+    'assembly',
+    'chassis',
+    'mixed_tracks',
+    'heavy_press',
+    'artillery_machining',
+  ].includes(id)
+    ? 2
+    : ['aviation', 'multiengine'].includes(id)
+      ? 3
+      : id === 'series'
+        ? 4
+        : id === 'logistics'
+          ? 5
+          : 8;
+  return compactIcon('ui-icons-simple.png', icon, 3, 3, 'technology-icon');
 }
-// Relie les recherches à leurs prérequis et construit leurs fiches.
+// Le premier prérequis dessine la branche principale. Les autres restent des renvois.
+// Chaque sous-arbre possède ses couloirs pour éviter tout croisement.
+function researchLayout() {
+  const root = 'research-root';
+  const techs = TECHS;
+  const parents = Object.fromEntries(techs.map((tech) => [tech.id, tech.requires[0] || root]));
+  const children = (id) => techs.filter((tech) => parents[tech.id] === id);
+  const leaves = (id) =>
+    Math.max(
+      1,
+      children(id).reduce((total, child) => total + leaves(child.id), 0),
+    );
+  const lanes = leaves(root);
+  const positions = {};
+  let cursor = 0;
+  function place(id, depth) {
+    const start = cursor,
+      descendants = children(id);
+    if (descendants.length) descendants.forEach((child) => place(child.id, depth + 1));
+    else cursor++;
+    positions[id] = { x: ((start + cursor) / 2 / lanes) * 100, depth };
+  }
+  place(root, 0);
+  return {
+    root,
+    techs,
+    parents,
+    positions,
+    lanes,
+    width: lanes * 160,
+    height: (Math.max(...Object.values(positions).map((position) => position.depth)) + 1) * 220,
+  };
+}
 function research() {
+  const layout = researchLayout();
   return /* HTML */ `<div class="section-intro">
       <p>Consultez les dossiers de recherche.</p>
-      <span>UN PROJET À LA FOIS</span>
+      <span>${state.tech.length} / ${TECHS.length} RECHERCHES</span>
     </div>
-    <div class="research-tree" aria-label="Arbre des recherches">
-      <svg
-        class="research-links"
-        viewBox="0 0 300 450"
-        preserveAspectRatio="none"
-        aria-hidden="true"
+    <div class="research-map-scroll" tabindex="0" aria-label="Arbre de technologie">
+      <div
+        class="research-tree technology-tree"
+        style="height:${layout.height}px;min-width:${layout.width}px"
       >
-        ${TECHS.flatMap((t) =>
-          t.requires.map((id) => {
-            const [x, y] = researchPositions[id],
-              [tx, ty] = researchPositions[t.id];
-            return /* HTML */ `<path
-              class="${state.tech.includes(id) ? 'fulfilled' : ''}"
-              d="M${x * 100 - 50} ${y * 150 - 75} V${y * 150} H${tx * 100 - 50} V${ty * 150 - 75}"
-            />`;
-          }),
-        ).join('')}</svg
-      >${TECHS.map((t, i) => {
-        const done = state.tech.includes(t.id),
-          running = state.research?.id === t.id,
-          ready = t.requires.every((k) => state.tech.includes(k)),
-          [col, row] = researchPositions[t.id],
-          status = done ? 'VALIDÉ' : running ? 'EN COURS' : ready ? 'ACCESSIBLE' : 'VERROUILLÉ';
-        return /* HTML */ `<div
-          class="research-node ${done
-            ? 'completed'
-            : running
-              ? 'running'
-              : ready
-                ? 'available'
-                : 'locked'}"
-          style="grid-column:${col};grid-row:${row}"
-          data-pinned="${pinnedResearch === t.id}"
+        <div
+          class="research-node research-root"
+          style="left:${layout.positions[layout.root].x}%;top:18px;--lanes:${layout.lanes}"
         >
-          <button
-            class="research-square"
-            data-research-node="${t.id}"
-            aria-label="${t.name} · ${status}"
-            aria-expanded="${pinnedResearch === t.id}"
-            aria-controls="research-detail-${t.id}"
+          <span class="research-square"
+            >${compactIcon('ui-icons-simple.png', 3, 3, 3, 'technology-icon')}</span
           >
-            ${researchIcon(t.id)}<span class="research-node-mark" aria-hidden="true"
-              >${done ? '✓' : running ? '◷' : ready ? '+' : '×'}</span
-            ></button
-          ><span class="research-node-name">${t.name}</span
-          ><span class="research-node-state">${status}</span>
-          <section class="research-detail" id="research-detail-${t.id}" aria-label="${t.name}">
-            <button
-              class="research-detail-close"
-              data-research-close="${t.id}"
-              aria-label="Fermer le dossier"
-            >
-              ×
-            </button>
-            <div class="resource-info">
-              <span class="serial"
-                >DOSSIER R–0${i + 1} / ${done ? 'VALIDÉ' : running ? 'EN COURS' : 'RECHERCHE'}</span
-              >
-              <h2>${t.name}</h2>
-              <p><strong>Effets :</strong> ${t.desc}</p>
-              <p>
-                <strong>Brevets :</strong> ${PRODUCTS.filter((product) => product.unlock === t.id)
-                  .map((product) => product.name)
-                  .join(', ')}.
-              </p>
-              <div class="tech-requirements">
-                <strong>Prérequis :</strong> ${t.requires.length
-                  ? t.requires.map((k) => TECHS.find((x) => x.id === k).name).join(', ')
-                  : 'Aucun'}
-              </div>
-              ${!done && !running
-                ? /* HTML */ `<div class="research-costs" aria-label="Ressources nécessaires">
-                    <strong class="research-cost-heading">Ressources nécessaires :</strong
-                    >${Object.entries(t.cost)
-                      .map(
-                        ([id, n]) =>
-                          /* HTML */ `<div class="research-cost">
-                            ${resourceIcon(id)}<span
-                              >${RESOURCES.find((resource) => resource.id === id).name}</span
-                            ><strong id="research-cost-${t.id}-${id}"></strong>
-                          </div>`,
-                      )
-                      .join('')}
-                  </div>`
-                : ''}${done
-                ? '<div class="done-label">✓ Technologie maîtrisée</div>'
+          <span class="research-node-name">Bureau d’études</span>
+        </div>
+        <svg
+          class="research-links"
+          viewBox="0 0 320 ${layout.height}"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          ${layout.techs
+            .flatMap((tech) =>
+              [layout.parents[tech.id]].map((id) => {
+                const from = layout.positions[id],
+                  to = layout.positions[tech.id];
+                return /* HTML */ `<path
+                  class="${id === layout.root || state.tech.includes(id) ? 'fulfilled' : ''}"
+                  d="M${from.x * 3.2} ${from.depth * 220 + 74} V${from.depth * 220 + 202} H${to.x *
+                  3.2} V${to.depth * 220 + 18}"
+                />`;
+              }),
+            )
+            .join('')}
+        </svg>
+        ${layout.techs
+          .map((t) => {
+            const i = TECHS.indexOf(t);
+            const done = state.tech.includes(t.id),
+              running = state.research?.id === t.id,
+              ready = t.requires.every((k) => state.tech.includes(k)),
+              { x, depth } = layout.positions[t.id],
+              status = done ? 'VALIDÉ' : running ? 'EN COURS' : ready ? 'ACCESSIBLE' : 'VERROUILLÉ';
+            return /* HTML */ `<div
+              class="research-node ${done
+                ? 'completed'
                 : running
-                  ? /* HTML */ `<div class="meter"><i id="research-bar"></i></div>
-                      <div class="research-time" id="research-time"></div>`
-                  : /* HTML */ `<button
-                      class="upgrade full"
-                      data-action="research"
-                      data-id="${t.id}"
-                      id="research-${t.id}"
-                      ${!ready ? 'disabled' : ''}
-                    >
-                      Lancer la recherche <small>${clock(researchTime(state, t))}</small>
-                    </button>`}
-            </div>
-          </section>
-        </div>`;
-      }).join('')}
+                  ? 'running'
+                  : ready
+                    ? 'available'
+                    : 'locked'}"
+              style="left:${x}%;top:${depth * 220 + 18}px;--lanes:${layout.lanes}"
+              data-pinned="${pinnedResearch === t.id}"
+            >
+              <button
+                class="research-square"
+                data-research-node="${t.id}"
+                aria-label="${t.name} · ${status}"
+                aria-expanded="${pinnedResearch === t.id}"
+                aria-controls="research-detail-${t.id}"
+              >
+                ${researchIcon(t.id)}<span class="research-node-mark" aria-hidden="true"
+                  >${done ? '✓' : running ? '◷' : ready ? '+' : '×'}</span
+                ></button
+              ><span class="research-node-name">${t.name}</span
+              ><span class="research-node-state">${status}</span>
+              ${t.requires
+                .filter((id) => id !== layout.parents[t.id])
+                .map((id) => {
+                  const prerequisite = TECHS.find((parent) => parent.id === id);
+                  return /* HTML */ `<button
+                    class="research-prerequisite ${state.tech.includes(id) ? 'met' : ''}"
+                    data-research-jump="${id}"
+                    title="Prérequis supplémentaire : ${prerequisite.name}"
+                  >
+                    ${state.tech.includes(id) ? '✓' : '↗'} ${prerequisite.name}
+                  </button>`;
+                })
+                .join('')}
+              <section class="research-detail" id="research-detail-${t.id}" aria-label="${t.name}">
+                <button
+                  class="research-detail-close"
+                  data-research-close="${t.id}"
+                  aria-label="Fermer le dossier"
+                >
+                  ×
+                </button>
+                <div class="resource-info">
+                  <span class="serial"
+                    >DOSSIER R–0${i + 1} /
+                    ${done ? 'VALIDÉ' : running ? 'EN COURS' : 'RECHERCHE'}</span
+                  >
+                  <h2>${t.name}</h2>
+                  <p><strong>Effets :</strong> ${t.desc}</p>
+                  <p>
+                    <strong>Brevets :</strong> ${PRODUCTS.filter(
+                      (product) => product.unlock === t.id,
+                    )
+                      .map((product) => product.name)
+                      .join(', ') || 'Amélioration industrielle'}.
+                  </p>
+                  <div class="tech-requirements">
+                    <strong>Prérequis :</strong> ${t.requires.length
+                      ? t.requires.map((k) => TECHS.find((x) => x.id === k).name).join(', ')
+                      : 'Aucun'}
+                  </div>
+                  ${!done && !running
+                    ? /* HTML */ `<div class="research-costs" aria-label="Ressources nécessaires">
+                        <strong class="research-cost-heading">Ressources nécessaires :</strong
+                        >${Object.entries(t.cost)
+                          .map(
+                            ([id, n]) =>
+                              /* HTML */ `<div class="research-cost">
+                                ${resourceIcon(id)}<span
+                                  >${RESOURCES.find((resource) => resource.id === id).name}</span
+                                ><strong id="research-cost-${t.id}-${id}"></strong>
+                              </div>`,
+                          )
+                          .join('')}
+                      </div>`
+                    : ''}${done
+                    ? '<div class="done-label">✓ Technologie maîtrisée</div>'
+                    : running
+                      ? /* HTML */ `<div class="meter"><i id="research-bar"></i></div>
+                          <div class="research-time" id="research-time"></div>`
+                      : /* HTML */ `<button
+                          class="upgrade full"
+                          data-action="research"
+                          data-id="${t.id}"
+                          id="research-${t.id}"
+                          ${!ready ? 'disabled' : ''}
+                        >
+                          Lancer la recherche <small>${clock(researchTime(state, t))}</small>
+                        </button>`}
+                </div>
+              </section>
+            </div>`;
+          })
+          .join('')}
+      </div>
     </div>
     <div class="research-legend">
       <span>□ Verrouillé</span><span>＋ Accessible</span><span>◷ En cours</span
@@ -1044,6 +1292,7 @@ function updateResourceNumbers() {
       active = activeWorkers(state, resource),
       quantity = Math.floor(state.resources[resource.id]);
     text('workers-' + resource.id, crew.length);
+    text('hire-price-' + resource.id, money(hireCost(state, resource) + WAGE) + ' or');
     text('payroll-' + resource.id, crew.length * WAGE);
     const crewStatus = !crew.length
       ? 'Aucun ouvrier'
@@ -1117,7 +1366,7 @@ function updateProductionNumbers() {
               ? 'STOCK PLEIN'
               : !productionUnlocked(state, product)
                 ? 'PRÉREQUIS MANQUANTS'
-                : affordable(state, product.recipe)
+                : affordable(state, productionRecipe(state, product))
                   ? 'DÉMARRAGE'
                   : 'MATIÈRES MANQUANTES'
           : productionUnlocked(state, product) || line.remaining > 0
@@ -1150,19 +1399,39 @@ function settings() {
   const d = document.createElement('dialog');
   d.innerHTML = /* HTML */ `<form method="dialog">
     <div class="modal-header">
-      <h2>Archives de l’industrie</h2>
+      <h2>Paramètres</h2>
       <button class="icon-btn" aria-label="Fermer">×</button>
     </div>
     <p>
       Votre partie est sauvegardée dans ce navigateur. Exportez-la pour changer d’appareil ou
       conserver une copie.
     </p>
+    <section class="music-settings" aria-label="Ambiance musicale">
+      <strong
+        >${screen === 'title'
+          ? 'Dogs of War · Musique du menu'
+          : 'Rising Sun · Musique de partie'}</strong
+      >
+      ${musicButton()}
+      <label for="music-volume">Volume de la musique</label>
+      <input
+        id="music-volume"
+        type="range"
+        min="0"
+        max="100"
+        step="1"
+        value="${Math.round(musicVolume * 100)}"
+      />
+    </section>
     <div class="modal-actions">
-      <button type="button" class="primary" data-action="export">Exporter la sauvegarde</button
+      <button type="button" class="primary" data-action="export" ${!state ? 'disabled' : ''}>
+        Exporter la sauvegarde</button
       ><button type="button" class="secondary" data-action="import">Importer une sauvegarde</button
       ><a class="secondary" href="arsenal-source.zip" download>Télécharger le code source ↗</a>
     </div>
-    <button class="secondary full">Retour à l’usine</button>
+    <button class="secondary full">
+      ${screen === 'title' ? 'Retour au menu' : 'Retour à l’usine'}
+    </button>
   </form>`;
   document.body.append(d);
   d.addEventListener('close', () => d.remove());
@@ -1170,6 +1439,7 @@ function settings() {
 }
 // Exporte une copie de la sauvegarde au format JSON.
 function download() {
+  if (!state) return;
   save();
   const url = URL.createObjectURL(
     new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }),
@@ -1233,9 +1503,16 @@ document.addEventListener('pointerout', (e) => {
       );
   }
 });
+// Le premier geste clavier peut aussi débloquer le son après un refus d’autoplay.
+document.addEventListener('keydown', (event) => {
+  if (event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
+  if (!musicPlayer || musicPlayer.paused) syncMusic();
+});
 // Les boutons décrivent leur action dans leurs attributs data-* ; le moteur la valide.
 document.addEventListener('click', (e) => {
+  unlockTelegramAudio();
   const button = e.target.closest('button,a');
+  if (button?.dataset.action !== 'music-toggle') syncMusic();
   if (!button) return;
   if (button.dataset.researchNode) {
     pinnedResearch =
@@ -1248,6 +1525,15 @@ document.addEventListener('click', (e) => {
     pinnedResearch = null;
     renderContent();
     updateNumbers();
+    return;
+  }
+  if (button.dataset.researchJump) {
+    pinnedResearch = button.dataset.researchJump;
+    renderContent();
+    updateNumbers();
+    document
+      .querySelector(`[data-research-node="${pinnedResearch}"]`)
+      ?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
     return;
   }
   if (button.dataset.productionFilter) {
@@ -1268,6 +1554,29 @@ document.addEventListener('click', (e) => {
   }
   const a = button.dataset.action;
   if (!a) return;
+  if (a === 'music-toggle') {
+    musicEnabled = !musicEnabled;
+    try {
+      localStorage.setItem('arsenal.music.enabled', String(musicEnabled));
+    } catch {}
+    syncMusic();
+    refreshMusicButtons();
+    return;
+  }
+  if (a === 'telegram-close') {
+    closeTelegram();
+    return;
+  }
+  if (a === 'telegram-sound') {
+    telegramMuted = !telegramMuted;
+    button.textContent = telegramMuted ? 'Son coupé' : 'Son actif';
+    button.setAttribute('aria-pressed', String(telegramMuted));
+    try {
+      localStorage.setItem('arsenal.telegram.muted', String(telegramMuted));
+    } catch {}
+    if (!telegramMuted) unlockTelegramAudio();
+    return;
+  }
   if (a === 'start') {
     if (
       state &&
@@ -1277,6 +1586,7 @@ document.addEventListener('click', (e) => {
     )
       return;
     state = newGame(selected);
+    wagesBlocked = false;
     view = 'harvest';
     last = Date.now();
     save();
@@ -1326,6 +1636,7 @@ setInterval(() => {
     const before = state.tech.length,
       completed = state.lines.filter((line) => line.made > 0).length;
     advance(state, (now - last) / 1000);
+    checkPayrollNotice();
     if (state.tech.length !== before) {
       if (screen === 'game') shell();
       notify('Recherche terminée : ' + TECHS.find((t) => t.id === state.tech.at(-1)).name);
@@ -1343,6 +1654,9 @@ setInterval(() => {
 setInterval(save, 5000);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) save();
+  if (musicPlayer) syncMusic();
 });
 window.addEventListener('pagehide', save);
 title();
+// Tente le démarrage dès l’ouverture ; un refus sera retenté au premier geste.
+syncMusic();

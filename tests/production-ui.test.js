@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const root = new URL('../', import.meta.url);
-function mount() {
+function mount(options = {}) {
   const nodes = new Map(),
     events = {},
     timers = [],
@@ -28,7 +28,7 @@ function mount() {
   };
   const context = vm.createContext({
     structuredClone,
-    localStorage: { getItem: () => null, setItem() {} },
+    localStorage: { getItem: options.getItem || (() => null), setItem() {} },
     document: {
       querySelector: get,
       getElementById: get,
@@ -36,7 +36,7 @@ function mount() {
         events[name] = fn;
       },
     },
-    window: { addEventListener() {} },
+    window: { Audio: options.Audio, addEventListener() {} },
     setInterval(fn) {
       timers.push(fn);
     },
@@ -83,7 +83,7 @@ test('Production renders all 19 national cards and filters without missing image
     assert.ok(fs.existsSync(new URL(`dist/assets/production-${country}.png`, root)));
     assert.equal(ui.get('toggle-uniform').disabled, true);
     vm.runInContext(
-      "state.levels.cotton=1;state.tech=['steam'];state.credits=75;act(state,'patent','uniform');state.factories=1;act(state,'assign-factory','uniform');shell();",
+      "state.levels.cotton=1;state.tech=['sewing'];state.credits=75;act(state,'patent','uniform');state.factories=1;act(state,'assign-factory','uniform');shell();",
       ui.context,
     );
     assert.equal(ui.get('toggle-uniform').disabled, false);
@@ -101,7 +101,7 @@ test('Production renders all 19 national cards and filters without missing image
 test('A completed first item refreshes the production prerequisites', () => {
   const ui = mount();
   vm.runInContext(
-    "state=newGame('fr');state.levels.cotton=1;state.levels.wood=1;state.resources.cotton=4;state.resources.coal=2;state.tech=['steam'];state.credits=1000;act(state,'patent','uniform');state.factories=1;act(state,'assign-factory','uniform');view='production';shell();act(state,'toggle','uniform');last=Date.now()-8100;",
+    "state=newGame('fr');state.levels.cotton=1;state.levels.wood=1;state.resources.cotton=4;state.resources.coal=2;state.tech=['sewing','confection'];state.credits=1000;act(state,'patent','uniform');state.factories=1;act(state,'assign-factory','uniform');view='production';shell();act(state,'toggle','uniform');last=Date.now()-8100;",
     ui.context,
   );
   ui.timers[0]();
@@ -120,7 +120,7 @@ test('Patent catalog shows national images, research gates, affordability and ac
     assert.ok(html.includes(`production-${country}.png`));
     assert.ok(!/undefined|NaN|redevances/.test(html));
     assert.equal(ui.get('patent-uniform').disabled, true);
-    vm.runInContext("state.tech=['steam'];state.credits=74;updateNumbers();", ui.context);
+    vm.runInContext("state.tech=['sewing'];state.credits=74;updateNumbers();", ui.context);
     assert.equal(ui.get('patent-uniform').disabled, true);
     vm.runInContext('state.credits=75;updateNumbers();', ui.context);
     assert.equal(ui.get('patent-uniform').disabled, false);
@@ -138,8 +138,11 @@ test('Research displays live material costs and enables with materials and no go
   assert.ok(ui.get('#content').innerHTML.includes('Ressources nécessaires'));
   assert.ok(!ui.get('#content').innerHTML.includes('undefined'));
   assert.equal(ui.get('research-steam').disabled, true);
-  assert.equal(ui.get('research-cost-steam-coal').textContent, '0 / 60');
-  vm.runInContext('state.resources.coal=60;state.resources.cotton=20;updateNumbers();', ui.context);
+  assert.equal(ui.get('research-cost-steam-coal').textContent, '0 / 120');
+  vm.runInContext(
+    'state.resources.coal=120;state.resources.cotton=40;updateNumbers();',
+    ui.context,
+  );
   assert.equal(ui.get('research-steam').disabled, false);
   assert.equal(ui.get('research-cost-steam-coal')['data-missing'], 'false');
   ui.events.click({
@@ -154,14 +157,17 @@ test('Research tree renders prerequisite links and click-pinned dossiers', () =>
   const ui = mount();
   vm.runInContext("state=newGame('fr');view='research';shell();", ui.context);
   let html = ui.get('#content').innerHTML;
-  assert.equal((html.match(/data-research-node=/g) || []).length, 6);
-  assert.equal((html.match(/<path\s+class=/g) || []).length, 7);
-  assert.equal((html.match(/class="research-detail"/g) || []).length, 6);
+  assert.equal((html.match(/data-research-node=/g) || []).length, 29);
+  assert.equal(
+    (html.match(/<path\s+class=/g) || []).length,
+    vm.runInContext('TECHS.length', ui.context),
+  );
+  assert.equal((html.match(/class="research-detail"/g) || []).length, 29);
   assert.ok(html.includes('aria-controls="research-detail-steam"'));
   ui.events.click({ target: { closest: () => ({ dataset: { researchNode: 'chemistry' } }) } });
   html = ui.get('#content').innerHTML;
   assert.equal((html.match(/data-pinned="true"/g) || []).length, 1);
-  assert.ok(/aria-label=\"Chimie industrielle · VERROUILLÉ\"\s+aria-expanded=\"true\"/.test(html));
+  assert.ok(/aria-label=\"Chimie des poudres · ACCESSIBLE\"\s+aria-expanded=\"true\"/.test(html));
   ui.events.click({ target: { closest: () => ({ dataset: { researchClose: 'chemistry' } }) } });
   assert.ok(!ui.get('#content').innerHTML.includes('data-pinned="true"'));
   vm.runInContext(
@@ -169,9 +175,9 @@ test('Research tree renders prerequisite links and click-pinned dossiers', () =>
     ui.context,
   );
   html = ui.get('#content').innerHTML;
-  assert.ok(html.includes('Machines à vapeur · VALIDÉ'));
+  assert.ok(html.includes('Chaudières industrielles · VALIDÉ'));
   assert.ok(html.includes('Chaîne de montage · EN COURS'));
-  assert.ok(html.includes('Chimie industrielle · ACCESSIBLE'));
+  assert.ok(html.includes('Chimie des poudres · ACCESSIBLE'));
 });
 
 test('Research hover opens only after one continuous second on the square', () => {
@@ -220,7 +226,7 @@ test('Research hover opens only after one continuous second on the square', () =
 test('Production displays factory purchase and allocation controls', () => {
   const ui = mount();
   vm.runInContext(
-    "state=newGame('fr');view='production';state.tech=['steam'];state.credits=2000;state.levels.cotton=1;act(state,'patent','uniform');shell();",
+    "state=newGame('fr');view='production';state.tech=['sewing'];state.credits=2000;state.levels.cotton=1;act(state,'patent','uniform');shell();",
     ui.context,
   );
   assert.ok(ui.get('#content').innerHTML.includes('factory-icon'));
@@ -248,4 +254,216 @@ test('Game screens retain controls without detailed mechanics copy', () => {
     );
     assert.ok(!/undefined|NaN/.test(html));
   }
+});
+
+test('Research shows one connected tree without categories or filters', () => {
+  const ui = mount();
+  vm.runInContext("state=newGame('fr');view='research';shell();", ui.context);
+  const html = ui.get('#content').innerHTML;
+  assert.equal((html.match(/class="research-tree technology-tree"/g) || []).length, 1);
+  assert.ok(!html.includes('class="research-branch"'));
+  assert.ok(html.includes('Bureau d’études'));
+  assert.equal((html.match(/data-research-node=/g) || []).length, 29);
+  assert.ok(!html.includes('data-research-branch'));
+  assert.ok(html.includes('research-map-scroll'));
+  assert.ok(html.includes('data-research-jump="precision"'));
+  assert.ok(html.includes('data-research-jump="mixed_tracks"'));
+  ui.events.click({ target: { closest: () => ({ dataset: { researchJump: 'precision' } }) } });
+  assert.ok(ui.get('#content').innerHTML.includes('aria-controls="research-detail-precision"'));
+  assert.equal(vm.runInContext('pinnedResearch', ui.context), 'precision');
+});
+
+test('Single tree paths never cross unrelated paths or pass through other nodes', () => {
+  const ui = mount();
+  const layouts = vm.runInContext('[researchLayout()]', ui.context);
+  for (const layout of layouts) {
+    const edges = [];
+    for (const tech of layout.techs)
+      for (const parent of [layout.parents[tech.id]]) {
+        if (!layout.positions[parent]) continue;
+        const a = layout.positions[parent],
+          b = layout.positions[tech.id];
+        assert.equal(b.depth, a.depth + 1);
+        edges.push({ parent, child: tech.id, a, b });
+      }
+    for (const edge of edges)
+      for (const other of edges) {
+        if (edge === other || edge.parent === other.parent) continue;
+        if (edge.a.depth !== other.a.depth) continue;
+        const left = Math.min(edge.a.x, edge.b.x),
+          right = Math.max(edge.a.x, edge.b.x);
+        const otherLeft = Math.min(other.a.x, other.b.x),
+          otherRight = Math.max(other.a.x, other.b.x);
+        assert.ok(
+          right < otherLeft || otherRight < left,
+          'Les couloirs de deux sous-arbres doivent rester séparés',
+        );
+      }
+    for (const position of Object.values(layout.positions)) {
+      assert.ok(position.x > 0 && position.x < 100);
+      assert.ok(position.depth * 220 + 180 <= layout.height);
+    }
+  }
+});
+
+test('Telegrams queue simultaneous events and work without audio support', () => {
+  const ui = mount();
+  vm.runInContext("notify('Recherche terminée');notify('Salaires impayés');", ui.context);
+  assert.equal(ui.get('#telegram-message').textContent, 'Recherche terminée');
+  assert.ok(ui.get('#toast').innerHTML.includes('TÉLÉGRAMME'));
+  ui.elapse(6500);
+  ui.elapse(300);
+  assert.equal(ui.get('#telegram-message').textContent, 'Salaires impayés');
+  ui.events.click({ target: { closest: () => ({ dataset: { action: 'telegram-close' } }) } });
+  ui.elapse(300);
+  assert.equal(vm.runInContext('telegramActive', ui.context), false);
+});
+
+test('Unpaid workers trigger one telegram per interruption, including partial crews', () => {
+  const ui = mount();
+  vm.runInContext(
+    "state=newGame('fr');state.workers.coal=[0,30];checkPayrollNotice();checkPayrollNotice();",
+    ui.context,
+  );
+  assert.match(ui.get('#telegram-message').textContent, /Salaires impayés/);
+  assert.equal(vm.runInContext('telegramQueue.length', ui.context), 0);
+  vm.runInContext(
+    'state.workers.coal=[30,30];checkPayrollNotice();state.workers.coal=[0,0];checkPayrollNotice();',
+    ui.context,
+  );
+  assert.equal(vm.runInContext('telegramQueue.length', ui.context), 1);
+});
+
+test('Telegram sound preference toggles without blocking game actions', () => {
+  const ui = mount(),
+    button = { dataset: { action: 'telegram-sound' }, setAttribute() {} };
+  ui.events.click({ target: { closest: () => button } });
+  assert.equal(vm.runInContext('telegramMuted', ui.context), true);
+  assert.equal(button.textContent, 'Son coupé');
+  ui.events.click({ target: { closest: () => button } });
+  assert.equal(vm.runInContext('telegramMuted', ui.context), false);
+});
+
+test('Music uses one looping player, remembers volume and pauses in hidden tabs', () => {
+  const ui = mount();
+  let creates = 0,
+    plays = 0,
+    pauses = 0;
+  ui.context.window.Audio = class {
+    constructor(src) {
+      this.src = src;
+      creates++;
+    }
+    play() {
+      plays++;
+      return Promise.resolve();
+    }
+    pause() {
+      pauses++;
+    }
+  };
+  vm.runInContext("screen='game';syncMusic();syncMusic();", ui.context);
+  assert.equal(creates, 1);
+  assert.equal(vm.runInContext('musicPlayer.loop', ui.context), true);
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/rising-sun-game-loop.wav');
+  ui.events.input({ target: { id: 'music-volume', value: '18' } });
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0.18 * 0.12);
+  ui.events.input({ target: { id: 'music-volume', value: '100' } });
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0.12);
+  vm.runInContext('syncMusic();', ui.context);
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0.12);
+  ui.context.document.hidden = true;
+  ui.events.visibilitychange();
+  assert.equal(pauses, 1);
+  ui.context.document.hidden = false;
+  ui.events.visibilitychange();
+  assert.equal(plays, 4);
+  ui.events.click({ target: { closest: () => ({ dataset: { action: 'music-toggle' } }) } });
+  assert.equal(vm.runInContext('musicEnabled', ui.context), false);
+  assert.equal(pauses, 2);
+  ui.events.visibilitychange();
+  assert.equal(plays, 4);
+});
+
+test('Menu theme loops and switches to the game track without creating a second player', () => {
+  const ui = mount();
+  let creates = 0,
+    pauses = 0;
+  ui.context.window.Audio = class {
+    constructor(src) {
+      this.src = src;
+      creates++;
+    }
+    play() {
+      return Promise.resolve();
+    }
+    pause() {
+      pauses++;
+    }
+  };
+  vm.runInContext('syncMusic();', ui.context);
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/dogs-of-war-menu-loop.wav');
+  assert.equal(vm.runInContext('musicPlayer.loop', ui.context), true);
+  vm.runInContext("state=newGame('fr');shell();", ui.context);
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/rising-sun-game-loop.wav');
+  vm.runInContext('title();', ui.context);
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/dogs-of-war-menu-loop.wav');
+  vm.runInContext("selected='us';title();", ui.context);
+  assert.equal(creates, 1);
+  assert.equal(pauses, 2);
+  assert.ok(!ui.get('#app').innerHTML.includes('menu-music-volume'));
+});
+
+test('Title offers settings and retries blocked autoplay on a background click', async () => {
+  let attempts = 0;
+  const ui = mount({
+    Audio: class {
+      constructor(src) {
+        this.src = src;
+        this.paused = true;
+      }
+      pause() {
+        this.paused = true;
+      }
+      play() {
+        attempts++;
+        if (attempts === 1) return Promise.reject(new Error('Autoplay blocked'));
+        this.paused = false;
+        return Promise.resolve();
+      }
+    },
+  });
+  assert.equal(attempts, 1);
+  assert.ok(ui.get('#app').innerHTML.includes('title-settings'));
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/dogs-of-war-menu-loop.wav');
+  await Promise.resolve();
+  ui.events.click({ target: { closest: () => null } });
+  assert.equal(attempts, 2);
+  assert.equal(vm.runInContext('musicPlayer.paused', ui.context), false);
+});
+
+test('Initial autoplay respects a saved music-off preference', () => {
+  let creates = 0;
+  const ui = mount({
+    getItem: (key) => (key === 'arsenal.music.enabled' ? 'false' : null),
+    Audio: class {
+      constructor() {
+        creates++;
+      }
+    },
+  });
+  ui.events.click({ target: { closest: () => null } });
+  ui.events.keydown({ key: 'Enter' });
+  assert.equal(creates, 0);
+});
+
+test('Title settings show menu audio and disable export before a game exists', () => {
+  const ui = mount();
+  const dialog = { innerHTML: '', addEventListener() {}, showModal() {} };
+  ui.context.document.createElement = () => dialog;
+  ui.context.document.body = { append() {} };
+  vm.runInContext('settings();', ui.context);
+  assert.ok(dialog.innerHTML.includes('Dogs of War · Musique du menu'));
+  assert.ok(dialog.innerHTML.includes('Retour au menu'));
+  assert.match(dialog.innerHTML, /data-action="export"\s+disabled/);
 });

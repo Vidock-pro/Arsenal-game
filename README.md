@@ -32,33 +32,28 @@ Ouvrez http://localhost:8000. Sur Windows, remplacez `python` par `py` si néces
 - Les boutons − et + permettent de libérer ou d’engager un ouvrier. Libérer un ouvrier réduit le prix de la prochaine embauche ; les salaires déjà payés ne sont pas remboursés.
 - Les améliorations augmentent le rendement des ouvriers ; le clic reste à +1.
 - Production comporte 19 étapes : uniforme → matériel de soutien → munition de pistolet → pistolet → grenade → munition de fusil → fusil → mitrailleuse → obus → canon d’artillerie → jeep → camion → half-track → char léger → char moyen → char lourd → avion de reconnaissance → avion de chasse → bombardier.
-- Chaque étape demande la recherche associée terminée et un brevet acheté. Acheter le brevet nécessite un premier exemplaire de l’équipement précédent ; lancer la production nécessite aussi ses exploitations de matières premières. Les trois premiers équipements utilisent Machines à vapeur. Les conditions sont affichées sur chaque carte. Des filtres permettent de sélectionner équipement, armement, artillerie, véhicules, blindés ou aviation.
+- Chaque étape demande la recherche associée terminée et un brevet acheté. Acheter le brevet nécessite un premier exemplaire de l’équipement précédent ; lancer la production nécessite aussi ses exploitations de matières premières. Chaque équipement dispose désormais de sa propre recherche de déblocage. Les conditions sont affichées sur chaque carte. Des filtres permettent de sélectionner équipement, armement, artillerie, véhicules, blindés ou aviation.
 - Les ingrédients sont consommés au début du cycle, jamais en pause. Une ligne en attente de ressources reprend lorsqu’elles sont disponibles. Le stockage d’équipements est limité à 9 999 unités par ligne ; vendre libère la place.
 - Chaque nation possède 19 appellations et illustrations propres. Les visuels sont des vues de côté sur fond vert quadrillé de table à dessin industrielle. Les variantes nationales ont les mêmes recettes de jeu ; les bonus de nation s’appliquent séparément.
 - Les recettes utilisent directement les 12 matières premières en unités abstraites. Le prix de base d’un équipement dépasse la valeur marchande de ses ingrédients, avec une marge croissante selon le palier. La production de matières intermédiaires (tissu, acier, carburant raffiné) n’est pas encore un système séparé.
 
 - Brevets est un catalogue de 19 licences avec les illustrations nationales. Chaque achat est unique, coûte cinq fois la valeur de vente de base (minimum 75 or, arrondi supérieur), et autorise une ligne. Les brevets ne génèrent plus de revenus passifs.
 
-### Présentation des recherches
+### Arbre des recherches
 
-L’onglet Recherche affiche les six technologies dans un arbre de boutons carrés reliés selon leurs prérequis. Un survol continu d’une seconde sur le carré révèle la fiche détaillée (quitter le carré avant ce délai annule l’ouverture). Le texte et les espaces autour ne déclenchent pas la fiche. Le focus clavier permet aussi de la consulter ; un clic la garde ouverte, y compris sur écran tactile. La fiche indique les effets, les brevets associés, les ressources disponibles et requises, ainsi que le lancement ou la progression du projet. Les états verrouillé, accessible, en cours et validé sont identifiés par un texte et un symbole.
+29 recherches dans un seul arbre, reliées au Bureau d’études, sans catégories ni filtres. Chaque recherche est reliée à son premier prérequis ; les prérequis supplémentaires restent visibles sous forme de renvois cliquables et dans sa fiche. Les sous-arbres occupent des couloirs distincts, sans croisement. La carte défile sur les petits écrans. Le survol d’une seconde ouvre la fiche ; le clic la garde ouverte, y compris sur écran tactile.
 
-### Coût des recherches
+Les coûts en ressources des 29 recherches ont été doublés : la confection initiale demande 60 charbon et 80 coton, et les chaudières 120 charbon et 40 coton. Les durées et prérequis restent identiques. Les ressources sont consommées une seule fois au lancement. Une seule recherche est active à la fois. Les 19 équipements ont chacun une recherche dédiée, suivie de l’achat de leur brevet en or. La progression des brevets conserve l’exigence d’un premier exemplaire de l’équipement précédent. Le début est : Machines à coudre industrielles → brevet Uniforme → première production.
 
-Les ressources sont consommées au lancement, une seule fois, sans coût en or. Les recherches déjà en cours continuent sans nouveau paiement. Les prérequis et durées sont inchangés ; les brevets restent achetés en or.
+Les coûts, durées et prérequis complets sont centralisés dans `TECHS` (`dist/engine.js`). Les positions affichées sont calculées à partir du premier prérequis de chaque recherche ; `col` et `row` conservent les anciens repères du catalogue. Les branches suivent le schéma proposé : presses et poudres se rejoignent pour les cartouches ; motorisation et métallurgie se rejoignent pour les blindés ; confection et motorisation se rejoignent pour l’aviation.
 
-| Recherche | Ressources |
-|---|---|
-| Machines à vapeur | 60 charbon, 20 coton |
-| Chaîne de montage | 100 charbon, 60 bois, 40 fer, 20 cuivre |
-| Alliages avancés | 150 charbon, 100 fer, 40 manganèse, 20 nickel |
-| Chimie industrielle | 80 charbon, 50 poudre à canon, 30 cuivre |
-| Production en série | 180 charbon, 80 bois, 120 fer, 60 cuivre |
-| Transport motorisé | 140 charbon, 80 fer, 40 caoutchouc, 30 pétrole |
+Les recherches facultatives d’Industrie apportent : chaudières +20 % de récolte, électrification +15 % de vitesse de production, chaîne de montage +25 % de vitesse, outillage −10 % de matières consommées, contrôle qualité +25 % au prix de vente. Les bonus de vitesse se multiplient. Les recettes réduites peuvent contenir des fractions, conservées dans les stocks ; les transactions en or restent arrondies à l’entier supérieur. Transport industriel conserve l’ancien bonus logistique (+25 % de récolte et capacité doublée).
 
 ### Compatibilité des anciennes parties
 
-Les sauvegardes v1/v2/v3/v4 passent en version 5. Les exploitations existantes restent utilisables même si les nouveaux sites intermédiaires ne sont pas encore ouverts. Les nouvelles ressources commencent à zéro. Le platine est converti à son ancien prix (6 or par unité) et ses ouvriers rejoignent le charbon ; si la limite de 100 ouvriers est atteinte, les ouvriers excédentaires sont compensés à hauteur de l’embauche de base et de leur salaire prépayé restant. La migration ne remet pas la partie à zéro. Les anciennes lignes fusil et camion conservent leur état ; l’ancienne ligne char devient char moyen. Stocks, travail en cours et nombres fabriqués sont conservés. Les lignes déjà acquises, actives ou ayant produit conservent leur licence et obtiennent les recherches nécessaires. Les anciens certificats à redevances sont remboursés une seule fois à leur prix d’achat. Si une recherche ainsi accordée était en cours, elle est remboursée et arrêtée. Les autres lignes suivent le nouveau parcours.
+Les sauvegardes v1 à v6 passent en version 7. Les exploitations existantes restent utilisables même si les nouveaux sites intermédiaires ne sont pas encore ouverts. Les nouvelles ressources commencent à zéro. Le platine est converti à son ancien prix (6 or par unité) et ses ouvriers rejoignent le charbon ; si la limite de 100 ouvriers est atteinte, les ouvriers excédentaires sont compensés à hauteur de l’embauche de base et de leur salaire prépayé restant. La migration ne remet pas la partie à zéro. Les anciennes lignes fusil et camion conservent leur état ; l’ancienne ligne char devient char moyen. Stocks, travail en cours et nombres fabriqués sont conservés. Les lignes déjà acquises, actives ou ayant produit conservent leur licence et obtiennent les recherches nécessaires. Les anciens certificats à redevances sont remboursés une seule fois à leur prix d’achat. Si une recherche ainsi accordée était en cours, elle est remboursée et arrêtée. Les autres lignes suivent le nouveau parcours.
+
+La migration vers le nouvel arbre accorde les prérequis des recherches conservées et les recherches correspondant aux brevets auparavant accessibles. Les usines, lots payés et stocks sont conservés. Une recherche en cours garde son temps restant ; si elle est déjà accordée par la conversion, son coût historique en matières est restitué une seule fois.
 
 ### Les quatre pays
 
@@ -118,7 +113,7 @@ Code sous licence MIT : réutilisation, modification, redistribution et usage co
 
 ## Périmètre de cette première version
 
-12 ressources, 19 lignes de production par nation, 6 recherches, 19 brevets, écran de stocks et sauvegardes. Les illustrations d'exploitation proviennent des maquettes ; les équipements sont illustrés en pixel art sur des planches de dessin industriel. Pas encore de sons, de campagne scénarisée, de simulation énergétique séparée ni de prestige. L'équilibrage vise un premier prototype jouable.
+12 ressources, 19 lignes de production par nation, 29 recherches, 19 brevets, écran de stocks et sauvegardes. Les illustrations d'exploitation proviennent des maquettes ; les équipements sont illustrés en pixel art sur des planches de dessin industriel. Pas encore de sons, de campagne scénarisée, de simulation énergétique séparée ni de prestige. L'équilibrage vise un premier prototype jouable.
 
 
 ## Références visuelles de production
@@ -144,3 +139,14 @@ Le guide [CODE.md](CODE.md) décrit les fichiers, les principales fonctions et l
 Pour conserver la même mise en forme après une modification : `npm ci`, puis `npm run format`. `npm run format:check` vérifie le format sans modifier les fichiers. Prettier est seulement un outil de développement ; le jeu ne charge aucune dépendance JavaScript externe. `npm test` fonctionne sans installer Prettier.
 
 Après modification des sources, lancer `python package-release.py` pour régénérer `JOUER.html` et l’archive source. L’assemblage utilise explicitement UTF-8 sur tous les systèmes et accepte les imports sur plusieurs lignes.
+
+
+## Ambiance sonore
+
+Le menu de sélection des nations joue « Dogs of War » (`dogs-of-war-menu-loop.wav`). La partie joue « Medal of Honor Rising Sun Main Theme » (`rising-sun-game-loop.wav`). Les deux boucles proviennent des MP3 fournis par l’utilisateur, avec raccord fondu et niveau de fond modéré.
+
+Un seul lecteur change de piste entre le menu et la partie. Choisir une autre nation dans le menu ou naviguer entre les onglets en partie ne redémarre pas la musique. La lecture commence après une interaction, se met en pause lorsque l’onglet est masqué et reprend à son retour. Le bouton Musique et le volume conservent leurs réglages. Le son des télégrammes reste indépendant.
+
+L’ancienne composition originale « Quart de nuit » et son script `compose-music.py` sont conservés dans les sources mais ne sont plus utilisés par le lecteur.
+
+Les deux pistes musicales sont atténuées par un gain de 0,12 (environ −18 dB), appliqué après le réglage du joueur, y compris aux préférences existantes. Les télégrammes ne sont pas concernés.
