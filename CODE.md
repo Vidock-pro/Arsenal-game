@@ -74,3 +74,12 @@ Installer les outils de formatage avec `npm ci` si nécessaire. Pour appliquer l
 ## Télégrammes
 
 `notify` ajoute les dépêches à une file, affichée une notification à la fois. `checkPayrollNotice` détecte les interruptions de salaire, y compris lorsqu’une partie des ouvriers reste payée. Le son est synthétisé avec Web Audio après une interaction ; son absence ne bloque pas le jeu. Le bouton de son conserve sa préférence séparément de la sauvegarde. Le papier est dessiné en CSS, avec une animation désactivée si le système demande moins de mouvement.
+
+
+## Lisibilité et affichage des stocks
+
+Le bloc final de `pixel-skin.css` définit les tailles de lecture en `rem` avec une base `clamp` qui augmente sur les grandes fenêtres. Les textes explicatifs utilisent Courier New ; la police pixel reste sur les titres. Les fonds des panneaux sont des dégradés CSS sans étirement de l’atlas ; les illustrations et planches d’objets conservent leurs images.
+
+`compact` utilise des suffixes explicites (k, M, Md, T) et des espaces ordinaires pour éviter les glyphes manquants. `updateResourceNumbers` actualise aussi les capacités visibles dans l’en-tête, les ressources, le marché et le stockage. La limite vient toujours de `capacity`, sans modification des règles de stockage.
+
+La musique monte progressivement pendant quatre secondes à partir de l’événement `playing`. Une pause ou un changement de piste remet le fondu à zéro ; les clics ordinaires ne relancent pas un fondu déjà en cours.

@@ -9,7 +9,7 @@ import {
   productionUnlocked,
   productionRequirements,
   hireCost,
-  WAGE,
+  workerWage,
   PAY_PERIOD,
   MARKET_PRICES,
   available,
@@ -51,10 +51,23 @@ let state = null,
   last = Date.now(),
   saved = true,
   toastTimer;
-const fmt = (n) => Math.floor(n).toLocaleString('fr-FR');
+const fmt = (n) =>
+  Math.floor(n)
+    .toLocaleString('fr-FR')
+    .replace(/[\u00a0\u202f]/g, ' ');
 const money = (n) => Math.ceil(n).toLocaleString('fr-FR');
-const compact = (n) =>
-  n >= 1000 ? n.toLocaleString('fr-FR', { notation: 'compact', maximumFractionDigits: 1 }) : fmt(n);
+// Unités et espaces explicites : aucun caractère absent de la police du jeu.
+const compact = (n) => {
+  const units = [
+    [1e12, 'T'],
+    [1e9, 'Md'],
+    [1e6, 'M'],
+    [1e3, 'k'],
+  ];
+  const unit = units.find(([value]) => n >= value);
+  if (!unit) return fmt(n);
+  return String(Math.floor((n / unit[0]) * 10) / 10).replace('.', ',') + ' ' + unit[1];
+};
 const dec = (n) => n.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
 const clock = (n) =>
   `${Math.floor(Math.max(0, n) / 60)
@@ -76,6 +89,8 @@ const icons = { harvest: '⚒', production: '⚙', research: '⚗', patents: '�
 const MUSIC_BACKGROUND_GAIN = 0.12;
 let musicPlayer = null,
   musicTrack = null,
+  musicFade = 0,
+  musicFadeTimer = null,
   musicEnabled = true,
   musicVolume = 0.35;
 try {
@@ -84,9 +99,31 @@ try {
   if (storedVolume !== null && Number.isFinite(Number(storedVolume)))
     musicVolume = Math.max(0, Math.min(1, Number(storedVolume)));
 } catch {}
+// Monte doucement vers le volume choisi, sans toucher au niveau des télégrammes.
+function applyMusicVolume() {
+  if (musicPlayer) musicPlayer.volume = musicVolume * MUSIC_BACKGROUND_GAIN * musicFade;
+}
+function resetMusicFade() {
+  clearTimeout(musicFadeTimer);
+  musicFadeTimer = null;
+  musicFade = 0;
+  applyMusicVolume();
+}
+function startMusicFade() {
+  if (!musicEnabled || document.hidden || musicFadeTimer !== null || musicFade >= 1) return;
+  function step() {
+    musicFadeTimer = null;
+    if (!musicEnabled || document.hidden || musicPlayer.paused) return;
+    musicFade = Math.min(1, musicFade + 1 / 80);
+    applyMusicVolume();
+    if (musicFade < 1) musicFadeTimer = setTimeout(step, 50);
+  }
+  musicFadeTimer = setTimeout(step, 50);
+}
 function syncMusic() {
   if (!musicEnabled || document.hidden) {
     musicPlayer?.pause();
+    resetMusicFade();
     return;
   }
   const track =
@@ -97,13 +134,16 @@ function syncMusic() {
     musicTrack = track;
     musicPlayer.loop = true;
     musicPlayer.preload = 'auto';
+    musicPlayer.onplaying = startMusicFade;
   }
   if (musicTrack !== track) {
     musicPlayer.pause();
+    resetMusicFade();
     musicPlayer.src = track;
     musicTrack = track;
   }
-  musicPlayer.volume = musicVolume * MUSIC_BACKGROUND_GAIN;
+  if (musicPlayer.paused) resetMusicFade();
+  applyMusicVolume();
   // La lecture attend un geste si le navigateur bloque le démarrage automatique.
   musicPlayer.play()?.catch(() => {});
 }
@@ -130,14 +170,6 @@ function refreshMusicButtons() {
     button.setAttribute('aria-label', `${musicEnabled ? 'Couper' : 'Activer'} la musique`);
   });
 }
-document.addEventListener('input', (event) => {
-  if (event.target.id !== 'music-volume') return;
-  musicVolume = Math.max(0, Math.min(1, Number(event.target.value) / 100));
-  if (musicPlayer) musicPlayer.volume = musicVolume * MUSIC_BACKGROUND_GAIN;
-  try {
-    localStorage.setItem('arsenal.music.volume', String(musicVolume));
-  } catch {}
-});
 // Les dépêches attendent leur tour : deux événements simultanés restent lisibles.
 const telegramQueue = [];
 let telegramActive = false,
@@ -222,10 +254,12 @@ function notify(message) {
 }
 // Signale une interruption une seule fois, jusqu’à la reprise du paiement.
 function checkPayrollNotice() {
-  const stopped = RESOURCES.filter((resource) =>
-    state.workers[resource.id].some((time) => time <= 1e-8),
+  const stopped = RESOURCES.filter(
+    (resource) =>
+      state.workers[resource.id].some((time) => time <= 1e-8) &&
+      state.credits < workerWage(resource),
   );
-  const blocked = stopped.length > 0 && state.credits < WAGE;
+  const blocked = stopped.length > 0;
   if (blocked && !wagesBlocked)
     notify(
       'Salaires impayés. Récolte suspendue pour les ouvriers non rémunérés : ' +
@@ -487,7 +521,8 @@ function shell() {
               role="group"
               tabindex="0"
             >
-              ${resourceIcon(resource.id)}<strong id="header-stock-${resource.id}"></strong>
+              ${resourceIcon(resource.id)}<strong id="header-stock-${resource.id}"></strong
+              ><span class="header-capacity" id="header-capacity-${resource.id}"></span>
             </div>`,
         ).join('')}
       </div>
@@ -590,7 +625,12 @@ function harvest() {
                     id="upgrade-${resource.id}"
                   ></button>`
               : /* HTML */ `<div class="stock-row">
-                    <div><small>EN RÉSERVE</small><strong id="stock-${resource.id}"></strong></div>
+                    <div>
+                      <small>EN RÉSERVE</small><strong id="stock-${resource.id}"></strong
+                      ><small class="stock-capacity"
+                        >MAX <span id="capacity-${resource.id}"></span
+                      ></small>
+                    </div>
                     <span class="rate" id="rate-${resource.id}"></span>
                   </div>
                   <div class="meter"><i id="bar-${resource.id}"></i></div>
@@ -642,22 +682,21 @@ function harvest() {
                         aria-label="Engager un ouvrier — ${resource.name}, ${hireCost(
                           state,
                           resource,
-                        ) + WAGE} or"
-                        title="Embauche : ${hireCost(
-                          state,
+                        ) + workerWage(resource)} or"
+                        title="Embauche : ${hireCost(state, resource)} or + ${workerWage(
                           resource,
-                        )} or + ${WAGE} or pour la première minute "
+                        )} or pour la première minute "
                       >
                         +</button
                       ><span class="worker-hire-price" id="hire-price-${resource.id}"
-                        >${money(hireCost(state, resource) + WAGE)} or</span
+                        >${money(hireCost(state, resource) + workerWage(resource))} or</span
                       >
                     </div>
                     <div
                       class="worker-wages"
                       id="wages-${resource.id}"
                       role="group"
-                      title="Salaire : ${WAGE} or / ouvrier / min"
+                      title="Salaire : ${workerWage(resource)} or / ouvrier / min"
                     >
                       ${wageIcon()}<strong id="payroll-${resource.id}">0</strong
                       ><small>/ min</small>
@@ -669,6 +708,51 @@ function harvest() {
     </div>`;
 }
 // Affiche les ventes de matières premières.
+// La sélection reste stable quand les stocks montent, mais ne dépasse jamais le stock vendable.
+const marketQuantities = {};
+function updateMarketQuantity(id) {
+  if (!state || !RESOURCES.some((resource) => resource.id === id)) return;
+  const stock = Math.floor(state.resources[id]);
+  const selected = Math.max(0, Math.min(stock, marketQuantities[id] ?? Math.min(1, stock)));
+  marketQuantities[id] = selected;
+  const field = document.getElementById('market-quantity-' + id);
+  const slider = document.getElementById('market-slider-' + id);
+  for (const input of [field, slider]) {
+    if (!input) continue;
+    input.max = String(stock);
+    input.disabled = stock === 0;
+    // Laisser le joueur vider le champ pendant sa saisie.
+    if (!(input === field && document.activeElement === field && field.value === ''))
+      input.value = String(selected);
+  }
+  text('market-owned-' + id, fmt(stock));
+  text(
+    'sell-quantity-' + id,
+    `Vendre ${fmt(selected)} · ${money(selected * MARKET_PRICES[id])} or`,
+  );
+  disable('sell-quantity-' + id, selected <= 0);
+  disable('market-more-' + id, selected >= stock);
+  disable('market-less-' + id, selected <= 0);
+}
+function editMarketQuantity(event) {
+  const id = event.target.dataset?.marketQuantity;
+  if (!id || !state || !RESOURCES.some((resource) => resource.id === id)) return;
+  const value = Number(event.target.value);
+  marketQuantities[id] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  updateMarketQuantity(id);
+  if (event.type === 'change') event.target.value = String(marketQuantities[id]);
+}
+document.addEventListener('input', (event) => {
+  editMarketQuantity(event);
+  // Le curseur de musique partage le même événement délégué.
+  if (event.target.id !== 'music-volume') return;
+  musicVolume = Math.max(0, Math.min(1, Number(event.target.value) / 100));
+  applyMusicVolume();
+  try {
+    localStorage.setItem('arsenal.music.volume', String(musicVolume));
+  } catch {}
+});
+document.addEventListener('change', editMarketQuantity);
 function market() {
   return /* HTML */ `<div class="section-intro">
       <p>Vendez vos matières premières pour financer vos ouvriers et de nouvelles exploitations.</p>
@@ -678,27 +762,73 @@ function market() {
       ${RESOURCES.map(
         (resource) =>
           /* HTML */ `<article class="storage-panel market-card">
-            <h2 class="resource-name">${resourceIcon(resource.id)}${resource.name}</h2>
+            <h2 class="resource-name">
+              <strong class="market-owned" id="market-owned-${resource.id}"></strong>${resourceIcon(
+                resource.id,
+              )}${resource.name}
+            </h2>
             <p class="market-price">
               ${money(MARKET_PRICES[resource.id])} or <small>/ unité</small>
             </p>
-            <p>En réserve : <strong id="stock-${resource.id}"></strong></p>
+            <div class="market-quantity-controls">
+              <label for="market-quantity-${resource.id}">Quantité à vendre</label>
+              <div class="market-quantity-inputs">
+                <input
+                  type="range"
+                  min="0"
+                  max="0"
+                  step="1"
+                  value="0"
+                  id="market-slider-${resource.id}"
+                  data-market-quantity="${resource.id}"
+                  aria-label="Quantité à vendre : ${resource.name}"
+                />
+                <div class="market-number-field">
+                  <input
+                    type="number"
+                    min="0"
+                    max="0"
+                    step="1"
+                    value="0"
+                    inputmode="numeric"
+                    id="market-quantity-${resource.id}"
+                    data-market-quantity="${resource.id}"
+                  />
+                  <div class="market-number-arrows">
+                    <button
+                      type="button"
+                      class="market-step market-step-up"
+                      data-market-step="1"
+                      data-id="${resource.id}"
+                      id="market-more-${resource.id}"
+                      aria-label="Augmenter la quantité de ${resource.name}"
+                      title="Augmenter la quantité"
+                    >
+                      <span aria-hidden="true"></span>
+                    </button>
+                    <button
+                      type="button"
+                      class="market-step market-step-down"
+                      data-market-step="-1"
+                      data-id="${resource.id}"
+                      id="market-less-${resource.id}"
+                      aria-label="Diminuer la quantité de ${resource.name}"
+                      title="Diminuer la quantité"
+                    >
+                      <span aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="market-actions">
               <button
-                class="secondary"
-                data-action="sell-resource"
+                class="upgrade"
+                data-action="sell-quantity"
                 data-id="${resource.id}"
-                id="sell-resource-${resource.id}"
-              >
-                Vendre 1 · ${money(MARKET_PRICES[resource.id])} or</button
-              ><button
-                class="secondary"
-                data-action="sell-ten"
-                data-id="${resource.id}"
-                id="sell-ten-${resource.id}"
-              >
-                Vendre 10 · ${money(MARKET_PRICES[resource.id] * 10)} or</button
-              ><button
+                id="sell-quantity-${resource.id}"
+              ></button>
+              <button
                 class="upgrade"
                 data-action="sell-all"
                 data-id="${resource.id}"
@@ -938,7 +1068,7 @@ function research() {
     <div class="research-map-scroll" tabindex="0" aria-label="Arbre de technologie">
       <div
         class="research-tree technology-tree"
-        style="height:${layout.height}px;min-width:${layout.width}px"
+        style="height:${layout.height}px;min-width:max(${layout.width}px, ${layout.lanes * 10}rem)"
       >
         <div
           class="research-node research-root"
@@ -1157,7 +1287,11 @@ function storage() {
           /* HTML */ `<div class="inventory-row">
             <span class="resource-name">${resourceIcon(resource.id)}${resource.name}</span>
             <div class="meter"><i id="bar-${resource.id}"></i></div>
-            <strong id="stock-${resource.id}"></strong><small id="rate-${resource.id}"></small>
+            <strong
+              ><span id="stock-${resource.id}"></span
+              ><small class="stock-capacity">
+                / <span id="capacity-${resource.id}"></span></small></strong
+            ><small id="rate-${resource.id}"></small>
           </div>`,
       ).join('')}
     </section>
@@ -1201,7 +1335,12 @@ function updateNumbers() {
   text('current-goal', goal());
   text(
     'total-wages',
-    fmt(Object.values(state.workers).reduce((n, crew) => n + crew.length * WAGE, 0)) + ' or',
+    fmt(
+      RESOURCES.reduce(
+        (n, resource) => n + state.workers[resource.id].length * workerWage(resource),
+        0,
+      ),
+    ) + ' or',
   );
   text(
     'total-rate',
@@ -1263,14 +1402,20 @@ function updateNumbers() {
 // Stocks, prix du marché et disponibilité des ouvriers.
 function updateResourceNumbers() {
   for (const resource of RESOURCES) {
+    const maxStock = capacity(state, resource);
+    text('capacity-' + resource.id, fmt(maxStock));
+    text('header-capacity-' + resource.id, '/ ' + compact(maxStock));
     text('stock-' + resource.id, fmt(state.resources[resource.id]));
     const stockEl = document.getElementById('stock-' + resource.id);
     if (stockEl) stockEl.title = `Capacité : ${fmt(capacity(state, resource))}`;
     text('header-stock-' + resource.id, compact(state.resources[resource.id]));
     const headerStock = document.getElementById('header-stock-' + resource.id);
     if (headerStock) {
-      headerStock.setAttribute('aria-label', fmt(state.resources[resource.id]));
-      headerStock.parentElement.title = `${resource.name} : ${fmt(state.resources[resource.id])}`;
+      headerStock.setAttribute(
+        'aria-label',
+        `${fmt(state.resources[resource.id])} sur ${fmt(maxStock)}`,
+      );
+      headerStock.parentElement.title = `${resource.name} : ${fmt(state.resources[resource.id])} / ${fmt(maxStock)}`;
     }
     text('rate-' + resource.id, `+ ${dec(rate(state, resource) * 60)} / min`);
     text(
@@ -1292,8 +1437,11 @@ function updateResourceNumbers() {
       active = activeWorkers(state, resource),
       quantity = Math.floor(state.resources[resource.id]);
     text('workers-' + resource.id, crew.length);
-    text('hire-price-' + resource.id, money(hireCost(state, resource) + WAGE) + ' or');
-    text('payroll-' + resource.id, crew.length * WAGE);
+    text(
+      'hire-price-' + resource.id,
+      money(hireCost(state, resource) + workerWage(resource)) + ' or',
+    );
+    text('payroll-' + resource.id, crew.length * workerWage(resource));
     const crewStatus = !crew.length
       ? 'Aucun ouvrier'
       : active < crew.length
@@ -1313,15 +1461,17 @@ function updateResourceNumbers() {
     }
     const wagesEl = document.getElementById('wages-' + resource.id);
     if (wagesEl)
-      wagesEl.setAttribute('aria-label', `Salaires : ${crew.length * WAGE} or par minute`);
+      wagesEl.setAttribute(
+        'aria-label',
+        `Salaires : ${crew.length * workerWage(resource)} or par minute`,
+      );
     disable('harvest-' + resource.id, state.resources[resource.id] >= capacity(state, resource));
     disable(
       'hire-' + resource.id,
-      state.credits < hireCost(state, resource) + WAGE || crew.length >= 100,
+      state.credits < hireCost(state, resource) + workerWage(resource) || crew.length >= 100,
     );
     disable('dismiss-' + resource.id, !crew.length);
-    disable('sell-resource-' + resource.id, quantity < 1);
-    disable('sell-ten-' + resource.id, quantity < 10);
+    if (view === 'market') updateMarketQuantity(resource.id);
     disable('sell-all-' + resource.id, quantity < 1);
     text(
       'sell-all-' + resource.id,
@@ -1514,6 +1664,13 @@ document.addEventListener('click', (e) => {
   const button = e.target.closest('button,a');
   if (button?.dataset.action !== 'music-toggle') syncMusic();
   if (!button) return;
+  if (button.dataset.marketStep) {
+    const id = button.dataset.id;
+    if (!state || !RESOURCES.some((resource) => resource.id === id)) return;
+    marketQuantities[id] = (marketQuantities[id] ?? 0) + Number(button.dataset.marketStep);
+    updateMarketQuantity(id);
+    return;
+  }
   if (button.dataset.researchNode) {
     pinnedResearch =
       pinnedResearch === button.dataset.researchNode ? null : button.dataset.researchNode;
@@ -1619,9 +1776,9 @@ document.addEventListener('click', (e) => {
     importSave();
     return;
   }
-  if (state && act(state, a, button.dataset.id)) {
+  if (state && act(state, a, button.dataset.id, marketQuantities[button.dataset.id])) {
     save();
-    if (['harvest', 'sell-resource', 'sell-ten', 'sell-all'].includes(a)) {
+    if (['harvest', 'sell-resource', 'sell-ten', 'sell-all', 'sell-quantity'].includes(a)) {
       updateNumbers();
       return;
     }

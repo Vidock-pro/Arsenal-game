@@ -23,7 +23,7 @@ export const COUNTRIES = {
   },
   su: { name: 'URSS', motto: 'La force des grands complexes', bonus: 'Récolte +15 %', icon: 'SU' },
 };
-export const RESOURCE_RATE_GROWTH = 5 / (1.5 * 1.3);
+export const RESOURCE_CAPACITY_GROWTH = 5 / (1.5 * 1.3);
 export const RESOURCES = [
   ['coal', 'Charbon', 'Mine de charbon', 'Énergie consommée par les ateliers de production.'],
   [
@@ -78,7 +78,7 @@ export const RESOURCES = [
         'nickel',
       ][i - 1]
     : null,
-  rate: 0.4 * RESOURCE_RATE_GROWTH ** i,
+  rate: 0.4,
   cost: i ? 100 * 5 ** (i - 1) : 90,
   icon: '◆',
 }));
@@ -964,14 +964,16 @@ export const productionBatch = (state, product, line) =>
     ),
   );
 export const capacity = (state, resource = RESOURCES[0]) =>
-  Math.ceil(5000 * RESOURCE_RATE_GROWTH ** resource.tier) *
+  Math.ceil(5000 * RESOURCE_CAPACITY_GROWTH ** resource.tier) *
   (state.tech.includes('logistics') ? 2 : 1);
 export const HIRE_COST = 25,
   WAGE = 2,
   PAY_PERIOD = 60;
 // Arrondir le prix final seulement, pour conserver la progression prévue.
 export const hireCost = (state, resource) =>
-  Math.ceil(HIRE_COST * 1.3 ** state.workers[resource.id].length);
+  Math.ceil(HIRE_COST * 1.5 ** resource.tier * 1.3 ** state.workers[resource.id].length);
+// Le salaire dépend du site, jamais du nombre d’ouvriers déjà engagés.
+export const workerWage = (resource) => Math.ceil(WAGE * 1.5 ** resource.tier);
 export const MARKET_PRICES = Object.fromEntries(
   RESOURCES.map((resource) => [resource.id, Math.ceil(1.5 ** resource.tier)]),
 );
@@ -1013,8 +1015,8 @@ export function advance(state, seconds) {
     // Le salaire finance une minute ; sans or, l’ouvrier attend le prochain paiement.
     for (const resource of RESOURCES)
       for (let i = 0; i < state.workers[resource.id].length; i++)
-        if (state.workers[resource.id][i] <= 1e-8 && state.credits >= WAGE) {
-          state.credits -= WAGE;
+        if (state.workers[resource.id][i] <= 1e-8 && state.credits >= workerWage(resource)) {
+          state.credits -= workerWage(resource);
           state.workers[resource.id][i] = PAY_PERIOD;
         }
     const remaining = Object.values(state.workers)
@@ -1071,7 +1073,7 @@ export function advance(state, seconds) {
   return state;
 }
 // Valide une action avant de dépenser ses coûts. Renvoie false si elle est impossible.
-export function act(state, type, id) {
+export function act(state, type, id, requestedAmount) {
   if (type === 'buy-factory') {
     if (state.factories >= MAX_FACTORIES || state.credits < factoryCost(state)) return false;
     state.credits -= factoryCost(state);
@@ -1122,10 +1124,10 @@ export function act(state, type, id) {
       !resource ||
       !unlocked(state, resource) ||
       state.workers[id].length >= 100 ||
-      state.credits < hireCost(state, resource) + WAGE
+      state.credits < hireCost(state, resource) + workerWage(resource)
     )
       return false;
-    state.credits -= hireCost(state, resource) + WAGE;
+    state.credits -= hireCost(state, resource) + workerWage(resource);
     state.workers[id].push(PAY_PERIOD);
     return true;
   }
@@ -1135,12 +1137,18 @@ export function act(state, type, id) {
     state.workers[id].pop();
     return true;
   }
-  if (['sell-resource', 'sell-ten', 'sell-all'].includes(type)) {
+  if (['sell-resource', 'sell-ten', 'sell-all', 'sell-quantity'].includes(type)) {
     const resource = RESOURCES.find((resource) => resource.id === id);
     if (!resource) return false;
     const amount =
-      type === 'sell-all' ? Math.floor(state.resources[id]) : type === 'sell-ten' ? 10 : 1;
-    if (amount <= 0 || state.resources[id] < amount) return false;
+      type === 'sell-quantity'
+        ? requestedAmount
+        : type === 'sell-all'
+          ? Math.floor(state.resources[id])
+          : type === 'sell-ten'
+            ? 10
+            : 1;
+    if (!Number.isSafeInteger(amount) || amount <= 0 || state.resources[id] < amount) return false;
     state.resources[id] -= amount;
     state.credits += amount * MARKET_PRICES[id];
     return true;

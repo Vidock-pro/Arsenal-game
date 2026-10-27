@@ -366,6 +366,8 @@ test('Music uses one looping player, remembers volume and pauses in hidden tabs'
   assert.equal(creates, 1);
   assert.equal(vm.runInContext('musicPlayer.loop', ui.context), true);
   assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/rising-sun-game-loop.wav');
+  vm.runInContext('musicPlayer.onplaying();', ui.context);
+  for (let i = 0; i < 81; i++) ui.elapse(50);
   ui.events.input({ target: { id: 'music-volume', value: '18' } });
   assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0.18 * 0.12);
   ui.events.input({ target: { id: 'music-volume', value: '100' } });
@@ -466,4 +468,122 @@ test('Title settings show menu audio and disable export before a game exists', (
   assert.ok(dialog.innerHTML.includes('Dogs of War · Musique du menu'));
   assert.ok(dialog.innerHTML.includes('Retour au menu'));
   assert.match(dialog.innerHTML, /data-action="export"\s+disabled/);
+});
+
+test('Music fades in only after playback begins and restarts softly after pausing', () => {
+  const ui = mount({
+    Audio: class {
+      constructor(src) {
+        this.src = src;
+        this.paused = true;
+      }
+      play() {
+        this.paused = false;
+        return Promise.resolve();
+      }
+      pause() {
+        this.paused = true;
+      }
+    },
+  });
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0);
+  ui.elapse(5000);
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0);
+  vm.runInContext('musicPlayer.onplaying();', ui.context);
+  for (let i = 0; i < 40; i++) ui.elapse(50);
+  const halfway = vm.runInContext('musicPlayer.volume', ui.context);
+  assert.ok(halfway > 0.02 && halfway < 0.022);
+  vm.runInContext('syncMusic();musicPlayer.onplaying();', ui.context);
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), halfway);
+  ui.events.input({ target: { id: 'music-volume', value: '20' } });
+  assert.ok(vm.runInContext('musicPlayer.volume', ui.context) < 0.013);
+  ui.context.document.hidden = true;
+  ui.events.visibilitychange();
+  ui.elapse(5000);
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0);
+  ui.context.document.hidden = false;
+  ui.events.visibilitychange();
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0);
+  vm.runInContext('musicPlayer.onplaying();', ui.context);
+  for (let i = 0; i < 81; i++) ui.elapse(50);
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0.2 * 0.12);
+  vm.runInContext("state=newGame('fr');shell();", ui.context);
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0);
+});
+
+test('Compact counters avoid unsupported spaces and preserve readable units', () => {
+  const ui = mount();
+  const examples = [
+    [999, '999'],
+    [1000, '1 k'],
+    [1234567, '1,2 M'],
+    [2500000000, '2,5 Md'],
+  ];
+  for (const [value, expected] of examples) {
+    const result = vm.runInContext(`compact(${value})`, ui.context);
+    assert.equal(result, expected);
+    assert.ok(!/[\u00a0\u202f?]/.test(result));
+  }
+  assert.equal(vm.runInContext('fmt(12345)', ui.context), '12 345');
+});
+
+test('Resource capacity is visible in the header and all inventory views and refreshes', () => {
+  const ui = mount();
+  for (const v of ['harvest', 'storage']) {
+    vm.runInContext(`state=newGame('fr');view='${v}';shell();`, ui.context);
+    assert.ok(ui.get('#content').innerHTML.includes('id="capacity-coal"'));
+    assert.ok(ui.get('#app').innerHTML.includes('id="header-capacity-coal"'));
+    const before = ui.get('capacity-coal').textContent;
+    vm.runInContext("state.tech.push('logistics');updateResourceNumbers();", ui.context);
+    assert.notEqual(ui.get('capacity-coal').textContent, before);
+    assert.equal(
+      ui.get('capacity-coal').textContent,
+      vm.runInContext('fmt(capacity(state,RESOURCES[0]))', ui.context),
+    );
+    assert.ok(ui.get('header-stock-coal').parentElement.title.includes('/'));
+  }
+});
+
+test('Worker UI uses resource-specific hiring, salary and unpaid notifications', () => {
+  const ui = mount();
+  vm.runInContext(
+    "state=newGame('fr');RESOURCES.forEach(r=>state.levels[r.id]=1);state.workers.cotton=[60,60];view='harvest';shell();",
+    ui.context,
+  );
+  assert.equal(Number(ui.get('payroll-cotton').textContent), 6);
+  assert.equal(ui.get('total-wages').textContent, '6 or');
+  assert.equal(ui.get('hire-price-cotton').textContent, '67 or');
+  vm.runInContext('state.workers.cotton=[0];state.credits=2;checkPayrollNotice();', ui.context);
+  assert.match(ui.get('#telegram-message').textContent, /Coton/);
+});
+
+test('Market quantity inputs synchronize, clamp to live stock and sell the chosen amount', () => {
+  const ui = mount();
+  vm.runInContext(
+    "state=newGame('fr');state.resources.coal=25.75;view='market';shell();",
+    ui.context,
+  );
+  const html = ui.get('#content').innerHTML;
+  assert.ok(!html.includes('data-action="sell-ten"'));
+  assert.ok(!html.includes('data-action="sell-resource"'));
+  assert.ok(html.includes('id="market-owned-coal"'));
+  ui.events.input({ target: { dataset: { marketQuantity: 'coal' }, value: '17' } });
+  assert.equal(ui.get('market-slider-coal').value, '17');
+  assert.equal(ui.get('market-quantity-coal').value, '17');
+  assert.equal(ui.get('market-slider-coal').max, '25');
+  ui.events.click({
+    target: { closest: () => ({ dataset: { action: 'sell-quantity', id: 'coal' } }) },
+  });
+  assert.equal(vm.runInContext('state.credits', ui.context), 17);
+  assert.equal(vm.runInContext('state.resources.coal', ui.context), 8.75);
+  assert.equal(ui.get('market-quantity-coal').value, '8');
+  assert.equal(ui.get('market-owned-coal').textContent, '8');
+  ui.events.input({ target: { dataset: { marketQuantity: 'coal' }, value: '999' } });
+  assert.equal(ui.get('market-slider-coal').value, '8');
+  vm.runInContext('state.resources.coal=100;updateNumbers();', ui.context);
+  assert.equal(ui.get('market-slider-coal').value, '8');
+  ui.events.input({ target: { dataset: { marketQuantity: 'coal' }, value: '' } });
+  assert.equal(ui.get('sell-quantity-coal').disabled, true);
+  vm.runInContext('state.resources.coal=0;updateNumbers();', ui.context);
+  assert.equal(ui.get('market-slider-coal').disabled, true);
 });
