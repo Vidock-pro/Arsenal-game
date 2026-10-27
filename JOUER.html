@@ -4492,6 +4492,412 @@ dialog p {
   padding: 6px;
 }
 
+/* Lisibilité : les tailles suivent la fenêtre et le réglage de texte du navigateur.
+   Les textures dessinées en CSS gardent leur grain sans étirer une planche d’images. */
+:root {
+  font-size: clamp(16px, calc(0.75rem + 0.3vw), 26px);
+  --reading-size: 0.9rem;
+  --caption-size: 0.75rem;
+  --metal-surface:
+    radial-gradient(ellipse at top left, #52603b26, transparent 65%),
+    linear-gradient(145deg, #2c3422, #192214);
+  --brass-surface: linear-gradient(145deg, #dfbf65, #ba953f);
+}
+.game-shell {
+  background: radial-gradient(ellipse at top, #29311e, #11170f 85%);
+}
+.title-screen {
+  background-repeat: no-repeat;
+}
+.topbar,
+.sidebar nav button,
+.page-heading,
+.resource-card,
+.tech-card,
+.management > h2,
+.management-card,
+.production-card,
+.storage-panel,
+dialog,
+.country,
+.wordmark,
+.date-badge,
+.brand-banner {
+  background-image: var(--metal-surface);
+  background-size: auto;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.primary,
+.upgrade,
+.paper-button,
+.sidebar nav button.active {
+  background-image: var(--brass-surface);
+  background-size: auto;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.country.selected {
+  background-image: linear-gradient(145deg, #485232, #2c371f);
+}
+.patent-card {
+  background-image: linear-gradient(145deg, #e4d6b0, #cdbb8d);
+  background-size: auto;
+  background-repeat: no-repeat;
+}
+.mission {
+  background: #172013;
+  padding: 0.8rem 1rem;
+  gap: 0.65rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.mission > span {
+  font-size: var(--caption-size);
+  color: #f0d27d;
+}
+.mission p,
+#current-goal {
+  font:
+    bold var(--reading-size) / 1.55 'Courier New',
+    monospace;
+  color: #f1ebd6;
+}
+.section-intro p,
+.resource-info p,
+.production-card .product-details p,
+.production-stats,
+.production-requirements,
+.tech-requirements,
+.factory-pool,
+.factory-allocation small,
+.worker-label,
+.worker-hire-price {
+  font-family: 'Courier New', monospace;
+  font-size: var(--reading-size);
+  line-height: 1.55;
+  color: #e8e3cf;
+}
+.product-details,
+.research-detail .resource-info {
+  background: #172013;
+}
+.product-heading h2,
+.resource-card header h2 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+}
+.product-category,
+.recipe span,
+.status,
+.section-intro > span,
+.resource-info .serial,
+.resource-card .level,
+.stock-row small,
+.factory-pool > strong,
+.factory-allocation small,
+.worker-wages small {
+  font-family: 'Courier New', monospace;
+  font-size: var(--caption-size);
+  line-height: 1.5;
+  color: #ded9bc;
+}
+.recipe {
+  flex-wrap: wrap;
+}
+.card-actions button,
+.tech-card .upgrade,
+.secondary.full,
+.production-filters button,
+.market-card button {
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.technology-tree .research-node-name {
+  font:
+    bold 0.8rem/1.4 'Courier New',
+    monospace;
+  color: #f0ead4;
+}
+.technology-tree .research-node-state,
+.technology-tree .research-prerequisite {
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+.technology-tree .research-node .research-detail {
+  width: 28rem;
+  max-width: calc(100vw - 24px);
+  background: #172013;
+}
+.research-detail h2 {
+  font-size: 1.2rem;
+  line-height: 1.4;
+}
+.research-detail .resource-info p,
+.research-detail .tech-requirements,
+.research-detail .research-cost-heading,
+.research-detail .research-cost,
+.research-detail .research-costs,
+.research-detail .upgrade {
+  font-family: 'Courier New', monospace;
+  font-size: var(--reading-size);
+  line-height: 1.55;
+  color: #f1ebd6;
+}
+.research-detail .upgrade {
+  color: #171c0d;
+}
+.research-detail .serial {
+  font-size: var(--caption-size);
+}
+.topbar .resource-stock strong {
+  font:
+    bold 1rem/1.2 'Courier New',
+    monospace;
+  color: #fff2c9;
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+.topbar .resource-stock .header-capacity {
+  font:
+    0.7rem/1.25 'Courier New',
+    monospace;
+  color: #dad7c1;
+  white-space: nowrap;
+}
+.stock-capacity {
+  display: block;
+  font:
+    0.8rem/1.4 'Courier New',
+    monospace;
+  color: #dad7c1;
+}
+.topbar .resource-stock {
+  padding: 0.45rem 0.2rem;
+  background: #141d11;
+}
+@media (min-width: 2000px) {
+  .game-shell {
+    grid-template-columns: 15rem minmax(0, 1fr);
+  }
+  .workspace-layout {
+    grid-template-columns: minmax(0, 1fr) 16rem;
+  }
+  .sidebar nav button {
+    font-size: 1.05rem;
+  }
+  .management-card h3 {
+    font-size: 1rem;
+  }
+  .management-stat,
+  .management-card p {
+    font-size: 0.8rem;
+  }
+}
+@media (max-width: 1100px) {
+  .topbar .resource-stocks {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+@media (max-width: 420px) {
+  .topbar .resource-stocks {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .section-intro {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}
+
+.production-card .recipe > span,
+.production-card .recipe small,
+.production-requirements strong,
+.factory-pool p,
+.factory-pool .upgrade,
+.production-requirements button,
+.management-card button {
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.production-card .recipe small,
+.production-requirements strong,
+.factory-pool p {
+  color: #e8e3cf;
+}
+.product-art .serial,
+.blueprint-label {
+  font-size: 0.65rem;
+  line-height: 1.5;
+}
+@media (max-width: 600px) {
+  .resource-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.research-detail .research-cost strong {
+  font:
+    bold 0.85rem/1.5 'Courier New',
+    monospace;
+}
+
+/* Vente à la quantité : le curseur et la saisie partagent la même sélection. */
+.market-card h2.resource-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 1.15rem;
+}
+.market-owned {
+  font:
+    bold 1.1rem/1.3 'Courier New',
+    monospace;
+  color: #f3d27a;
+  overflow-wrap: anywhere;
+}
+.market-quantity-controls {
+  margin: 1rem 0;
+}
+.market-quantity-controls label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font:
+    bold 0.85rem 'Courier New',
+    monospace;
+  color: #eee6cd;
+}
+.market-quantity-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(6rem, 0.5fr);
+  align-items: center;
+  gap: 0.75rem;
+}
+.market-quantity-inputs input {
+  width: 100%;
+  min-width: 0;
+  accent-color: #c6ac59;
+}
+.market-quantity-inputs input[type='range'] {
+  min-height: 44px;
+  cursor: pointer;
+}
+.market-quantity-inputs input[type='number'] {
+  min-height: 44px;
+  border: 1px solid #9c8b5b;
+  padding: 0.5rem;
+  background: #111a0e;
+  color: #fff2c9;
+  font:
+    bold 0.9rem 'Courier New',
+    monospace;
+}
+.market-quantity-inputs input:focus-visible {
+  outline: 2px solid #ecd79e;
+  outline-offset: 2px;
+}
+.market-quantity-inputs input:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Flèches de saisie cohérentes avec les commandes en laiton du marché. */
+.market-number-field {
+  position: relative;
+  min-width: 0;
+}
+.market-quantity-inputs .market-number-field input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+  padding-right: 2.3rem;
+  min-height: 56px;
+}
+.market-number-field input::-webkit-inner-spin-button,
+.market-number-field input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.market-number-arrows {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  width: 2rem;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+}
+.market-card .market-step {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  min-height: 26px;
+  border: 0;
+  border-left: 1px solid #8b7a4d;
+  border-radius: 0;
+  background: linear-gradient(#394029, #232c1b);
+  color: #dec477;
+  box-shadow: inset 0 0 0 1px #ffffff08;
+  cursor: pointer;
+}
+.market-card .market-step-up {
+  border-bottom: 1px solid #8b7a4d;
+}
+.market-step span {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  pointer-events: none;
+}
+.market-step-up span {
+  border-bottom: 6px solid currentColor;
+}
+.market-step-down span {
+  border-top: 6px solid currentColor;
+}
+.market-card .market-step:hover:not(:disabled) {
+  background: #555335;
+  color: #fff0b6;
+}
+.market-card .market-step:focus-visible {
+  outline: 2px solid #f0d27d;
+  outline-offset: -2px;
+}
+.market-card .market-step:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Marché compact : le stock figure déjà dans le titre. */
+.storage-panel.market-card {
+  padding: 14px 14px 12px;
+}
+.market-card h2.resource-name {
+  margin: 0 0 10px;
+}
+.market-card .market-price {
+  margin: 8px 0 12px;
+  font-size: 1.2rem;
+}
+.market-card .market-quantity-controls {
+  margin: 8px 0 12px;
+}
+.market-card .market-quantity-controls label {
+  margin-bottom: 6px;
+}
+.market-card .market-actions {
+  gap: 7px;
+}
+.market-card .market-actions button {
+  padding: 8px 10px;
+  min-height: 44px;
+}
+.market-grid {
+  gap: 12px;
+}
+
     </style>
   </head>
   <body>
@@ -4523,7 +4929,7 @@ const COUNTRIES = {
   },
   su: { name: 'URSS', motto: 'La force des grands complexes', bonus: 'Récolte +15 %', icon: 'SU' },
 };
-const RESOURCE_RATE_GROWTH = 5 / (1.5 * 1.3);
+const RESOURCE_CAPACITY_GROWTH = 5 / (1.5 * 1.3);
 const RESOURCES = [
   ['coal', 'Charbon', 'Mine de charbon', 'Énergie consommée par les ateliers de production.'],
   [
@@ -4578,7 +4984,7 @@ const RESOURCES = [
         'nickel',
       ][i - 1]
     : null,
-  rate: 0.4 * RESOURCE_RATE_GROWTH ** i,
+  rate: 0.4,
   cost: i ? 100 * 5 ** (i - 1) : 90,
   icon: '◆',
 }));
@@ -5464,14 +5870,16 @@ const productionBatch = (state, product, line) =>
     ),
   );
 const capacity = (state, resource = RESOURCES[0]) =>
-  Math.ceil(5000 * RESOURCE_RATE_GROWTH ** resource.tier) *
+  Math.ceil(5000 * RESOURCE_CAPACITY_GROWTH ** resource.tier) *
   (state.tech.includes('logistics') ? 2 : 1);
 const HIRE_COST = 25,
   WAGE = 2,
   PAY_PERIOD = 60;
 // Arrondir le prix final seulement, pour conserver la progression prévue.
 const hireCost = (state, resource) =>
-  Math.ceil(HIRE_COST * 1.3 ** state.workers[resource.id].length);
+  Math.ceil(HIRE_COST * 1.5 ** resource.tier * 1.3 ** state.workers[resource.id].length);
+// Le salaire dépend du site, jamais du nombre d’ouvriers déjà engagés.
+const workerWage = (resource) => Math.ceil(WAGE * 1.5 ** resource.tier);
 const MARKET_PRICES = Object.fromEntries(
   RESOURCES.map((resource) => [resource.id, Math.ceil(1.5 ** resource.tier)]),
 );
@@ -5513,8 +5921,8 @@ function advance(state, seconds) {
     // Le salaire finance une minute ; sans or, l’ouvrier attend le prochain paiement.
     for (const resource of RESOURCES)
       for (let i = 0; i < state.workers[resource.id].length; i++)
-        if (state.workers[resource.id][i] <= 1e-8 && state.credits >= WAGE) {
-          state.credits -= WAGE;
+        if (state.workers[resource.id][i] <= 1e-8 && state.credits >= workerWage(resource)) {
+          state.credits -= workerWage(resource);
           state.workers[resource.id][i] = PAY_PERIOD;
         }
     const remaining = Object.values(state.workers)
@@ -5571,7 +5979,7 @@ function advance(state, seconds) {
   return state;
 }
 // Valide une action avant de dépenser ses coûts. Renvoie false si elle est impossible.
-function act(state, type, id) {
+function act(state, type, id, requestedAmount) {
   if (type === 'buy-factory') {
     if (state.factories >= MAX_FACTORIES || state.credits < factoryCost(state)) return false;
     state.credits -= factoryCost(state);
@@ -5622,10 +6030,10 @@ function act(state, type, id) {
       !resource ||
       !unlocked(state, resource) ||
       state.workers[id].length >= 100 ||
-      state.credits < hireCost(state, resource) + WAGE
+      state.credits < hireCost(state, resource) + workerWage(resource)
     )
       return false;
-    state.credits -= hireCost(state, resource) + WAGE;
+    state.credits -= hireCost(state, resource) + workerWage(resource);
     state.workers[id].push(PAY_PERIOD);
     return true;
   }
@@ -5635,12 +6043,18 @@ function act(state, type, id) {
     state.workers[id].pop();
     return true;
   }
-  if (['sell-resource', 'sell-ten', 'sell-all'].includes(type)) {
+  if (['sell-resource', 'sell-ten', 'sell-all', 'sell-quantity'].includes(type)) {
     const resource = RESOURCES.find((resource) => resource.id === id);
     if (!resource) return false;
     const amount =
-      type === 'sell-all' ? Math.floor(state.resources[id]) : type === 'sell-ten' ? 10 : 1;
-    if (amount <= 0 || state.resources[id] < amount) return false;
+      type === 'sell-quantity'
+        ? requestedAmount
+        : type === 'sell-all'
+          ? Math.floor(state.resources[id])
+          : type === 'sell-ten'
+            ? 10
+            : 1;
+    if (!Number.isSafeInteger(amount) || amount <= 0 || state.resources[id] < amount) return false;
     state.resources[id] -= amount;
     state.credits += amount * MARKET_PRICES[id];
     return true;
@@ -5958,10 +6372,23 @@ let state = null,
   last = Date.now(),
   saved = true,
   toastTimer;
-const fmt = (n) => Math.floor(n).toLocaleString('fr-FR');
+const fmt = (n) =>
+  Math.floor(n)
+    .toLocaleString('fr-FR')
+    .replace(/[\u00a0\u202f]/g, ' ');
 const money = (n) => Math.ceil(n).toLocaleString('fr-FR');
-const compact = (n) =>
-  n >= 1000 ? n.toLocaleString('fr-FR', { notation: 'compact', maximumFractionDigits: 1 }) : fmt(n);
+// Unités et espaces explicites : aucun caractère absent de la police du jeu.
+const compact = (n) => {
+  const units = [
+    [1e12, 'T'],
+    [1e9, 'Md'],
+    [1e6, 'M'],
+    [1e3, 'k'],
+  ];
+  const unit = units.find(([value]) => n >= value);
+  if (!unit) return fmt(n);
+  return String(Math.floor((n / unit[0]) * 10) / 10).replace('.', ',') + ' ' + unit[1];
+};
 const dec = (n) => n.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
 const clock = (n) =>
   `${Math.floor(Math.max(0, n) / 60)
@@ -5983,6 +6410,8 @@ const icons = { harvest: '⚒', production: '⚙', research: '⚗', patents: '�
 const MUSIC_BACKGROUND_GAIN = 0.12;
 let musicPlayer = null,
   musicTrack = null,
+  musicFade = 0,
+  musicFadeTimer = null,
   musicEnabled = true,
   musicVolume = 0.35;
 try {
@@ -5991,9 +6420,31 @@ try {
   if (storedVolume !== null && Number.isFinite(Number(storedVolume)))
     musicVolume = Math.max(0, Math.min(1, Number(storedVolume)));
 } catch {}
+// Monte doucement vers le volume choisi, sans toucher au niveau des télégrammes.
+function applyMusicVolume() {
+  if (musicPlayer) musicPlayer.volume = musicVolume * MUSIC_BACKGROUND_GAIN * musicFade;
+}
+function resetMusicFade() {
+  clearTimeout(musicFadeTimer);
+  musicFadeTimer = null;
+  musicFade = 0;
+  applyMusicVolume();
+}
+function startMusicFade() {
+  if (!musicEnabled || document.hidden || musicFadeTimer !== null || musicFade >= 1) return;
+  function step() {
+    musicFadeTimer = null;
+    if (!musicEnabled || document.hidden || musicPlayer.paused) return;
+    musicFade = Math.min(1, musicFade + 1 / 80);
+    applyMusicVolume();
+    if (musicFade < 1) musicFadeTimer = setTimeout(step, 50);
+  }
+  musicFadeTimer = setTimeout(step, 50);
+}
 function syncMusic() {
   if (!musicEnabled || document.hidden) {
     musicPlayer?.pause();
+    resetMusicFade();
     return;
   }
   const track =
@@ -6004,13 +6455,16 @@ function syncMusic() {
     musicTrack = track;
     musicPlayer.loop = true;
     musicPlayer.preload = 'auto';
+    musicPlayer.onplaying = startMusicFade;
   }
   if (musicTrack !== track) {
     musicPlayer.pause();
+    resetMusicFade();
     musicPlayer.src = track;
     musicTrack = track;
   }
-  musicPlayer.volume = musicVolume * MUSIC_BACKGROUND_GAIN;
+  if (musicPlayer.paused) resetMusicFade();
+  applyMusicVolume();
   // La lecture attend un geste si le navigateur bloque le démarrage automatique.
   musicPlayer.play()?.catch(() => {});
 }
@@ -6037,14 +6491,6 @@ function refreshMusicButtons() {
     button.setAttribute('aria-label', `${musicEnabled ? 'Couper' : 'Activer'} la musique`);
   });
 }
-document.addEventListener('input', (event) => {
-  if (event.target.id !== 'music-volume') return;
-  musicVolume = Math.max(0, Math.min(1, Number(event.target.value) / 100));
-  if (musicPlayer) musicPlayer.volume = musicVolume * MUSIC_BACKGROUND_GAIN;
-  try {
-    localStorage.setItem('arsenal.music.volume', String(musicVolume));
-  } catch {}
-});
 // Les dépêches attendent leur tour : deux événements simultanés restent lisibles.
 const telegramQueue = [];
 let telegramActive = false,
@@ -6129,10 +6575,12 @@ function notify(message) {
 }
 // Signale une interruption une seule fois, jusqu’à la reprise du paiement.
 function checkPayrollNotice() {
-  const stopped = RESOURCES.filter((resource) =>
-    state.workers[resource.id].some((time) => time <= 1e-8),
+  const stopped = RESOURCES.filter(
+    (resource) =>
+      state.workers[resource.id].some((time) => time <= 1e-8) &&
+      state.credits < workerWage(resource),
   );
-  const blocked = stopped.length > 0 && state.credits < WAGE;
+  const blocked = stopped.length > 0;
   if (blocked && !wagesBlocked)
     notify(
       'Salaires impayés. Récolte suspendue pour les ouvriers non rémunérés : ' +
@@ -6394,7 +6842,8 @@ function shell() {
               role="group"
               tabindex="0"
             >
-              ${resourceIcon(resource.id)}<strong id="header-stock-${resource.id}"></strong>
+              ${resourceIcon(resource.id)}<strong id="header-stock-${resource.id}"></strong
+              ><span class="header-capacity" id="header-capacity-${resource.id}"></span>
             </div>`,
         ).join('')}
       </div>
@@ -6497,7 +6946,12 @@ function harvest() {
                     id="upgrade-${resource.id}"
                   ></button>`
               : /* HTML */ `<div class="stock-row">
-                    <div><small>EN RÉSERVE</small><strong id="stock-${resource.id}"></strong></div>
+                    <div>
+                      <small>EN RÉSERVE</small><strong id="stock-${resource.id}"></strong
+                      ><small class="stock-capacity"
+                        >MAX <span id="capacity-${resource.id}"></span
+                      ></small>
+                    </div>
                     <span class="rate" id="rate-${resource.id}"></span>
                   </div>
                   <div class="meter"><i id="bar-${resource.id}"></i></div>
@@ -6549,22 +7003,21 @@ function harvest() {
                         aria-label="Engager un ouvrier — ${resource.name}, ${hireCost(
                           state,
                           resource,
-                        ) + WAGE} or"
-                        title="Embauche : ${hireCost(
-                          state,
+                        ) + workerWage(resource)} or"
+                        title="Embauche : ${hireCost(state, resource)} or + ${workerWage(
                           resource,
-                        )} or + ${WAGE} or pour la première minute "
+                        )} or pour la première minute "
                       >
                         +</button
                       ><span class="worker-hire-price" id="hire-price-${resource.id}"
-                        >${money(hireCost(state, resource) + WAGE)} or</span
+                        >${money(hireCost(state, resource) + workerWage(resource))} or</span
                       >
                     </div>
                     <div
                       class="worker-wages"
                       id="wages-${resource.id}"
                       role="group"
-                      title="Salaire : ${WAGE} or / ouvrier / min"
+                      title="Salaire : ${workerWage(resource)} or / ouvrier / min"
                     >
                       ${wageIcon()}<strong id="payroll-${resource.id}">0</strong
                       ><small>/ min</small>
@@ -6576,6 +7029,51 @@ function harvest() {
     </div>`;
 }
 // Affiche les ventes de matières premières.
+// La sélection reste stable quand les stocks montent, mais ne dépasse jamais le stock vendable.
+const marketQuantities = {};
+function updateMarketQuantity(id) {
+  if (!state || !RESOURCES.some((resource) => resource.id === id)) return;
+  const stock = Math.floor(state.resources[id]);
+  const selected = Math.max(0, Math.min(stock, marketQuantities[id] ?? Math.min(1, stock)));
+  marketQuantities[id] = selected;
+  const field = document.getElementById('market-quantity-' + id);
+  const slider = document.getElementById('market-slider-' + id);
+  for (const input of [field, slider]) {
+    if (!input) continue;
+    input.max = String(stock);
+    input.disabled = stock === 0;
+    // Laisser le joueur vider le champ pendant sa saisie.
+    if (!(input === field && document.activeElement === field && field.value === ''))
+      input.value = String(selected);
+  }
+  text('market-owned-' + id, fmt(stock));
+  text(
+    'sell-quantity-' + id,
+    `Vendre ${fmt(selected)} · ${money(selected * MARKET_PRICES[id])} or`,
+  );
+  disable('sell-quantity-' + id, selected <= 0);
+  disable('market-more-' + id, selected >= stock);
+  disable('market-less-' + id, selected <= 0);
+}
+function editMarketQuantity(event) {
+  const id = event.target.dataset?.marketQuantity;
+  if (!id || !state || !RESOURCES.some((resource) => resource.id === id)) return;
+  const value = Number(event.target.value);
+  marketQuantities[id] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  updateMarketQuantity(id);
+  if (event.type === 'change') event.target.value = String(marketQuantities[id]);
+}
+document.addEventListener('input', (event) => {
+  editMarketQuantity(event);
+  // Le curseur de musique partage le même événement délégué.
+  if (event.target.id !== 'music-volume') return;
+  musicVolume = Math.max(0, Math.min(1, Number(event.target.value) / 100));
+  applyMusicVolume();
+  try {
+    localStorage.setItem('arsenal.music.volume', String(musicVolume));
+  } catch {}
+});
+document.addEventListener('change', editMarketQuantity);
 function market() {
   return /* HTML */ `<div class="section-intro">
       <p>Vendez vos matières premières pour financer vos ouvriers et de nouvelles exploitations.</p>
@@ -6585,27 +7083,73 @@ function market() {
       ${RESOURCES.map(
         (resource) =>
           /* HTML */ `<article class="storage-panel market-card">
-            <h2 class="resource-name">${resourceIcon(resource.id)}${resource.name}</h2>
+            <h2 class="resource-name">
+              <strong class="market-owned" id="market-owned-${resource.id}"></strong>${resourceIcon(
+                resource.id,
+              )}${resource.name}
+            </h2>
             <p class="market-price">
               ${money(MARKET_PRICES[resource.id])} or <small>/ unité</small>
             </p>
-            <p>En réserve : <strong id="stock-${resource.id}"></strong></p>
+            <div class="market-quantity-controls">
+              <label for="market-quantity-${resource.id}">Quantité à vendre</label>
+              <div class="market-quantity-inputs">
+                <input
+                  type="range"
+                  min="0"
+                  max="0"
+                  step="1"
+                  value="0"
+                  id="market-slider-${resource.id}"
+                  data-market-quantity="${resource.id}"
+                  aria-label="Quantité à vendre : ${resource.name}"
+                />
+                <div class="market-number-field">
+                  <input
+                    type="number"
+                    min="0"
+                    max="0"
+                    step="1"
+                    value="0"
+                    inputmode="numeric"
+                    id="market-quantity-${resource.id}"
+                    data-market-quantity="${resource.id}"
+                  />
+                  <div class="market-number-arrows">
+                    <button
+                      type="button"
+                      class="market-step market-step-up"
+                      data-market-step="1"
+                      data-id="${resource.id}"
+                      id="market-more-${resource.id}"
+                      aria-label="Augmenter la quantité de ${resource.name}"
+                      title="Augmenter la quantité"
+                    >
+                      <span aria-hidden="true"></span>
+                    </button>
+                    <button
+                      type="button"
+                      class="market-step market-step-down"
+                      data-market-step="-1"
+                      data-id="${resource.id}"
+                      id="market-less-${resource.id}"
+                      aria-label="Diminuer la quantité de ${resource.name}"
+                      title="Diminuer la quantité"
+                    >
+                      <span aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="market-actions">
               <button
-                class="secondary"
-                data-action="sell-resource"
+                class="upgrade"
+                data-action="sell-quantity"
                 data-id="${resource.id}"
-                id="sell-resource-${resource.id}"
-              >
-                Vendre 1 · ${money(MARKET_PRICES[resource.id])} or</button
-              ><button
-                class="secondary"
-                data-action="sell-ten"
-                data-id="${resource.id}"
-                id="sell-ten-${resource.id}"
-              >
-                Vendre 10 · ${money(MARKET_PRICES[resource.id] * 10)} or</button
-              ><button
+                id="sell-quantity-${resource.id}"
+              ></button>
+              <button
                 class="upgrade"
                 data-action="sell-all"
                 data-id="${resource.id}"
@@ -6845,7 +7389,7 @@ function research() {
     <div class="research-map-scroll" tabindex="0" aria-label="Arbre de technologie">
       <div
         class="research-tree technology-tree"
-        style="height:${layout.height}px;min-width:${layout.width}px"
+        style="height:${layout.height}px;min-width:max(${layout.width}px, ${layout.lanes * 10}rem)"
       >
         <div
           class="research-node research-root"
@@ -7064,7 +7608,11 @@ function storage() {
           /* HTML */ `<div class="inventory-row">
             <span class="resource-name">${resourceIcon(resource.id)}${resource.name}</span>
             <div class="meter"><i id="bar-${resource.id}"></i></div>
-            <strong id="stock-${resource.id}"></strong><small id="rate-${resource.id}"></small>
+            <strong
+              ><span id="stock-${resource.id}"></span
+              ><small class="stock-capacity">
+                / <span id="capacity-${resource.id}"></span></small></strong
+            ><small id="rate-${resource.id}"></small>
           </div>`,
       ).join('')}
     </section>
@@ -7108,7 +7656,12 @@ function updateNumbers() {
   text('current-goal', goal());
   text(
     'total-wages',
-    fmt(Object.values(state.workers).reduce((n, crew) => n + crew.length * WAGE, 0)) + ' or',
+    fmt(
+      RESOURCES.reduce(
+        (n, resource) => n + state.workers[resource.id].length * workerWage(resource),
+        0,
+      ),
+    ) + ' or',
   );
   text(
     'total-rate',
@@ -7170,14 +7723,20 @@ function updateNumbers() {
 // Stocks, prix du marché et disponibilité des ouvriers.
 function updateResourceNumbers() {
   for (const resource of RESOURCES) {
+    const maxStock = capacity(state, resource);
+    text('capacity-' + resource.id, fmt(maxStock));
+    text('header-capacity-' + resource.id, '/ ' + compact(maxStock));
     text('stock-' + resource.id, fmt(state.resources[resource.id]));
     const stockEl = document.getElementById('stock-' + resource.id);
     if (stockEl) stockEl.title = `Capacité : ${fmt(capacity(state, resource))}`;
     text('header-stock-' + resource.id, compact(state.resources[resource.id]));
     const headerStock = document.getElementById('header-stock-' + resource.id);
     if (headerStock) {
-      headerStock.setAttribute('aria-label', fmt(state.resources[resource.id]));
-      headerStock.parentElement.title = `${resource.name} : ${fmt(state.resources[resource.id])}`;
+      headerStock.setAttribute(
+        'aria-label',
+        `${fmt(state.resources[resource.id])} sur ${fmt(maxStock)}`,
+      );
+      headerStock.parentElement.title = `${resource.name} : ${fmt(state.resources[resource.id])} / ${fmt(maxStock)}`;
     }
     text('rate-' + resource.id, `+ ${dec(rate(state, resource) * 60)} / min`);
     text(
@@ -7199,8 +7758,11 @@ function updateResourceNumbers() {
       active = activeWorkers(state, resource),
       quantity = Math.floor(state.resources[resource.id]);
     text('workers-' + resource.id, crew.length);
-    text('hire-price-' + resource.id, money(hireCost(state, resource) + WAGE) + ' or');
-    text('payroll-' + resource.id, crew.length * WAGE);
+    text(
+      'hire-price-' + resource.id,
+      money(hireCost(state, resource) + workerWage(resource)) + ' or',
+    );
+    text('payroll-' + resource.id, crew.length * workerWage(resource));
     const crewStatus = !crew.length
       ? 'Aucun ouvrier'
       : active < crew.length
@@ -7220,15 +7782,17 @@ function updateResourceNumbers() {
     }
     const wagesEl = document.getElementById('wages-' + resource.id);
     if (wagesEl)
-      wagesEl.setAttribute('aria-label', `Salaires : ${crew.length * WAGE} or par minute`);
+      wagesEl.setAttribute(
+        'aria-label',
+        `Salaires : ${crew.length * workerWage(resource)} or par minute`,
+      );
     disable('harvest-' + resource.id, state.resources[resource.id] >= capacity(state, resource));
     disable(
       'hire-' + resource.id,
-      state.credits < hireCost(state, resource) + WAGE || crew.length >= 100,
+      state.credits < hireCost(state, resource) + workerWage(resource) || crew.length >= 100,
     );
     disable('dismiss-' + resource.id, !crew.length);
-    disable('sell-resource-' + resource.id, quantity < 1);
-    disable('sell-ten-' + resource.id, quantity < 10);
+    if (view === 'market') updateMarketQuantity(resource.id);
     disable('sell-all-' + resource.id, quantity < 1);
     text(
       'sell-all-' + resource.id,
@@ -7421,6 +7985,13 @@ document.addEventListener('click', (e) => {
   const button = e.target.closest('button,a');
   if (button?.dataset.action !== 'music-toggle') syncMusic();
   if (!button) return;
+  if (button.dataset.marketStep) {
+    const id = button.dataset.id;
+    if (!state || !RESOURCES.some((resource) => resource.id === id)) return;
+    marketQuantities[id] = (marketQuantities[id] ?? 0) + Number(button.dataset.marketStep);
+    updateMarketQuantity(id);
+    return;
+  }
   if (button.dataset.researchNode) {
     pinnedResearch =
       pinnedResearch === button.dataset.researchNode ? null : button.dataset.researchNode;
@@ -7526,9 +8097,9 @@ document.addEventListener('click', (e) => {
     importSave();
     return;
   }
-  if (state && act(state, a, button.dataset.id)) {
+  if (state && act(state, a, button.dataset.id, marketQuantities[button.dataset.id])) {
     save();
-    if (['harvest', 'sell-resource', 'sell-ten', 'sell-all'].includes(a)) {
+    if (['harvest', 'sell-resource', 'sell-ten', 'sell-all', 'sell-quantity'].includes(a)) {
       updateNumbers();
       return;
     }

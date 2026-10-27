@@ -19,6 +19,7 @@ import {
   productTime,
   salePrice,
   hireCost,
+  workerWage,
   newGame,
   act,
   advance,
@@ -321,7 +322,7 @@ test('Hiring scales per site while salaries stay fixed', () => {
     assert.ok(act(s, 'hire', 'coal'));
     assert.equal(before - s.credits, price + 2);
   }
-  assert.equal(hireCost(s, wood), 25);
+  assert.equal(hireCost(s, wood), 38);
   const before = s.credits;
   advance(s, 61);
   assert.equal(before - s.credits, 8);
@@ -339,7 +340,7 @@ test('Hiring scales per site while salaries stay fixed', () => {
   assert.equal(s.credits, 0);
 });
 
-test('All twelve sites open in order with x5 costs, x1.5 prices and x1.3 gross funding times', () => {
+test('All twelve sites open in order with x5 costs and x1.5 sale prices', () => {
   assert.deepEqual(
     RESOURCES.map((r) => r.id),
     [
@@ -359,16 +360,12 @@ test('All twelve sites open in order with x5 costs, x1.5 prices and x1.3 gross f
   );
   const s = newGame('fr');
   s.credits = 1e11;
-  let lastTime = null;
   for (let i = 1; i < RESOURCES.length; i++) {
     const r = RESOURCES[i],
       previous = RESOURCES[i - 1];
     for (const later of RESOURCES.slice(i + 1)) assert.equal(available(s, later), false);
     assert.equal(r.cost, 100 * 5 ** (i - 1));
     assert.equal(MARKET_PRICES[r.id], Math.ceil(1.5 ** i));
-    const time = r.cost / (previous.rate * 1.5 ** previous.tier);
-    if (lastTime !== null) assert.ok(Math.abs(time / lastTime - 1.3) < 1e-10);
-    lastTime = time;
     assert.ok(act(s, 'upgrade', r.id));
     assert.ok(act(s, 'harvest', r.id));
     assert.equal(s.resources[r.id], 1);
@@ -407,6 +404,7 @@ test('Resource sales round up and late-game capacity survives save/load', () => 
   const r = RESOURCES.at(-1);
   s.levels[r.id] = 1;
   s.workers[r.id] = [60];
+  s.resources[r.id] = 10000;
   s.credits = 100;
   advance(s, 60);
   assert.ok(s.resources.bauxite > 10000);
@@ -839,4 +837,77 @@ test('Manual harvest increases with site upgrades and respects storage capacity'
     assert.equal(act(s, 'harvest', 'coal'), false);
     assert.equal(act(s, 'harvest', 'cotton'), false);
   }
+});
+
+test('Resource rank scales hiring and wages but all workers share the same base yield', () => {
+  const s = newGame('fr');
+  s.credits = 1e9;
+  for (const r of RESOURCES) {
+    s.levels[r.id] = 1;
+    const wage = Math.ceil(2 * 1.5 ** r.tier);
+    assert.equal(workerWage(r), wage);
+    for (let count = 0; count < 2; count++) {
+      const price = Math.ceil(25 * 1.5 ** r.tier * 1.3 ** count);
+      assert.equal(hireCost(s, r), price);
+      const before = s.credits;
+      assert.ok(act(s, 'hire', r.id));
+      assert.equal(before - s.credits, price + wage);
+    }
+    assert.equal(rate(s, r), 0.8);
+  }
+  const before = s.credits;
+  advance(s, 61);
+  assert.equal(
+    before - s.credits,
+    RESOURCES.reduce((sum, r) => sum + 2 * workerWage(r), 0),
+  );
+  for (const r of RESOURCES) assert.ok(Math.abs(s.resources[r.id] - 48.8) < 1e-7);
+  assert.deepEqual(validateSave(s), s);
+});
+
+test('An expensive site waits for its own wage and resumes with enough gold', () => {
+  const s = newGame('fr'),
+    r = RESOURCES.at(-1);
+  for (const site of RESOURCES) s.levels[site.id] = 1;
+  s.workers[r.id] = [0];
+  s.credits = workerWage(r) - 1;
+  advance(s, 1);
+  assert.equal(s.resources[r.id], 0);
+  s.credits = workerWage(r);
+  advance(s, 1);
+  assert.equal(s.credits, 0);
+  assert.equal(s.resources[r.id], 0.4);
+});
+
+test('Mixed resource wages and yields match offline and small-step simulation', () => {
+  const a = newGame('su');
+  a.credits = 1000;
+  for (const r of RESOURCES) {
+    a.levels[r.id] = 1;
+    a.workers[r.id] = [12, 60];
+  }
+  const b = structuredClone(a);
+  advance(a, 180);
+  for (let i = 0; i < 720; i++) advance(b, 0.25);
+  assert.equal(a.credits, b.credits);
+  for (const r of RESOURCES) {
+    assert.ok(Math.abs(a.resources[r.id] - b.resources[r.id]) < 1e-7);
+    assert.deepEqual(a.workers[r.id], b.workers[r.id]);
+  }
+});
+
+test('Custom resource sales charge exactly the chosen whole quantity and reject invalid requests', () => {
+  const s = newGame('fr');
+  s.resources.cotton = 25.75;
+  for (const quantity of [0, -1, 1.5, 26, NaN, Infinity, '10', undefined]) {
+    const before = structuredClone(s);
+    assert.equal(act(s, 'sell-quantity', 'cotton', quantity), false);
+    assert.deepEqual(s, before);
+  }
+  assert.equal(act(s, 'sell-quantity', 'missing', 1), false);
+  assert.ok(act(s, 'sell-quantity', 'cotton', 17));
+  assert.equal(s.resources.cotton, 8.75);
+  assert.equal(s.credits, 17 * MARKET_PRICES.cotton);
+  assert.ok(act(s, 'sell-quantity', 'cotton', 8));
+  assert.equal(s.resources.cotton, 0.75);
 });
