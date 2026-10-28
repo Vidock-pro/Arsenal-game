@@ -32,3 +32,10 @@ Images générées par IA, fournies pour réutilisation avec le projet dans la m
 - `dist/assets/ui-icons-simple.png` : grille 3 × 3 : récolte, marché, usine ; recherche, brevets, stockage ; ouvrier, lingots, engrenage.
 - Illustrations générées avec imagegen, fond transparent, aplats larges sans textures fines. Affichage à 24, 28 ou 32 pixels selon l’emplacement. La production et le parc d’usines partagent le même dessin d’usine.
 - Les anciennes planches sont conservées dans les sources mais ne sont plus utilisées par les petites icônes de l’interface.
+
+
+## Équipements japonais
+
+`dist/assets/production-jp.png` : planche créée avec ImageGen intégré, à partir de `production-fr.png` comme référence de style et de disposition. Les noms et le gameplay restent dans le code, pas dans l’image.
+
+Consignes du prompt : atlas paysage 15:8, cinq colonnes et quatre lignes égales, dernière case vide, fond vert olive de table à dessin industrielle avec quadrillage discret et séparations fines. Pixel art 16 bits, teintes kaki, ocre et acier. Objets centrés sans débordement ni textes. Armes, véhicules et avions en profil vers la droite. Chaque case suit l’ordre exact : tenue Type 98 ; brancard et sac médical ; cartouches 8 mm ; Nambu Type 14 ; grenade Type 97 ; cartouches 7,7 mm ; Arisaka Type 99 ; mitrailleuse Type 99 ; obus de 75 mm ; canon Type 90 ; Kurogane ; camion Isuzu Type 94 ; Ho-Ha ; Ha-Go ; Chi-Ha ; O-I interprété comme prototype uchronique ; Ki-46 ; A6M2 Zero ; G4M ; case vide. Pas de cocardes françaises, marquages japonais discrets sur les avions. La planche française sert de référence graphique seulement.

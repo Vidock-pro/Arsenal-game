@@ -4966,12 +4966,11 @@ dialog,
   .sidebar nav {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
+    container: mobile-menu / inline-size;
     overflow: visible;
     gap: 4px;
   }
   .sidebar nav button {
-    container-type: inline-size;
-    container-name: menu-item;
     min-width: 0;
     width: 100%;
     padding: 8px 2px;
@@ -4982,7 +4981,7 @@ dialog,
     font-size: inherit;
   }
 }
-@container menu-item (max-width: 6.3rem) {
+@container mobile-menu (max-width: 40rem) {
   .menu-label {
     display: none;
   }
@@ -5018,6 +5017,96 @@ dialog,
   }
 }
 
+/* La sélection change le contraste, jamais la visibilité du libellé.
+   Le seuil mobile dépend de toute la barre, pas de la bordure du bouton actif. */
+.sidebar nav button.active .menu-label {
+  color: #18200d;
+  text-shadow: none;
+}
+
+/* Les réglages de vente gardent la réserve lisible, même sur une petite tuile. */
+.worker-bonus {
+  grid-column: 1 / -1;
+  color: #d7c982;
+  font:
+    bold 0.75rem/1.4 'Courier New',
+    monospace;
+}
+.auto-sale-controls {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #71683f;
+  font:
+    bold 0.8rem/1.4 'Courier New',
+    monospace;
+}
+.auto-sale-controls button {
+  min-height: 42px;
+  white-space: normal;
+}
+.auto-sale-controls button[aria-pressed='true'] {
+  color: #eed68a;
+  border-color: #d5b95f;
+}
+.auto-reserve-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.auto-reserve-row input {
+  min-width: 0;
+  width: 6rem;
+  flex: 1 1 6rem;
+  padding: 8px;
+  background: #121c10;
+  color: #f1e4ac;
+  border: 1px solid #978951;
+  font: inherit;
+}
+.auto-reserve-row button {
+  flex: 1 1 6rem;
+}
+.auto-sale-controls small {
+  font: inherit;
+  color: #d7d2b7;
+}
+
+/* Cinquième nation : le Hinomaru reste net quelle que soit sa taille. */
+.flag.jp {
+  position: relative;
+  background: #eee9d9;
+  overflow: hidden;
+}
+.flag.jp::before {
+  content: '';
+  position: absolute;
+  height: 60%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #ac3036;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+@media (min-width: 1151px) {
+  .countries {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    max-width: 1400px;
+  }
+}
+@media (min-width: 761px) and (max-width: 1150px) {
+  .countries {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.country-name,
+.country-motto,
+.country strong {
+  overflow-wrap: anywhere;
+}
+
     </style>
   </head>
   <body>
@@ -5048,6 +5137,12 @@ const COUNTRIES = {
     icon: 'DE',
   },
   su: { name: 'URSS', motto: 'La force des grands complexes', bonus: 'Récolte +15 %', icon: 'SU' },
+  jp: {
+    name: 'Japon',
+    motto: 'Chaque matière au service de la production',
+    bonus: 'Matières consommées en production −10 %',
+    icon: 'JP',
+  },
 };
 const RESOURCE_CAPACITY_GROWTH = 5 / (1.5 * 1.3);
 const RESOURCES = [
@@ -5105,7 +5200,7 @@ const RESOURCES = [
       ][i - 1]
     : null,
   rate: 0.4,
-  cost: i ? 100 * 5 ** (i - 1) : 90,
+  cost: i ? Math.ceil(100 * 2.5 ** (i - 1)) : 90,
   icon: '◆',
 }));
 // Recherches : coûts en ressources, durée, prérequis et coordonnées des illustrations.
@@ -5198,7 +5293,7 @@ const TECHS = [
     time: 30,
     col: 1,
     row: 1,
-    desc: 'Confection des uniformes.',
+    desc: 'Confection des uniformes. Offre une première usine et débloque la vente automatique du surplus.',
   },
   {
     id: 'press',
@@ -5893,6 +5988,27 @@ const PRODUCT_NAMES = {
     'Yakovlev Yak-3',
     'Petlyakov Pe-2',
   ],
+  jp: [
+    'Tenue de campagne Type 98',
+    'Équipement de soutien japonais',
+    'Cartouches de pistolet 8 mm Nambu',
+    'Nambu Type 14',
+    'Grenade Type 97',
+    'Cartouches de fusil 7,7 mm',
+    'Arisaka Type 99',
+    'Mitrailleuse légère Type 99',
+    'Obus japonais de 75 mm',
+    'Canon Type 90 de 75 mm',
+    'Type 95 Kurogane',
+    'Isuzu Type 94',
+    'Type 1 Ho-Ha',
+    'Type 95 Ha-Go',
+    'Type 97 Chi-Ha',
+    'O-I · prototype uchronique',
+    'Mitsubishi Ki-46',
+    'Mitsubishi A6M2 Zero',
+    'Mitsubishi G4M',
+  ],
 };
 const productName = (state, product) => PRODUCT_NAMES[state.country][product.tier];
 // Liste les conditions encore manquantes pour acheter le brevet.
@@ -5937,7 +6053,9 @@ const LEGACY_PATENT_COSTS = {
 function newGame(country, now = Date.now()) {
   if (!COUNTRIES[country]) throw Error('Pays invalide');
   return {
-    version: 8,
+    version: 9,
+    starterFactoryGranted: false,
+    autoSales: Object.fromEntries(RESOURCES.map((r) => [r.id, { enabled: false, reserve: 100 }])),
     storageLevels: Object.fromEntries(RESOURCES.map((resource) => [resource.id, 0])),
     factories: 0,
     country,
@@ -5966,6 +6084,32 @@ function newGame(country, now = Date.now()) {
     elapsed: 0,
   };
 }
+// Récompense unique, y compris pour les anciennes parties. Au plafond, compenser en or.
+function grantStarterFactory(state) {
+  if (!state.tech.includes('sewing') || state.starterFactoryGranted) return;
+  if (state.factories < MAX_FACTORIES) state.factories++;
+  else state.credits += 1000;
+  state.starterFactoryGranted = true;
+}
+const autoSalesUnlocked = (state) => state.tech.includes('sewing');
+// Ne vendre que des unités entières au-dessus de la réserve choisie.
+function sellSurplus(state) {
+  if (!autoSalesUnlocked(state)) return;
+  for (const resource of RESOURCES) {
+    const rule = state.autoSales[resource.id];
+    if (!rule.enabled || !unlocked(state, resource)) continue;
+    const amount = Math.max(0, Math.floor(state.resources[resource.id] - rule.reserve));
+    state.resources[resource.id] -= amount;
+    state.credits += amount * MARKET_PRICES[resource.id];
+  }
+}
+const WORKER_MILESTONES = [
+  { count: 5, multiplier: 1.25 },
+  { count: 10, multiplier: 1.5 },
+  { count: 25, multiplier: 2 },
+];
+const workerMultiplier = (count) =>
+  WORKER_MILESTONES.filter((step) => count >= step.count).at(-1)?.multiplier ?? 1;
 const MAX_FACTORIES = 250;
 const factoryCost = (state) => Math.ceil(1000 * 1.3 ** Math.floor(state.factories / 5));
 // Un lot commencé garde ses usines réservées jusqu’à son achèvement.
@@ -5977,7 +6121,13 @@ const productionRecipe = (state, product) =>
   Object.fromEntries(
     Object.entries(product.recipe).map(([id, amount]) => [
       id,
-      amount * (state.tech.includes('tooling') ? 0.9 : 1),
+      // Deux décimales évitent les résidus binaires lors du cumul des réductions.
+      Math.round(
+        amount *
+          (state.tech.includes('tooling') ? 0.9 : 1) *
+          (state.country === 'jp' ? 0.9 : 1) *
+          100,
+      ) / 100,
     ]),
   );
 const productionBatch = (state, product, line) =>
@@ -6023,6 +6173,7 @@ const rate = (state, resource) =>
     ? resource.rate *
       state.levels[resource.id] *
       activeWorkers(state, resource) *
+      workerMultiplier(activeWorkers(state, resource)) *
       (state.country === 'su' ? 1.15 : 1) *
       (state.tech.includes('steam') ? 1.2 : 1) *
       (state.tech.includes('logistics') ? 1.25 : 1)
@@ -6059,6 +6210,7 @@ function advance(state, seconds) {
   initializeHarvestProgress(state);
   let left = Math.max(0, Math.min(28800, Number(seconds) || 0));
   while (left > 1e-8) {
+    sellSurplus(state);
     // Le salaire finance une minute ; sans or, l’ouvrier attend le prochain paiement.
     for (const resource of RESOURCES)
       for (let i = 0; i < state.workers[resource.id].length; i++)
@@ -6088,7 +6240,18 @@ function advance(state, seconds) {
             speed
         : Infinity;
     }).filter((time) => time > 1e-8);
-    const dt = Math.min(1, left, ...remaining, ...filling);
+    // Découper aux unités récoltées vendables pour garder les mêmes salaires hors ligne.
+    const waitingForWages = RESOURCES.some((r) => state.workers[r.id].some((t) => t <= 1e-8));
+    const saleEvents =
+      waitingForWages && autoSalesUnlocked(state)
+        ? RESOURCES.map((resource) => {
+            const speed = rate(state, resource);
+            return state.autoSales[resource.id].enabled && speed > 0
+              ? (1 - state.harvestProgress[resource.id]) / speed
+              : Infinity;
+          }).filter((time) => time > 1e-8)
+        : [];
+    const dt = Math.min(1, left, ...remaining, ...filling, ...saleEvents);
     left -= dt;
     state.elapsed += dt;
     for (const resource of RESOURCES) {
@@ -6112,6 +6275,7 @@ function advance(state, seconds) {
       if (state.research.remaining <= 0) {
         state.tech.push(state.research.id);
         state.research = null;
+        grantStarterFactory(state);
       }
     }
     for (const line of state.lines) {
@@ -6144,11 +6308,28 @@ function advance(state, seconds) {
         }
       }
     }
+    sellSurplus(state);
   }
   return state;
 }
 // Valide une action avant de dépenser ses coûts. Renvoie false si elle est impossible.
 function act(state, type, id, requestedAmount) {
+  if (type === 'toggle-auto-sale' || type === 'set-auto-reserve') {
+    const resource = RESOURCES.find((r) => r.id === id);
+    if (!resource || !unlocked(state, resource) || !autoSalesUnlocked(state)) return false;
+    const rule = state.autoSales[id];
+    if (type === 'toggle-auto-sale') rule.enabled = !rule.enabled;
+    else {
+      if (
+        !Number.isSafeInteger(requestedAmount) ||
+        requestedAmount < 0 ||
+        requestedAmount > capacity(state, resource)
+      )
+        return false;
+      rule.reserve = requestedAmount;
+    }
+    return true;
+  }
   if (type === 'expand-storage') {
     const resource = RESOURCES.find((resource) => resource.id === id);
     if (
@@ -6305,7 +6486,7 @@ function validateSave(raw) {
   const unique = (a) => new Set(a).size === a.length;
   if (
     !state ||
-    ![1, 2, 3, 4, 5, 6, 7, 8].includes(state.version) ||
+    ![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(state.version) ||
     !COUNTRIES[state.country] ||
     !finite(state.credits) ||
     !finite(state.elapsed) ||
@@ -6557,6 +6738,30 @@ function validateSave(raw) {
     )
   )
     throw Error('Extensions de stockage invalides');
+  if (state.version < 9) {
+    state.autoSales = Object.fromEntries(
+      RESOURCES.map((r) => [r.id, { enabled: false, reserve: 100 }]),
+    );
+    state.starterFactoryGranted = false;
+    grantStarterFactory(state);
+    state.version = 9;
+  }
+  if (
+    typeof state.starterFactoryGranted !== 'boolean' ||
+    (state.starterFactoryGranted && !state.tech.includes('sewing')) ||
+    !state.autoSales ||
+    RESOURCES.some((r) => {
+      const rule = state.autoSales[r.id];
+      return (
+        !rule ||
+        typeof rule.enabled !== 'boolean' ||
+        !Number.isSafeInteger(rule.reserve) ||
+        !finite(rule.reserve) ||
+        (rule.enabled && (!autoSalesUnlocked(state) || !unlocked(state, r)))
+      );
+    })
+  )
+    throw Error('Vente automatique ou récompense invalide');
   initializeHarvestProgress(state);
   if (
     !state.harvestProgress ||
@@ -6596,6 +6801,9 @@ const fmt = (n) =>
   Math.floor(n)
     .toLocaleString('fr-FR')
     .replace(/[\u00a0\u202f]/g, ' ');
+// Afficher précisément les économies de matières, sans tronquer les recettes.
+const recipeAmount = (n) =>
+  n.toLocaleString('fr-FR', { maximumFractionDigits: 2 }).replace(/[\u00a0\u202f]/g, ' ');
 const money = (n) => Math.ceil(n).toLocaleString('fr-FR');
 // Unités et espaces explicites : aucun caractère absent de la police du jeu.
 const compact = (n) => {
@@ -7252,6 +7460,7 @@ function harvest() {
                       ><small>/ min</small>
                     </div>
                     <small class="worker-condition" id="worker-condition-${resource.id}"></small>
+                    <small class="worker-bonus" id="worker-bonus-${resource.id}"></small>
                   </section>`}
           </div>
         </article>`;
@@ -7304,10 +7513,47 @@ document.addEventListener('input', (event) => {
   } catch {}
 });
 document.addEventListener('change', editMarketQuantity);
+function autoSaleControls(resource) {
+  if (!autoSalesUnlocked(state) || !unlocked(state, resource)) return '';
+  const rule = state.autoSales[resource.id];
+  return /* HTML */ `<section
+    class="auto-sale-controls"
+    aria-label="Vente automatique : ${resource.name}"
+  >
+    <button
+      class="secondary"
+      data-action="toggle-auto-sale"
+      data-id="${resource.id}"
+      id="auto-sale-${resource.id}"
+      aria-pressed="${rule.enabled}"
+    ></button>
+    <label for="auto-reserve-${resource.id}">Réserve à conserver</label>
+    <div class="auto-reserve-row">
+      <input
+        id="auto-reserve-${resource.id}"
+        type="number"
+        min="0"
+        max="${capacity(state, resource)}"
+        step="1"
+        value="${rule.reserve}"
+        inputmode="numeric"
+        aria-label="Réserve de ${resource.name}"
+      />
+      <button class="secondary" data-action="set-auto-reserve" data-id="${resource.id}">
+        Enregistrer
+      </button>
+    </div>
+    <small id="auto-reserve-status-${resource.id}"></small>
+  </section>`;
+}
 function market() {
   return /* HTML */ `<div class="section-intro">
       <p>Vendez vos matières premières pour financer vos ouvriers et de nouvelles exploitations.</p>
-      <span>PRIX FIXES · PAIEMENT IMMÉDIAT</span>
+      <span
+        >${autoSalesUnlocked(state)
+          ? 'VENTE AUTOMATIQUE DISPONIBLE'
+          : 'VENTE AUTO : RECHERCHE MACHINES À COUDRE'}</span
+      >
     </div>
     <div class="market-grid">
       ${RESOURCES.map(
@@ -7386,6 +7632,7 @@ function market() {
                 id="sell-all-${resource.id}"
               ></button>
             </div>
+            ${autoSaleControls(resource)}
           </article>`,
       ).join('')}
     </div>`;
@@ -7472,7 +7719,7 @@ function production() {
                     ([id, n]) =>
                       /* HTML */ `<span
                         title="${RESOURCES.find((resource) => resource.id === id).name}"
-                        >${resourceIcon(id)}<b>${fmt(n)}</b
+                        >${resourceIcon(id)}<b>${recipeAmount(n)}</b
                         ><small
                           >${RESOURCES.find((resource) => resource.id === id).name}</small
                         ></span
@@ -8035,6 +8282,19 @@ function updateResourceNumbers() {
       'worker-condition-' + resource.id,
       full && crew.length ? 'Chômage partiel · salaire −50 %' : '',
     );
+    const multiplier = workerMultiplier(active);
+    const nextBonus = WORKER_MILESTONES.find((step) => step.count > active);
+    text(
+      'worker-bonus-' + resource.id,
+      multiplier > 1
+        ? `Équipe · récolte +${Math.round((multiplier - 1) * 100)} %`
+        : 'Prochain bonus : 5 ouvriers',
+    );
+    const bonusEl = document.getElementById('worker-bonus-' + resource.id);
+    if (bonusEl)
+      bonusEl.title = nextBonus
+        ? `Prochain palier : ${nextBonus.count} ouvriers rémunérés`
+        : 'Bonus maximal de l’équipe';
     const statusEl = document.getElementById('worker-status-' + resource.id);
     if (statusEl) {
       statusEl.textContent = active < crew.length || full ? 'Ⅱ' : '●';
@@ -8067,7 +8327,19 @@ function updateResourceNumbers() {
       state.credits < hireCost(state, resource) + workerWage(resource, state) || crew.length >= 100,
     );
     disable('dismiss-' + resource.id, !crew.length);
-    if (view === 'market') updateMarketQuantity(resource.id);
+    if (view === 'market') {
+      updateMarketQuantity(resource.id);
+      const rule = state.autoSales[resource.id];
+      text(
+        'auto-sale-' + resource.id,
+        rule.enabled ? 'Vente auto : active' : 'Activer la vente auto',
+      );
+      const toggle = document.getElementById('auto-sale-' + resource.id);
+      if (toggle) toggle.setAttribute('aria-pressed', String(rule.enabled));
+      text('auto-reserve-status-' + resource.id, `Réserve enregistrée : ${fmt(rule.reserve)}`);
+      const reserve = document.getElementById('auto-reserve-' + resource.id);
+      if (reserve) reserve.max = String(capacity(state, resource));
+    }
     disable('sell-all-' + resource.id, quantity < 1);
     text(
       'sell-all-' + resource.id,
@@ -8372,6 +8644,18 @@ document.addEventListener('click', (e) => {
     importSave();
     return;
   }
+  if (a === 'set-auto-reserve' && state) {
+    const input = document.getElementById('auto-reserve-' + button.dataset.id);
+    if (
+      input &&
+      input.value.trim() !== '' &&
+      act(state, a, button.dataset.id, Number(input.value))
+    ) {
+      save();
+      updateNumbers();
+    } else notify('Choisissez une réserve entière entre zéro et la capacité du stock.');
+    return;
+  }
   if (state && act(state, a, button.dataset.id, marketQuantities[button.dataset.id])) {
     save();
     if (['harvest', 'sell-resource', 'sell-ten', 'sell-all', 'sell-quantity'].includes(a)) {
@@ -8392,7 +8676,13 @@ setInterval(() => {
     checkPayrollNotice();
     if (state.tech.length !== before) {
       if (screen === 'game') shell();
-      notify('Recherche terminée : ' + TECHS.find((t) => t.id === state.tech.at(-1)).name);
+      notify(
+        'Recherche terminée : ' +
+          TECHS.find((t) => t.id === state.tech.at(-1)).name +
+          (state.tech.at(-1) === 'sewing'
+            ? '. Une usine offerte est disponible. Vente automatique débloquée au marché.'
+            : ''),
+      );
     } else if (
       screen === 'game' &&
       ['production', 'patents'].includes(view) &&

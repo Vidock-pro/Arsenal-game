@@ -1,4 +1,4 @@
-// Vérifie les règles, les coûts, les sauvegardes et la progression des quatre nations.
+// Vérifie les règles, les coûts, les sauvegardes et la progression des cinq nations.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -21,6 +21,8 @@ import {
   salePrice,
   hireCost,
   workerWage,
+  workerMultiplier,
+  autoSalesUnlocked,
   newGame,
   act,
   advance,
@@ -229,7 +231,7 @@ test('Manual sales fund the first worker and new sites', () => {
   assert.equal(s.credits, 12);
   assert.equal(s.resources.coal, 0);
   assert.ok(s.harvestProgress.coal > 0);
-  s.credits = 600;
+  s.credits = 350;
   assert.equal(act(s, 'upgrade', 'wood'), false);
   assert.ok(act(s, 'upgrade', 'cotton'));
   assert.ok(act(s, 'upgrade', 'wood'));
@@ -291,7 +293,7 @@ test('Save migration preserves legacy assets and validates new payroll', () => {
   old.levels.platinum = 0;
   delete old.workers;
   const migrated = validateSave(old);
-  assert.equal(migrated.version, 8);
+  assert.equal(migrated.version, 9);
   assert.equal(migrated.credits, 700);
   assert.equal(migrated.resources.wood, 100);
   assert.equal(rate(migrated, RESOURCES[0]), 0);
@@ -342,7 +344,7 @@ test('Hiring scales per site while salaries stay fixed', () => {
   assert.equal(s.credits, 0);
 });
 
-test('All twelve sites open in order with x5 costs and x1.5 sale prices', () => {
+test('All twelve sites open in order with x2.5 costs and x1.5 sale prices', () => {
   assert.deepEqual(
     RESOURCES.map((r) => r.id),
     [
@@ -366,7 +368,7 @@ test('All twelve sites open in order with x5 costs and x1.5 sale prices', () => 
     const r = RESOURCES[i],
       previous = RESOURCES[i - 1];
     for (const later of RESOURCES.slice(i + 1)) assert.equal(available(s, later), false);
-    assert.equal(r.cost, 100 * 5 ** (i - 1));
+    assert.equal(r.cost, Math.ceil(100 * 2.5 ** (i - 1)));
     assert.equal(MARKET_PRICES[r.id], Math.ceil(1.5 ** i));
     assert.ok(act(s, 'upgrade', r.id));
     assert.ok(act(s, 'harvest', r.id));
@@ -386,7 +388,7 @@ test('Version 2 migration retains workers, converts platinum, and preserves acce
   old.levels = { coal: 1, wood: 2, iron: 1, rubber: 1, platinum: 1 };
   old.workers = { coal: [40], wood: [25], iron: [], rubber: [], platinum: [12] };
   const s = validateSave(old);
-  assert.equal(s.version, 8);
+  assert.equal(s.version, 9);
   assert.equal(s.credits, 52);
   assert.equal(s.resources.cotton, 0);
   assert.equal(s.resources.wood, 30);
@@ -437,7 +439,7 @@ test('All transaction prices round upward and batch sales equal individual sales
     }
 });
 
-test('Nineteen categories have four named national variants and positive-margin recipes', () => {
+test('Nineteen categories have five named national variants and positive-margin recipes', () => {
   assert.deepEqual(
     PRODUCTS.map((p) => p.id),
     [
@@ -534,7 +536,7 @@ test('Version 3 line migration preserves stock, in-flight work and old unlocks',
   old.lines[0] = { id: 'rifle', enabled: true, remaining: 5, stock: 7, made: 12 };
   old.lines[2].stock = 2;
   const s = validateSave(old);
-  assert.equal(s.version, 8);
+  assert.equal(s.version, 9);
   assert.equal(s.lines.length, 19);
   const rifle = s.lines.find((l) => l.id === 'rifle');
   assert.equal(rifle.stock, 7);
@@ -569,7 +571,7 @@ test('Version 4 migration refunds royalty certificates once and preserves acquir
   old.lines[0].made = 3;
   old.lines[0].stock = 2;
   const s = validateSave(old);
-  assert.equal(s.version, 8);
+  assert.equal(s.version, 9);
   assert.equal(s.credits, 950);
   assert.deepEqual(s.patents, ['uniform']);
   assert.equal(s.lines[0].stock, 2);
@@ -703,7 +705,7 @@ test('Factory migration preserves ongoing work and rejects over-allocation', () 
     delete l.batch;
   }
   const s = validateSave(old);
-  assert.equal(s.factories, 1);
+  assert.equal(s.factories, 2);
   assert.equal(s.lines[0].batch, 1);
   advance(s, 3);
   assert.equal(s.lines[0].stock, 1);
@@ -799,7 +801,7 @@ test('Version 6 technology migration preserves owned equipment and paid work', (
   old.research = { id: 'assembly', remaining: 20 };
   old.levels.cotton = 1;
   const next = validateSave(old);
-  assert.equal(next.version, 8);
+  assert.equal(next.version, 9);
   assert.ok(next.tech.includes('sewing'));
   assert.ok(next.tech.includes('precision'));
   assert.ok(next.tech.includes('electricity'));
@@ -1019,4 +1021,152 @@ test('Filling a warehouse stretches prepaid wages equally online and offline', (
   advance(a, 180);
   assert.equal(a.workers.coal[0], 0);
   assert.equal(a.resources.coal, 500);
+});
+
+test('Sewing awards one free factory and unlocks optional automatic sales', () => {
+  const s = established('fr');
+  assert.equal(autoSalesUnlocked(s), false);
+  assert.equal(act(s, 'toggle-auto-sale', 'coal'), false);
+  const credits = s.credits;
+  assert.ok(act(s, 'research', 'sewing'));
+  advance(s, 30);
+  assert.equal(s.factories, 1);
+  assert.equal(s.credits, credits);
+  assert.equal(s.starterFactoryGranted, true);
+  assert.ok(autoSalesUnlocked(s));
+  assert.equal(factoryCost(s), 1000);
+  advance(s, 60);
+  assert.equal(validateSave(s).factories, 1);
+  assert.ok(RESOURCES.every((r) => !s.autoSales[r.id].enabled));
+});
+
+test('Older saves receive the factory once without changing stocks or allocations', () => {
+  const old = permit(established('fr'));
+  old.version = 8;
+  delete old.autoSales;
+  delete old.starterFactoryGranted;
+  const next = validateSave(old);
+  assert.equal(next.factories, old.factories + 1);
+  assert.deepEqual(next.resources, old.resources);
+  assert.deepEqual(next.lines, old.lines);
+  assert.deepEqual(validateSave(next), next);
+  const empty = newGame('fr');
+  empty.version = 8;
+  assert.equal(validateSave(empty).factories, 0);
+});
+
+test('Paid crew milestones increase yield without increasing per-worker wages', () => {
+  const s = newGame('fr'),
+    coal = RESOURCES[0];
+  for (const [count, bonus] of [
+    [4, 1],
+    [5, 1.25],
+    [9, 1.25],
+    [10, 1.5],
+    [24, 1.5],
+    [25, 2],
+  ]) {
+    s.workers.coal = Array(count).fill(60);
+    assert.equal(workerMultiplier(count), bonus);
+    assert.ok(Math.abs(rate(s, coal) - count * 0.4 * bonus) < 1e-8);
+    assert.equal(workerWage(coal, s), 12);
+  }
+  s.workers.coal = [60, 60, 60, 60, 0];
+  assert.equal(rate(s, coal), 1.6);
+  s.resources.coal = 500;
+  assert.equal(rate(s, coal), 0);
+  assert.equal(workerWage(coal, s), 6);
+});
+
+test('Automatic sales respect reserves, site ownership, unlocks and whole units', () => {
+  const s = newGame('fr');
+  s.tech = ['sewing'];
+  s.resources.coal = 150.5;
+  assert.equal(act(s, 'toggle-auto-sale', 'cotton'), false);
+  assert.ok(act(s, 'toggle-auto-sale', 'coal'));
+  assert.ok(act(s, 'set-auto-reserve', 'coal', 120));
+  for (const value of [-1, 501, NaN, Infinity, 1.5, '20'])
+    assert.equal(act(s, 'set-auto-reserve', 'coal', value), false);
+  advance(s, 1);
+  assert.equal(s.resources.coal, 120.5);
+  assert.equal(s.credits, 30);
+  assert.equal(s.autoSales.coal.reserve, 120);
+  assert.deepEqual(validateSave(s), s);
+  act(s, 'toggle-auto-sale', 'coal');
+  s.resources.coal = 200;
+  advance(s, 1);
+  assert.equal(s.resources.coal, 200);
+});
+
+test('Automatic trade funds wages and matches online progress through stock-full transitions', () => {
+  const a = newGame('su');
+  a.tech = ['sewing'];
+  a.resources.coal = 500;
+  a.workers.coal = [0, 0, 0, 0, 0];
+  a.autoSales.coal = { enabled: true, reserve: 100 };
+  const b = structuredClone(a);
+  advance(a, 600);
+  for (let i = 0; i < 2400; i++) advance(b, 0.25);
+  assert.equal(a.credits, b.credits);
+  assert.equal(a.resources.coal, 100);
+  assert.equal(a.resources.coal, b.resources.coal);
+  a.workers.coal.forEach((t, i) => assert.ok(Math.abs(t - b.workers.coal[i]) < 1e-7));
+  assert.ok(a.credits > 400);
+});
+
+test('Automatic trade can restart unpaid crew from another working crew', () => {
+  const a = newGame('fr');
+  a.tech = ['sewing'];
+  a.levels.cotton = 1;
+  a.workers.coal = [60];
+  a.workers.cotton = [0];
+  a.autoSales.coal = { enabled: true, reserve: 0 };
+  a.autoSales.cotton = { enabled: true, reserve: 0 };
+  const b = structuredClone(a);
+  advance(a, 180);
+  for (let i = 0; i < 720; i++) advance(b, 0.25);
+  assert.equal(a.credits, b.credits);
+  assert.deepEqual(a.resources, b.resources);
+  for (const r of RESOURCES)
+    a.workers[r.id].forEach((t, i) => assert.ok(Math.abs(t - b.workers[r.id][i]) < 1e-7));
+});
+
+test('Automatic sale save settings reject malformed values', () => {
+  for (const mutate of [
+    (s) => delete s.autoSales,
+    (s) => (s.autoSales.coal.reserve = -1),
+    (s) => (s.autoSales.coal.reserve = Infinity),
+    (s) => (s.autoSales.coal.enabled = 'yes'),
+    (s) => (s.autoSales.coal.enabled = true),
+    (s) => (s.starterFactoryGranted = true),
+  ]) {
+    const s = newGame('fr');
+    mutate(s);
+    assert.throws(() => validateSave(s));
+  }
+});
+
+test('Japan reduces production materials only and combines with industrial tooling', () => {
+  const s = newGame('jp'),
+    p = PRODUCTS[0];
+  assert.deepEqual(productionRecipe(s, p), { coal: 1.8, cotton: 3.6 });
+  assert.equal(productTime(s, p), 8);
+  assert.equal(salePrice(s, p), 14);
+  assert.equal(researchTime(s, TECHS[0]), 30);
+  s.workers.coal = [60];
+  assert.equal(rate(s, RESOURCES[0]), 0.4);
+  assert.equal(workerWage(RESOURCES[0], s), 12);
+  grant(s, 'tooling');
+  assert.deepEqual(productionRecipe(s, p), { coal: 1.62, cotton: 3.24 });
+  const game = permit(newGame('jp'));
+  game.levels.cotton = 1;
+  game.resources.coal = 1.8;
+  game.resources.cotton = 3.6;
+  assert.ok(act(game, 'toggle', 'uniform'));
+  advance(game, 8);
+  assert.equal(game.lines[0].stock, 1);
+  assert.equal(game.resources.coal, 0);
+  assert.equal(game.resources.cotton, 0);
+  assert.deepEqual(validateSave(game), game);
+  assert.equal(PRODUCT_NAMES.jp.length, 19);
 });

@@ -1,4 +1,7 @@
 import {
+  autoSalesUnlocked,
+  workerMultiplier,
+  WORKER_MILESTONES,
   MAX_FACTORIES,
   MAX_STORAGE_LEVEL,
   storageUpgradeCost,
@@ -57,6 +60,9 @@ const fmt = (n) =>
   Math.floor(n)
     .toLocaleString('fr-FR')
     .replace(/[\u00a0\u202f]/g, ' ');
+// Afficher précisément les économies de matières, sans tronquer les recettes.
+const recipeAmount = (n) =>
+  n.toLocaleString('fr-FR', { maximumFractionDigits: 2 }).replace(/[\u00a0\u202f]/g, ' ');
 const money = (n) => Math.ceil(n).toLocaleString('fr-FR');
 // Unités et espaces explicites : aucun caractère absent de la police du jeu.
 const compact = (n) => {
@@ -713,6 +719,7 @@ function harvest() {
                       ><small>/ min</small>
                     </div>
                     <small class="worker-condition" id="worker-condition-${resource.id}"></small>
+                    <small class="worker-bonus" id="worker-bonus-${resource.id}"></small>
                   </section>`}
           </div>
         </article>`;
@@ -765,10 +772,47 @@ document.addEventListener('input', (event) => {
   } catch {}
 });
 document.addEventListener('change', editMarketQuantity);
+function autoSaleControls(resource) {
+  if (!autoSalesUnlocked(state) || !unlocked(state, resource)) return '';
+  const rule = state.autoSales[resource.id];
+  return /* HTML */ `<section
+    class="auto-sale-controls"
+    aria-label="Vente automatique : ${resource.name}"
+  >
+    <button
+      class="secondary"
+      data-action="toggle-auto-sale"
+      data-id="${resource.id}"
+      id="auto-sale-${resource.id}"
+      aria-pressed="${rule.enabled}"
+    ></button>
+    <label for="auto-reserve-${resource.id}">Réserve à conserver</label>
+    <div class="auto-reserve-row">
+      <input
+        id="auto-reserve-${resource.id}"
+        type="number"
+        min="0"
+        max="${capacity(state, resource)}"
+        step="1"
+        value="${rule.reserve}"
+        inputmode="numeric"
+        aria-label="Réserve de ${resource.name}"
+      />
+      <button class="secondary" data-action="set-auto-reserve" data-id="${resource.id}">
+        Enregistrer
+      </button>
+    </div>
+    <small id="auto-reserve-status-${resource.id}"></small>
+  </section>`;
+}
 function market() {
   return /* HTML */ `<div class="section-intro">
       <p>Vendez vos matières premières pour financer vos ouvriers et de nouvelles exploitations.</p>
-      <span>PRIX FIXES · PAIEMENT IMMÉDIAT</span>
+      <span
+        >${autoSalesUnlocked(state)
+          ? 'VENTE AUTOMATIQUE DISPONIBLE'
+          : 'VENTE AUTO : RECHERCHE MACHINES À COUDRE'}</span
+      >
     </div>
     <div class="market-grid">
       ${RESOURCES.map(
@@ -847,6 +891,7 @@ function market() {
                 id="sell-all-${resource.id}"
               ></button>
             </div>
+            ${autoSaleControls(resource)}
           </article>`,
       ).join('')}
     </div>`;
@@ -933,7 +978,7 @@ function production() {
                     ([id, n]) =>
                       /* HTML */ `<span
                         title="${RESOURCES.find((resource) => resource.id === id).name}"
-                        >${resourceIcon(id)}<b>${fmt(n)}</b
+                        >${resourceIcon(id)}<b>${recipeAmount(n)}</b
                         ><small
                           >${RESOURCES.find((resource) => resource.id === id).name}</small
                         ></span
@@ -1496,6 +1541,19 @@ function updateResourceNumbers() {
       'worker-condition-' + resource.id,
       full && crew.length ? 'Chômage partiel · salaire −50 %' : '',
     );
+    const multiplier = workerMultiplier(active);
+    const nextBonus = WORKER_MILESTONES.find((step) => step.count > active);
+    text(
+      'worker-bonus-' + resource.id,
+      multiplier > 1
+        ? `Équipe · récolte +${Math.round((multiplier - 1) * 100)} %`
+        : 'Prochain bonus : 5 ouvriers',
+    );
+    const bonusEl = document.getElementById('worker-bonus-' + resource.id);
+    if (bonusEl)
+      bonusEl.title = nextBonus
+        ? `Prochain palier : ${nextBonus.count} ouvriers rémunérés`
+        : 'Bonus maximal de l’équipe';
     const statusEl = document.getElementById('worker-status-' + resource.id);
     if (statusEl) {
       statusEl.textContent = active < crew.length || full ? 'Ⅱ' : '●';
@@ -1528,7 +1586,19 @@ function updateResourceNumbers() {
       state.credits < hireCost(state, resource) + workerWage(resource, state) || crew.length >= 100,
     );
     disable('dismiss-' + resource.id, !crew.length);
-    if (view === 'market') updateMarketQuantity(resource.id);
+    if (view === 'market') {
+      updateMarketQuantity(resource.id);
+      const rule = state.autoSales[resource.id];
+      text(
+        'auto-sale-' + resource.id,
+        rule.enabled ? 'Vente auto : active' : 'Activer la vente auto',
+      );
+      const toggle = document.getElementById('auto-sale-' + resource.id);
+      if (toggle) toggle.setAttribute('aria-pressed', String(rule.enabled));
+      text('auto-reserve-status-' + resource.id, `Réserve enregistrée : ${fmt(rule.reserve)}`);
+      const reserve = document.getElementById('auto-reserve-' + resource.id);
+      if (reserve) reserve.max = String(capacity(state, resource));
+    }
     disable('sell-all-' + resource.id, quantity < 1);
     text(
       'sell-all-' + resource.id,
@@ -1833,6 +1903,18 @@ document.addEventListener('click', (e) => {
     importSave();
     return;
   }
+  if (a === 'set-auto-reserve' && state) {
+    const input = document.getElementById('auto-reserve-' + button.dataset.id);
+    if (
+      input &&
+      input.value.trim() !== '' &&
+      act(state, a, button.dataset.id, Number(input.value))
+    ) {
+      save();
+      updateNumbers();
+    } else notify('Choisissez une réserve entière entre zéro et la capacité du stock.');
+    return;
+  }
   if (state && act(state, a, button.dataset.id, marketQuantities[button.dataset.id])) {
     save();
     if (['harvest', 'sell-resource', 'sell-ten', 'sell-all', 'sell-quantity'].includes(a)) {
@@ -1853,7 +1935,13 @@ setInterval(() => {
     checkPayrollNotice();
     if (state.tech.length !== before) {
       if (screen === 'game') shell();
-      notify('Recherche terminée : ' + TECHS.find((t) => t.id === state.tech.at(-1)).name);
+      notify(
+        'Recherche terminée : ' +
+          TECHS.find((t) => t.id === state.tech.at(-1)).name +
+          (state.tech.at(-1) === 'sewing'
+            ? '. Une usine offerte est disponible. Vente automatique débloquée au marché.'
+            : ''),
+      );
     } else if (
       screen === 'game' &&
       ['production', 'patents'].includes(view) &&
