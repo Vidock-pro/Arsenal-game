@@ -3574,3 +3574,123 @@ dialog,
 .market-grid {
   gap: 12px;
 }
+
+.gold-price-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  vertical-align: middle;
+}
+.gold-price-label .wage-icon.compact-icon {
+  --icon-size: 22px;
+  pointer-events: none;
+}
+
+/* Les stocks possédés remplissent la barre sans cases réservées aux sites verrouillés. */
+.topbar .resource-stocks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.topbar .resource-stock {
+  flex: 0 1 6rem;
+  min-width: 4rem;
+}
+.inventory-row .storage-expand {
+  margin-left: auto;
+  font:
+    bold 0.8rem/1.4 'Courier New',
+    monospace;
+  white-space: normal;
+}
+.inventory-row {
+  flex-wrap: wrap;
+}
+@media (max-width: 600px) {
+  .inventory-row .storage-expand {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+}
+
+.worker-condition {
+  grid-column: 1 / -1;
+  color: #e2c566;
+  font:
+    bold 0.75rem/1.4 'Courier New',
+    monospace;
+}
+.worker-condition:empty {
+  display: none;
+}
+.worker-status[data-state='idle'] {
+  color: #e2c566;
+}
+
+/* Les six destinations restent accessibles sans faire défiler le menu.
+   Le libellé disparaît seulement quand sa case devient trop étroite. */
+.sidebar nav button .menu-label {
+  width: auto;
+  min-width: 0;
+  font: inherit;
+}
+@media (max-width: 760px) {
+  .sidebar {
+    min-width: 0;
+  }
+  .sidebar nav {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    overflow: visible;
+    gap: 4px;
+  }
+  .sidebar nav button {
+    container-type: inline-size;
+    container-name: menu-item;
+    min-width: 0;
+    width: 100%;
+    padding: 8px 2px;
+    min-height: 60px;
+    justify-content: center;
+  }
+  .sidebar nav button .menu-label {
+    font-size: inherit;
+  }
+}
+@container menu-item (max-width: 6.3rem) {
+  .menu-label {
+    display: none;
+  }
+}
+
+/* Dans le menu latéral, adapter le texte à la largeur sans le masquer. */
+@media (min-width: 761px) {
+  .sidebar nav {
+    min-width: 0;
+  }
+  .sidebar nav button {
+    container: side-menu-item / inline-size;
+    min-width: 0;
+    width: 100%;
+  }
+  .sidebar nav button {
+    gap: 8px;
+    padding-inline: 8px;
+  }
+  .sidebar nav button .menu-label {
+    display: inline;
+    font-size: clamp(10px, 8cqi, 18px);
+    white-space: nowrap;
+  }
+  .sidebar nav button .menu-icon.compact-icon {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    flex-shrink: 0;
+  }
+  .sidebar nav b:empty {
+    display: none;
+  }
+}

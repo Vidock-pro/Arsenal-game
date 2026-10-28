@@ -1,5 +1,7 @@
 import {
   MAX_FACTORIES,
+  MAX_STORAGE_LEVEL,
+  storageUpgradeCost,
   factoryCost,
   freeFactories,
   productionBatch,
@@ -257,7 +259,7 @@ function checkPayrollNotice() {
   const stopped = RESOURCES.filter(
     (resource) =>
       state.workers[resource.id].some((time) => time <= 1e-8) &&
-      state.credits < workerWage(resource),
+      state.credits < workerWage(resource, state),
   );
   const blocked = stopped.length > 0;
   if (blocked && !wagesBlocked)
@@ -512,19 +514,21 @@ function shell() {
         ${flag(state.country)}<span>${c.name}<small>${c.bonus}</small></span>
       </div>
       <div class="resource-stocks" role="group" aria-label="Stocks de ressources">
-        ${RESOURCES.map(
-          (resource) =>
-            /* HTML */ `<div
-              class="resource-stock"
-              title="${resource.name}"
-              aria-label="${resource.name}"
-              role="group"
-              tabindex="0"
-            >
-              ${resourceIcon(resource.id)}<strong id="header-stock-${resource.id}"></strong
-              ><span class="header-capacity" id="header-capacity-${resource.id}"></span>
-            </div>`,
-        ).join('')}
+        ${RESOURCES.filter((resource) => unlocked(state, resource))
+          .map(
+            (resource) =>
+              /* HTML */ `<div
+                class="resource-stock"
+                title="${resource.name}"
+                aria-label="${resource.name}"
+                role="group"
+                tabindex="0"
+              >
+                ${resourceIcon(resource.id)}<strong id="header-stock-${resource.id}"></strong
+                ><span class="header-capacity" id="header-capacity-${resource.id}"></span>
+              </div>`,
+          )
+          .join('')}
       </div>
       <div class="wallet">
         ${wageIcon()}
@@ -537,8 +541,14 @@ function shell() {
         ${Object.entries(names)
           .map(
             ([id, name]) =>
-              /* HTML */ `<button data-view="${id}" class="${view === id ? 'active' : ''}">
-                ${navArt(id)}${name}<b>${id === 'research' && state.research ? '•' : ''}</b>
+              /* HTML */ `<button
+                data-view="${id}"
+                aria-label="${name}"
+                title="${name}"
+                class="${view === id ? 'active' : ''}"
+              >
+                ${navArt(id)}<span class="menu-label">${name}</span
+                ><b>${id === 'research' && state.research ? '•' : ''}</b>
               </button>`,
           )
           .join('')}
@@ -682,25 +692,27 @@ function harvest() {
                         aria-label="Engager un ouvrier — ${resource.name}, ${hireCost(
                           state,
                           resource,
-                        ) + workerWage(resource)} or"
+                        ) + workerWage(resource, state)} or"
                         title="Embauche : ${hireCost(state, resource)} or + ${workerWage(
                           resource,
+                          state,
                         )} or pour la première minute "
                       >
                         +</button
                       ><span class="worker-hire-price" id="hire-price-${resource.id}"
-                        >${money(hireCost(state, resource) + workerWage(resource))} or</span
+                        >${money(hireCost(state, resource) + workerWage(resource, state))} or</span
                       >
                     </div>
                     <div
                       class="worker-wages"
                       id="wages-${resource.id}"
                       role="group"
-                      title="Salaire : ${workerWage(resource)} or / ouvrier / min"
+                      title="Salaire : ${workerWage(resource, state)} or / ouvrier / min"
                     >
                       ${wageIcon()}<strong id="payroll-${resource.id}">0</strong
                       ><small>/ min</small>
                     </div>
+                    <small class="worker-condition" id="worker-condition-${resource.id}"></small>
                   </section>`}
           </div>
         </article>`;
@@ -1292,6 +1304,12 @@ function storage() {
               ><small class="stock-capacity">
                 / <span id="capacity-${resource.id}"></span></small></strong
             ><small id="rate-${resource.id}"></small>
+            <button
+              class="upgrade storage-expand"
+              data-action="expand-storage"
+              data-id="${resource.id}"
+              id="expand-storage-${resource.id}"
+            ></button>
           </div>`,
       ).join('')}
     </section>
@@ -1320,6 +1338,13 @@ function text(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = value;
 }
+// Prix accompagné des mêmes lingots que la trésorerie et les salaires.
+function goldLabel(id, label) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = `<span class="gold-price-label">${label}${wageIcon()}</span>`;
+  el.setAttribute('aria-label', label + ' or');
+}
 function width(id, v) {
   const el = document.getElementById(id);
   if (el) el.style.width = Math.min(100, Math.max(0, v)) + '%';
@@ -1337,7 +1362,7 @@ function updateNumbers() {
     'total-wages',
     fmt(
       RESOURCES.reduce(
-        (n, resource) => n + state.workers[resource.id].length * workerWage(resource),
+        (n, resource) => n + state.workers[resource.id].length * workerWage(resource, state),
         0,
       ),
     ) + ' or',
@@ -1404,6 +1429,23 @@ function updateResourceNumbers() {
   for (const resource of RESOURCES) {
     const maxStock = capacity(state, resource);
     text('capacity-' + resource.id, fmt(maxStock));
+    const storageMaxed = state.storageLevels[resource.id] >= MAX_STORAGE_LEVEL;
+    if (view === 'storage') {
+      if (!unlocked(state, resource)) text('expand-storage-' + resource.id, 'Exploitation requise');
+      else if (storageMaxed) text('expand-storage-' + resource.id, 'Capacité maximale');
+      else
+        goldLabel(
+          'expand-storage-' + resource.id,
+          `Agrandir à ${fmt(maxStock * 2)} · ${money(storageUpgradeCost(state, resource))}`,
+        );
+      disable(
+        'expand-storage-' + resource.id,
+        !unlocked(state, resource) ||
+          storageMaxed ||
+          state.credits < storageUpgradeCost(state, resource),
+      );
+    }
+
     text('header-capacity-' + resource.id, '/ ' + compact(maxStock));
     text('stock-' + resource.id, fmt(state.resources[resource.id]));
     const stockEl = document.getElementById('stock-' + resource.id);
@@ -1422,9 +1464,9 @@ function updateResourceNumbers() {
       'level-' + resource.id,
       state.levels[resource.id] ? `NIV. ${state.levels[resource.id]}` : 'À OUVRIR',
     );
-    text(
+    goldLabel(
       'upgrade-' + resource.id,
-      `${state.levels[resource.id] ? 'Améliorer' : 'Ouvrir'} · ${fmt(upgradeCost(state, resource))} ◉`,
+      `${state.levels[resource.id] ? 'Améliorer' : 'Ouvrir'} · ${fmt(upgradeCost(state, resource))}`,
     );
     disable(
       'upgrade-' + resource.id,
@@ -1439,18 +1481,31 @@ function updateResourceNumbers() {
     text('workers-' + resource.id, crew.length);
     text(
       'hire-price-' + resource.id,
-      money(hireCost(state, resource) + workerWage(resource)) + ' or',
+      money(hireCost(state, resource) + workerWage(resource, state)) + ' or',
     );
-    text('payroll-' + resource.id, crew.length * workerWage(resource));
+    text('payroll-' + resource.id, crew.length * workerWage(resource, state));
+    const full = state.resources[resource.id] >= maxStock;
     const crewStatus = !crew.length
       ? 'Aucun ouvrier'
       : active < crew.length
         ? `${active} au travail, ${crew.length - active} en pause : salaire manquant`
-        : `${active} au travail · prochain salaire dans ${Math.ceil(Math.min(...crew))} s`;
+        : full
+          ? 'Chômage partiel · stock plein · salaire réduit de 50 %'
+          : `${active} au travail · prochain salaire dans ${Math.ceil(Math.min(...crew))} s`;
+    text(
+      'worker-condition-' + resource.id,
+      full && crew.length ? 'Chômage partiel · salaire −50 %' : '',
+    );
     const statusEl = document.getElementById('worker-status-' + resource.id);
     if (statusEl) {
-      statusEl.textContent = active < crew.length ? 'Ⅱ' : '●';
-      statusEl.dataset.state = !crew.length ? 'empty' : active < crew.length ? 'paused' : 'active';
+      statusEl.textContent = active < crew.length || full ? 'Ⅱ' : '●';
+      statusEl.dataset.state = !crew.length
+        ? 'empty'
+        : active < crew.length
+          ? 'paused'
+          : full
+            ? 'idle'
+            : 'active';
       statusEl.title = crewStatus;
       statusEl.setAttribute('aria-label', crewStatus);
     }
@@ -1460,15 +1515,17 @@ function updateResourceNumbers() {
       crewEl.setAttribute('aria-label', `${crew.length} ouvrier(s) · ${crewStatus}`);
     }
     const wagesEl = document.getElementById('wages-' + resource.id);
-    if (wagesEl)
+    if (wagesEl) {
+      wagesEl.title = `Salaire : ${workerWage(resource, state)} or / ouvrier / min`;
       wagesEl.setAttribute(
         'aria-label',
-        `Salaires : ${crew.length * workerWage(resource)} or par minute`,
+        `Salaires : ${crew.length * workerWage(resource, state)} or par minute`,
       );
+    }
     disable('harvest-' + resource.id, state.resources[resource.id] >= capacity(state, resource));
     disable(
       'hire-' + resource.id,
-      state.credits < hireCost(state, resource) + workerWage(resource) || crew.length >= 100,
+      state.credits < hireCost(state, resource) + workerWage(resource, state) || crew.length >= 100,
     );
     disable('dismiss-' + resource.id, !crew.length);
     if (view === 'market') updateMarketQuantity(resource.id);
@@ -1530,9 +1587,9 @@ function updateProductionNumbers() {
           (line.remaining <= 0 && !productionUnlocked(state, product))),
     );
     text('toggle-' + product.id, line.enabled ? 'Ⅱ Suspendre' : '▶ Lancer la production');
-    text(
+    goldLabel(
       'sell-' + product.id,
-      `Vendre ${line.stock} · ${fmt(line.stock * salePrice(state, product))} ◉`,
+      `Vendre ${line.stock} · ${fmt(line.stock * salePrice(state, product))}`,
     );
     disable('sell-' + product.id, !line.stock);
     text('made-' + product.id, `${line.made} unités fabriquées`);

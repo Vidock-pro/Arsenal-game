@@ -83,3 +83,6 @@ Le bloc final de `pixel-skin.css` définit les tailles de lecture en `rem` avec 
 `compact` utilise des suffixes explicites (k, M, Md, T) et des espaces ordinaires pour éviter les glyphes manquants. `updateResourceNumbers` actualise aussi les capacités visibles dans l’en-tête, les ressources, le marché et le stockage. La limite vient toujours de `capacity`, sans modification des règles de stockage.
 
 La musique monte progressivement pendant quatre secondes à partir de l’événement `playing`. Une pause ou un changement de piste remet le fondu à zéro ; les clics ordinaires ne relancent pas un fondu déjà en cours.
+
+La récolte automatique crédite uniquement des unités entières. Le champ harvestProgress conserve par ressource le travail fractionnaire restant (entre 0 inclus et 1 exclu), y compris après sauvegarde. À stock plein, cette progression est annulée pour éviter de stocker du travail au-delà de la capacité. Les anciennes sauvegardes sans ce champ séparent leurs fractions de stock lors du chargement.
+

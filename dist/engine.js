@@ -911,11 +911,13 @@ const LEGACY_PATENT_COSTS = {
 export function newGame(country, now = Date.now()) {
   if (!COUNTRIES[country]) throw Error('Pays invalide');
   return {
-    version: 7,
+    version: 8,
+    storageLevels: Object.fromEntries(RESOURCES.map((resource) => [resource.id, 0])),
     factories: 0,
     country,
     credits: 0,
     resources: Object.fromEntries(RESOURCES.map((resource) => [resource.id, 0])),
+    harvestProgress: Object.fromEntries(RESOURCES.map((resource) => [resource.id, 0])),
     levels: Object.fromEntries(
       RESOURCES.map((resource) => [resource.id, resource.id === 'coal' ? 1 : 0]),
     ),
@@ -963,9 +965,11 @@ export const productionBatch = (state, product, line) =>
       ),
     ),
   );
+export const MAX_STORAGE_LEVEL = 30;
+export const storageUpgradeCost = (state, resource) =>
+  Math.ceil(100 * 1.5 ** resource.tier * 1.6 ** (state.storageLevels?.[resource.id] ?? 0));
 export const capacity = (state, resource = RESOURCES[0]) =>
-  Math.ceil(5000 * RESOURCE_CAPACITY_GROWTH ** resource.tier) *
-  (state.tech.includes('logistics') ? 2 : 1);
+  500 * 2 ** (state.storageLevels?.[resource.id] ?? 0) * (state.tech.includes('logistics') ? 2 : 1);
 export const HIRE_COST = 25,
   WAGE = 2,
   PAY_PERIOD = 60;
@@ -973,7 +977,12 @@ export const HIRE_COST = 25,
 export const hireCost = (state, resource) =>
   Math.ceil(HIRE_COST * 1.5 ** resource.tier * 1.3 ** state.workers[resource.id].length);
 // Le salaire dépend du site, jamais du nombre d’ouvriers déjà engagés.
-export const workerWage = (resource) => Math.ceil(WAGE * 1.5 ** resource.tier);
+export const workerWage = (resource, state = null) => {
+  const base = Math.ceil(resource.rate * PAY_PERIOD * MARKET_PRICES[resource.id] * 0.5);
+  return state && state.resources[resource.id] >= capacity(state, resource)
+    ? Math.ceil(base / 2)
+    : base;
+};
 export const MARKET_PRICES = Object.fromEntries(
   RESOURCES.map((resource) => [resource.id, Math.ceil(1.5 ** resource.tier)]),
 );
@@ -984,7 +993,7 @@ export const unlocked = (state, resource) =>
 export const activeWorkers = (state, resource) =>
   state.workers[resource.id].filter((t) => t > 1e-8).length;
 export const rate = (state, resource) =>
-  unlocked(state, resource)
+  unlocked(state, resource) && state.resources[resource.id] < capacity(state, resource)
     ? resource.rate *
       state.levels[resource.id] *
       activeWorkers(state, resource) *
@@ -1008,30 +1017,70 @@ export const salePrice = (state, product) =>
   );
 export const affordable = (state, cost) =>
   Object.entries(cost).every(([k, v]) => state.resources[k] >= v);
+// Les fractions représentent du travail en cours, jamais des unités vendables.
+function initializeHarvestProgress(state) {
+  if (state.harvestProgress !== undefined) return;
+  state.harvestProgress = Object.fromEntries(
+    RESOURCES.map((resource) => {
+      const amount = state.resources[resource.id];
+      state.resources[resource.id] = Math.floor(amount);
+      return [resource.id, amount - Math.floor(amount)];
+    }),
+  );
+}
 // Fait avancer salaires, récolte, recherches et production, au maximum sur huit heures.
 export function advance(state, seconds) {
+  initializeHarvestProgress(state);
   let left = Math.max(0, Math.min(28800, Number(seconds) || 0));
   while (left > 1e-8) {
     // Le salaire finance une minute ; sans or, l’ouvrier attend le prochain paiement.
     for (const resource of RESOURCES)
       for (let i = 0; i < state.workers[resource.id].length; i++)
-        if (state.workers[resource.id][i] <= 1e-8 && state.credits >= workerWage(resource)) {
-          state.credits -= workerWage(resource);
-          state.workers[resource.id][i] = PAY_PERIOD;
+        if (state.workers[resource.id][i] <= 1e-8 && state.credits >= workerWage(resource, state)) {
+          state.credits -= workerWage(resource, state);
+          state.workers[resource.id][i] =
+            PAY_PERIOD * (workerWage(resource, state) / workerWage(resource));
         }
-    const remaining = Object.values(state.workers)
-      .flat()
-      .filter((t) => t > 1e-8);
-    const dt = Math.min(1, left, ...remaining);
+    // Le salaire prépayé se consomme deux fois moins vite lorsque le stock est plein.
+    const wageFactors = Object.fromEntries(
+      RESOURCES.map((resource) => [
+        resource.id,
+        workerWage(resource, state) / workerWage(resource),
+      ]),
+    );
+    const remaining = RESOURCES.flatMap((resource) =>
+      state.workers[resource.id]
+        .filter((time) => time > 1e-8)
+        .map((time) => time / wageFactors[resource.id]),
+    );
+    // Couper exactement à l’instant où un stock se remplit, même hors ligne.
+    const filling = RESOURCES.map((resource) => {
+      const speed = rate(state, resource);
+      return speed > 0
+        ? (Math.ceil(capacity(state, resource) - state.resources[resource.id]) -
+            state.harvestProgress[resource.id]) /
+            speed
+        : Infinity;
+    }).filter((time) => time > 1e-8);
+    const dt = Math.min(1, left, ...remaining, ...filling);
     left -= dt;
     state.elapsed += dt;
+    for (const resource of RESOURCES) {
+      const id = resource.id,
+        limit = capacity(state, resource);
+      if (state.resources[id] >= limit) {
+        state.harvestProgress[id] = 0;
+        continue;
+      }
+      const progress = state.harvestProgress[id] + rate(state, resource) * dt;
+      const whole = Math.floor(progress + 1e-9);
+      state.resources[id] = Math.min(limit, state.resources[id] + whole);
+      state.harvestProgress[id] = state.resources[id] >= limit ? 0 : Math.max(0, progress - whole);
+    }
     for (const resource of RESOURCES)
-      state.resources[resource.id] = Math.min(
-        capacity(state, resource),
-        state.resources[resource.id] + rate(state, resource) * dt,
+      state.workers[resource.id] = state.workers[resource.id].map((t) =>
+        Math.max(0, t - dt * wageFactors[resource.id]),
       );
-    for (const resource of RESOURCES)
-      state.workers[resource.id] = state.workers[resource.id].map((t) => Math.max(0, t - dt));
     if (state.research) {
       state.research.remaining -= dt;
       if (state.research.remaining <= 0) {
@@ -1074,6 +1123,21 @@ export function advance(state, seconds) {
 }
 // Valide une action avant de dépenser ses coûts. Renvoie false si elle est impossible.
 export function act(state, type, id, requestedAmount) {
+  if (type === 'expand-storage') {
+    const resource = RESOURCES.find((resource) => resource.id === id);
+    if (
+      !resource ||
+      !unlocked(state, resource) ||
+      !state.storageLevels ||
+      state.storageLevels[id] >= MAX_STORAGE_LEVEL ||
+      state.credits < storageUpgradeCost(state, resource)
+    )
+      return false;
+    state.credits -= storageUpgradeCost(state, resource);
+    state.storageLevels[id]++;
+    return true;
+  }
+
   if (type === 'buy-factory') {
     if (state.factories >= MAX_FACTORIES || state.credits < factoryCost(state)) return false;
     state.credits -= factoryCost(state);
@@ -1124,11 +1188,11 @@ export function act(state, type, id, requestedAmount) {
       !resource ||
       !unlocked(state, resource) ||
       state.workers[id].length >= 100 ||
-      state.credits < hireCost(state, resource) + workerWage(resource)
+      state.credits < hireCost(state, resource) + workerWage(resource, state)
     )
       return false;
-    state.credits -= hireCost(state, resource) + workerWage(resource);
-    state.workers[id].push(PAY_PERIOD);
+    state.credits -= hireCost(state, resource) + workerWage(resource, state);
+    state.workers[id].push(PAY_PERIOD * (workerWage(resource, state) / workerWage(resource)));
     return true;
   }
   if (type === 'dismiss') {
@@ -1215,7 +1279,7 @@ export function validateSave(raw) {
   const unique = (a) => new Set(a).size === a.length;
   if (
     !state ||
-    ![1, 2, 3, 4, 5, 6, 7].includes(state.version) ||
+    ![1, 2, 3, 4, 5, 6, 7, 8].includes(state.version) ||
     !COUNTRIES[state.country] ||
     !finite(state.credits) ||
     !finite(state.elapsed) ||
@@ -1443,5 +1507,41 @@ export function validateSave(raw) {
     )
       throw Error('Ouvriers invalides');
   }
+  // Anciennes parties : attribuer assez d’extensions pour conserver les capacités et stocks.
+  if (state.version < 8) {
+    const bonus = state.tech.includes('logistics') ? 2 : 1;
+    state.storageLevels = Object.fromEntries(
+      RESOURCES.map((resource) => {
+        const previous = Math.ceil(5000 * RESOURCE_CAPACITY_GROWTH ** resource.tier);
+        const required = Math.max(previous, state.resources[resource.id] / bonus);
+        return [
+          resource.id,
+          Math.min(MAX_STORAGE_LEVEL, Math.max(0, Math.ceil(Math.log2(required / 500)))),
+        ];
+      }),
+    );
+    state.version = 8;
+  }
+  if (
+    !state.storageLevels ||
+    RESOURCES.some(
+      (resource) =>
+        !Number.isInteger(state.storageLevels[resource.id]) ||
+        !finite(state.storageLevels[resource.id], MAX_STORAGE_LEVEL),
+    )
+  )
+    throw Error('Extensions de stockage invalides');
+  initializeHarvestProgress(state);
+  if (
+    !state.harvestProgress ||
+    typeof state.harvestProgress !== 'object' ||
+    RESOURCES.some(
+      (resource) =>
+        !Number.isFinite(state.harvestProgress[resource.id]) ||
+        state.harvestProgress[resource.id] < 0 ||
+        state.harvestProgress[resource.id] >= 1,
+    )
+  )
+    throw Error('Progression de récolte invalide');
   return state;
 }

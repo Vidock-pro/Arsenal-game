@@ -550,9 +550,9 @@ test('Worker UI uses resource-specific hiring, salary and unpaid notifications',
     "state=newGame('fr');RESOURCES.forEach(r=>state.levels[r.id]=1);state.workers.cotton=[60,60];view='harvest';shell();",
     ui.context,
   );
-  assert.equal(Number(ui.get('payroll-cotton').textContent), 6);
-  assert.equal(ui.get('total-wages').textContent, '6 or');
-  assert.equal(ui.get('hire-price-cotton').textContent, '67 or');
+  assert.equal(Number(ui.get('payroll-cotton').textContent), 48);
+  assert.equal(ui.get('total-wages').textContent, '48 or');
+  assert.equal(ui.get('hire-price-cotton').textContent, '88 or');
   vm.runInContext('state.workers.cotton=[0];state.credits=2;checkPayrollNotice();', ui.context);
   assert.match(ui.get('#telegram-message').textContent, /Coton/);
 });
@@ -586,4 +586,36 @@ test('Market quantity inputs synchronize, clamp to live stock and sell the chose
   assert.equal(ui.get('sell-quantity-coal').disabled, true);
   vm.runInContext('state.resources.coal=0;updateNumbers();', ui.context);
   assert.equal(ui.get('market-slider-coal').disabled, true);
+});
+
+test('Header only lists owned sites and storage upgrades refresh capacities immediately', () => {
+  const ui = mount();
+  vm.runInContext("state=newGame('fr');view='storage';shell();", ui.context);
+  assert.ok(ui.get('#app').innerHTML.includes('id="header-stock-coal"'));
+  assert.ok(!ui.get('#app').innerHTML.includes('id="header-stock-cotton"'));
+  assert.equal(ui.get('capacity-coal').textContent, '500');
+  assert.equal(ui.get('expand-storage-coal').disabled, true);
+  vm.runInContext('state.credits=1000;updateNumbers();', ui.context);
+  ui.events.click({
+    target: { closest: () => ({ dataset: { action: 'expand-storage', id: 'coal' } }) },
+  });
+  assert.equal(ui.get('capacity-coal').textContent, '1 000');
+  assert.equal(ui.get('capacity-cotton').textContent, '500');
+  ui.events.click({
+    target: { closest: () => ({ dataset: { action: 'upgrade', id: 'cotton' } }) },
+  });
+  assert.ok(ui.get('#app').innerHTML.includes('id="header-stock-cotton"'));
+});
+
+test('Full resource cards show partial unemployment and reduced wages live', () => {
+  const ui = mount();
+  vm.runInContext(
+    "state=newGame('fr');state.workers.coal=[60];state.resources.coal=500;view='harvest';shell();",
+    ui.context,
+  );
+  assert.equal(Number(ui.get('payroll-coal').textContent), 6);
+  assert.match(ui.get('worker-condition-coal').textContent, /Chômage partiel/);
+  vm.runInContext("act(state,'sell-quantity','coal',100);updateNumbers();", ui.context);
+  assert.equal(Number(ui.get('payroll-coal').textContent), 12);
+  assert.equal(ui.get('worker-condition-coal').textContent, '');
 });
