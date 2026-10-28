@@ -409,6 +409,7 @@ test('Menu theme loops and switches to the game track without creating a second 
   vm.runInContext("state=newGame('fr');shell();", ui.context);
   assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/rising-sun-game-loop.wav');
   vm.runInContext('title();', ui.context);
+
   assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/dogs-of-war-menu-loop.wav');
   vm.runInContext("selected='us';title();", ui.context);
   assert.equal(creates, 1);
@@ -508,6 +509,7 @@ test('Music fades in only after playback begins and restarts softly after pausin
   for (let i = 0; i < 81; i++) ui.elapse(50);
   assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0.2 * 0.12);
   vm.runInContext("state=newGame('fr');shell();", ui.context);
+  for (let i = 0; i < 30; i++) ui.elapse(50);
   assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0);
 });
 
@@ -670,4 +672,133 @@ test('Japanese production displays the actual discounted recipe amounts', () => 
   assert.match(ui.get('#content').innerHTML, /<b>3,6<\/b\s*>/);
   vm.runInContext("state.tech=['tooling'];shell();", ui.context);
   assert.match(ui.get('#content').innerHTML, /<b>3,24<\/b\s*>/);
+});
+
+test('Front navigation delivers finished goods, recruits and shows a persisted battle report', () => {
+  const ui = mount();
+  vm.runInContext("state=newGame('fr');view='front';state.lines[0].stock=8;shell();", ui.context);
+  assert.ok(ui.get('#app').innerHTML.includes('data-view="front"'));
+  assert.equal(ui.get('front-timer').textContent, '10:00');
+  ui.get('front-quantity-uniform').value = '8';
+  ui.events.click({
+    target: { closest: () => ({ dataset: { action: 'front-deliver', id: 'uniform' } }) },
+  });
+  assert.equal(vm.runInContext('state.lines[0].stock', ui.context), 0);
+  ui.events.click({ target: { closest: () => ({ dataset: { action: 'front-recruit' } }) } });
+  assert.equal(Number(ui.get('front-soldiers').textContent), 18);
+  ui.events.click({ target: { closest: () => ({ dataset: { action: 'front-assault' } }) } });
+  assert.match(ui.get('#content').innerHTML, /VICTOIRE/);
+  assert.match(ui.get('#telegram-message').textContent, /Victoire/);
+  assert.equal(Number(ui.get('front-wave').textContent), 2);
+});
+
+test('Defeat replaces the game and leaves only the return-to-title action', () => {
+  const ui = mount();
+  vm.runInContext(
+    "state=newGame('fr');notify('Ancienne dépêche');act(state,'front-assault');act(state,'front-assault');act(state,'front-assault');shell();",
+    ui.context,
+  );
+  const html = ui.get('#app').innerHTML;
+  assert.match(html, /DÉFAITE/);
+  assert.equal((html.match(/<button/g) || []).length, 1);
+  assert.ok(html.includes('data-action="home"'));
+  assert.equal(vm.runInContext('screen', ui.context), 'defeat');
+  assert.equal(vm.runInContext('telegramQueue.length', ui.context), 0);
+  assert.equal(ui.get('#toast').innerHTML, '');
+  ui.events.click({ target: { closest: () => ({ dataset: { view: 'harvest' } }) } });
+  assert.equal(vm.runInContext('screen', ui.context), 'defeat');
+  ui.events.click({ target: { closest: () => ({ dataset: { action: 'home' } }) } });
+  assert.equal(vm.runInContext('screen', ui.context), 'title');
+  assert.equal(vm.runInContext('state.front.status', ui.context), 'ended');
+  ui.events.click({ target: { closest: () => ({ dataset: { action: 'continue' } }) } });
+  assert.equal(vm.runInContext('screen', ui.context), 'defeat');
+});
+
+test('Defeat music replaces the game track with a quiet fade and returns to menu music', () => {
+  const ui = mount();
+  let creates = 0;
+  ui.context.window.Audio = class {
+    constructor(src) {
+      this.src = src;
+      this.paused = true;
+      creates++;
+    }
+    play() {
+      this.paused = false;
+      return Promise.resolve();
+    }
+    pause() {
+      this.paused = true;
+    }
+  };
+  vm.runInContext(
+    "state=newGame('fr');shell();act(state,'front-assault');act(state,'front-assault');act(state,'front-assault');shell();",
+    ui.context,
+  );
+  assert.equal(creates, 1);
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/the-way-defeat.mp3');
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0);
+  vm.runInContext('musicPlayer.onplaying();', ui.context);
+  for (let i = 0; i < 81; i++) ui.elapse(50);
+  assert.ok(vm.runInContext('musicPlayer.volume', ui.context) <= 0.043);
+  vm.runInContext('title();', ui.context);
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/the-way-defeat.mp3');
+  for (let i = 0; i < 30; i++) ui.elapse(50);
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/dogs-of-war-menu-loop.wav');
+  vm.runInContext('musicEnabled=false;shell();', ui.context);
+  assert.equal(vm.runInContext('musicPlayer.paused', ui.context), true);
+});
+
+test('Front quantity arrows respect inventory, empty stock and game over', () => {
+  const ui = mount();
+  vm.runInContext("state=newGame('fr');view='front';state.lines[0].stock=2;shell();", ui.context);
+  assert.equal(ui.get('front-quantity-uniform').value, '1');
+  assert.equal(ui.get('front-less-uniform').disabled, true);
+  ui.events.click({ target: { closest: () => ({ dataset: { frontStep: '1', id: 'uniform' } }) } });
+  assert.equal(ui.get('front-quantity-uniform').value, '2');
+  assert.equal(ui.get('front-more-uniform').disabled, true);
+  ui.events.click({ target: { closest: () => ({ dataset: { frontStep: '1', id: 'uniform' } }) } });
+  assert.equal(ui.get('front-quantity-uniform').value, '2');
+  ui.events.click({ target: { closest: () => ({ dataset: { frontStep: '-1', id: 'uniform' } }) } });
+  assert.equal(ui.get('front-quantity-uniform').value, '1');
+  vm.runInContext('state.lines[0].stock=0;updateNumbers();', ui.context);
+  assert.equal(ui.get('front-quantity-uniform').value, '0');
+  assert.equal(ui.get('front-quantity-uniform').disabled, true);
+  assert.equal(ui.get('front-more-uniform').disabled, true);
+  assert.equal(ui.get('front-deliver-uniform').disabled, true);
+});
+
+test('Track transitions fade out once, accept a new destination and cancel on mute', () => {
+  const ui = mount();
+  ui.context.window.Audio = class {
+    constructor(src) {
+      this.src = src;
+      this.paused = true;
+    }
+    play() {
+      this.paused = false;
+      return Promise.resolve();
+    }
+    pause() {
+      this.paused = true;
+    }
+  };
+  vm.runInContext("state=newGame('fr');shell();syncMusic();musicPlayer.onplaying();", ui.context);
+  for (let i = 0; i < 80; i++) ui.elapse(50);
+  const full = vm.runInContext('musicPlayer.volume', ui.context);
+  vm.runInContext("screen='defeat';syncMusic();syncMusic();", ui.context);
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/rising-sun-game-loop.wav');
+  for (let i = 0; i < 15; i++) ui.elapse(50);
+  assert.ok(Math.abs(vm.runInContext('musicPlayer.volume', ui.context) - full / 2) < 1e-8);
+  vm.runInContext("screen='title';syncMusic();", ui.context);
+  for (let i = 0; i < 15; i++) ui.elapse(50);
+  assert.equal(vm.runInContext('musicPlayer.src', ui.context), 'assets/dogs-of-war-menu-loop.wav');
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0);
+  vm.runInContext('musicPlayer.onplaying();', ui.context);
+  for (let i = 0; i < 80; i++) ui.elapse(50);
+  vm.runInContext("screen='defeat';syncMusic();musicEnabled=false;syncMusic();", ui.context);
+  for (let i = 0; i < 40; i++) ui.elapse(50);
+  assert.equal(vm.runInContext('musicPlayer.paused', ui.context), true);
+  assert.equal(vm.runInContext('pendingMusicTrack', ui.context), null);
+  assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0);
 });

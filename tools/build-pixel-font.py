@@ -46,6 +46,12 @@ patterns = {
     '/': ['00001', '00011', '00110', '01100', '11000', '10000', '00000'],
     '%': ['11001', '11010', '00100', '00100', '01000', '10110', '00110'],
     '.': ['00000', '00000', '00000', '00000', '00000', '01100', '01100'],
+    ',': ['00000', '00000', '00000', '00000', '01100', '00100', '01000'],
+    ';': ['00000', '01100', '01100', '00000', '01100', '00100', '01000'],
+    '(': ['00010', '00100', '01000', '01000', '01000', '00100', '00010'],
+    ')': ['01000', '00100', '00010', '00010', '00010', '00100', '01000'],
+    '=': ['00000', '00000', '11111', '00000', '11111', '00000', '00000'],
+    '×': ['00000', '10001', '01010', '00100', '01010', '10001', '00000'],
     ':': ['00000', '01100', '01100', '00000', '01100', '01100', '00000'],
     "'": ['01100', '01100', '00100', '00000', '00000', '00000', '00000'],
     '!': ['01100', '01100', '01100', '01100', '01100', '00000', '01100'],
@@ -55,7 +61,18 @@ patterns = {
 fb = FontBuilder(1000, isTTF=True)
 characters = ''.join(chr(i) for i in range(32, 127))
 characters += 'ÀÂÄÇÉÈÊËÎÏÔÖÙÛÜŸàâäçéèêëîïôöùûüÿœŒ’–—·'
-chars = list(dict.fromkeys(characters))
+characters += '\u00a0\u202f−×'
+
+
+def base_character(character):
+    base = unicodedata.normalize('NFD', character.upper())[0]
+    return {'’': "'", '–': '-', '—': '-', '−': '-', '·': '.', 'Œ': 'O',
+            '\u00a0': ' ', '\u202f': ' '}.get(base, base)
+
+
+# Ne pas déclarer de faux glyphes « ? » : les caractères non dessinés utilisent
+# automatiquement la police de repli du navigateur, maintenant et à l’avenir.
+chars = [c for c in dict.fromkeys(characters) if base_character(c) in patterns]
 names = {c: f'uni{ord(c):04X}' for c in chars}
 order = ['.notdef'] + list(names.values())
 fb.setupGlyphOrder(order)
@@ -73,9 +90,8 @@ def rect(p, x, y):
 
 # Ajouter les accents après le dessin de la lettre principale.
 for (c, name) in [('?', '.notdef')] + list(names.items()):
-    base = unicodedata.normalize('NFD', c.upper())[0]
-    base = {'’': "'", '–': '-', '—': '-', '·': '.', 'Œ': 'O'}.get(base, base)
-    pattern = patterns.get(base, patterns['?'])
+    base = base_character(c)
+    pattern = patterns[base]
     pen = TTGlyphPen(None)
     for (y, row) in enumerate(pattern):
         for (x, on) in enumerate(row):
@@ -108,10 +124,10 @@ fb.setupOS2(sTypoAscender=1000, sTypoDescender=-200, usWinAscent=1000, usWinDesc
 fb.setupNameTable({
     'familyName': 'Arsenal Pixel',
     'styleName': 'Regular',
-    'uniqueFontIdentifier': 'ArsenalPixel-1',
+    'uniqueFontIdentifier': 'ArsenalPixel-1.1',
     'fullName': 'Arsenal Pixel',
     'psName': 'ArsenalPixel',
-    'version': 'Version 1.0',
+    'version': 'Version 1.1',
     'copyright': 'Copyright 2026 Arsenal contributors. MIT License.',
 })
 fb.setupPost()
