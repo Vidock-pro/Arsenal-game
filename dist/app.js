@@ -1,4 +1,7 @@
 import {
+  FRONT_ITEMS,
+  armyStats,
+  enemyPower,
   autoSalesUnlocked,
   workerMultiplier,
   WORKER_MILESTONES,
@@ -63,7 +66,7 @@ const fmt = (n) =>
 // Afficher précisément les économies de matières, sans tronquer les recettes.
 const recipeAmount = (n) =>
   n.toLocaleString('fr-FR', { maximumFractionDigits: 2 }).replace(/[\u00a0\u202f]/g, ' ');
-const money = (n) => Math.ceil(n).toLocaleString('fr-FR');
+const money = (n) => fmt(Math.ceil(n));
 // Unités et espaces explicites : aucun caractère absent de la police du jeu.
 const compact = (n) => {
   const units = [
@@ -76,13 +79,14 @@ const compact = (n) => {
   if (!unit) return fmt(n);
   return String(Math.floor((n / unit[0]) * 10) / 10).replace('.', ',') + ' ' + unit[1];
 };
-const dec = (n) => n.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
-const clock = (n) =>
-  `${Math.floor(Math.max(0, n) / 60)
+const dec = (n) =>
+  n.toLocaleString('fr-FR', { maximumFractionDigits: 1 }).replace(/[\u00a0\u202f]/g, ' ');
+const clock = (n) => {
+  const seconds = Math.ceil(Math.max(0, n));
+  return `${Math.floor(seconds / 60)
     .toString()
-    .padStart(2, '0')}:${Math.ceil(Math.max(0, n) % 60)
-    .toString()
-    .padStart(2, '0')}`;
+    .padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+};
 const names = {
   harvest: 'Ressources',
   market: 'Marché',
@@ -90,6 +94,7 @@ const names = {
   research: 'Recherche',
   patents: 'Brevets',
   storage: 'Stockage',
+  front: 'Front',
 };
 const icons = { harvest: '⚒', production: '⚙', research: '⚗', patents: '▤', storage: '▥' };
 // Un seul lecteur : thème du menu ou ambiance de partie, sans superposition.
@@ -99,6 +104,8 @@ let musicPlayer = null,
   musicTrack = null,
   musicFade = 0,
   musicFadeTimer = null,
+  musicTransitionTimer = null,
+  pendingMusicTrack = null,
   musicEnabled = true,
   musicVolume = 0.35;
 try {
@@ -118,7 +125,14 @@ function resetMusicFade() {
   applyMusicVolume();
 }
 function startMusicFade() {
-  if (!musicEnabled || document.hidden || musicFadeTimer !== null || musicFade >= 1) return;
+  if (
+    !musicEnabled ||
+    document.hidden ||
+    pendingMusicTrack ||
+    musicFadeTimer !== null ||
+    musicFade >= 1
+  )
+    return;
   function step() {
     musicFadeTimer = null;
     if (!musicEnabled || document.hidden || musicPlayer.paused) return;
@@ -128,14 +142,53 @@ function startMusicFade() {
   }
   musicFadeTimer = setTimeout(step, 50);
 }
+// Un seul lecteur : descente de 1,5 s, changement à silence, puis montée de 4 s.
+function cancelMusicTransition() {
+  clearTimeout(musicTransitionTimer);
+  musicTransitionTimer = null;
+  pendingMusicTrack = null;
+}
+function fadeToMusic(track) {
+  pendingMusicTrack = track;
+  if (musicTransitionTimer !== null) return;
+  clearTimeout(musicFadeTimer);
+  musicFadeTimer = null;
+  const initial = musicFade;
+  let step = 0;
+  function lower() {
+    musicTransitionTimer = null;
+    if (!musicEnabled || document.hidden) {
+      cancelMusicTransition();
+      return;
+    }
+    musicFade = initial * Math.max(0, 1 - ++step / 30);
+    applyMusicVolume();
+    if (step < 30) musicTransitionTimer = setTimeout(lower, 50);
+    else {
+      const next = pendingMusicTrack;
+      cancelMusicTransition();
+      musicPlayer.pause();
+      resetMusicFade();
+      musicPlayer.src = next;
+      musicTrack = next;
+      musicPlayer.play()?.catch(() => {});
+    }
+  }
+  musicTransitionTimer = setTimeout(lower, 50);
+}
 function syncMusic() {
   if (!musicEnabled || document.hidden) {
+    cancelMusicTransition();
     musicPlayer?.pause();
     resetMusicFade();
     return;
   }
   const track =
-    screen === 'title' ? 'assets/dogs-of-war-menu-loop.wav' : 'assets/rising-sun-game-loop.wav';
+    screen === 'title'
+      ? 'assets/dogs-of-war-menu-loop.wav'
+      : screen === 'defeat'
+        ? 'assets/the-way-defeat.mp3'
+        : 'assets/rising-sun-game-loop.wav';
   if (!musicPlayer) {
     if (!window.Audio) return;
     musicPlayer = new window.Audio(track);
@@ -143,6 +196,14 @@ function syncMusic() {
     musicPlayer.loop = true;
     musicPlayer.preload = 'auto';
     musicPlayer.onplaying = startMusicFade;
+  }
+  if (musicTrack !== track && !musicPlayer.paused && musicFade > 0) {
+    fadeToMusic(track);
+    return;
+  }
+  if (pendingMusicTrack) {
+    cancelMusicTransition();
+    startMusicFade();
   }
   if (musicTrack !== track) {
     musicPlayer.pause();
@@ -257,6 +318,7 @@ function closeTelegram() {
   }, 300);
 }
 function notify(message) {
+  if (screen === 'defeat') return;
   if (!telegramQueue.includes(message)) telegramQueue.push(message);
   showNextTelegram();
 }
@@ -368,6 +430,24 @@ function resourceScene(resource) {
   </div>`;
 }
 function navArt(id) {
+  if (id === 'front') {
+    // Deux baïonnettes : acier nervuré, garde, plaquettes de bois et rivets.
+    const bayonet = `<path d="M32 3 37 14v23h4v5h-5v14l-1 5h-7l-1-5V42h-5v-5h5V14z" fill="#20251d" stroke="#11170f" stroke-width="2"/>
+      <path d="m32 5 4 10v22h-8V15z" fill="#a4ada5"/>
+      <path d="m32 5 1 11v21h-5V15z" fill="#d9d8bd"/>
+      <path d="M33 15h2v20h-2z" fill="#646f69"/>
+      <path d="M29 17h2v16h-2z" fill="#89958b"/>
+      <path d="M23 38h17v3H23z" fill="#7d8877"/>
+      <path d="M24 38h15v1H24z" fill="#c3b98e"/>
+      <path d="M29 42h6v14h-6z" fill="#8d6037"/>
+      <path d="M29 43h2v12h-2z" fill="#b08952"/>
+      <path d="M33 43h2v13h-2z" fill="#654529"/>
+      <path d="M29 46h6v1h-6zm0 5h6v1h-6z" fill="#4d3925"/>
+      <path d="M31 44h2v2h-2zm0 8h2v2h-2z" fill="#d2c398"/>
+      <path d="M28 57h8v3h-8z" fill="#8a907d"/>
+      <path d="M29 57h6v1h-6z" fill="#d0c7a1"/>`;
+    return `<span class="nav-art menu-icon compact-icon front-icon" aria-hidden="true"><svg viewBox="0 0 64 64">${[-43, 43].map((angle) => `<g transform="rotate(${angle} 32 32)">${bayonet}</g>`).join('')}</svg></span>`;
+  }
   const index = ['harvest', 'market', 'production', 'research', 'patents', 'storage'].indexOf(id);
   return compactIcon('ui-icons-simple.png', index, 3, 3, 'nav-art menu-icon');
 }
@@ -486,6 +566,10 @@ function title() {
 }
 // Choisit un objectif court en fonction de la progression.
 function goal() {
+  if (state.front.status === 'ended')
+    return 'Front effondré. Campagne terminée. Le bilan reste consultable dans Front.';
+  if (state.front.status === 'paused')
+    return 'Assauts suspendus. Réarmez votre armée dans Front avant de reprendre.';
   if (!Object.values(state.workers).some((crew) => crew.length))
     return 'Engagez votre premier ouvrier.';
   const next = RESOURCES.find((resource) => !state.levels[resource.id]);
@@ -500,7 +584,37 @@ function goal() {
   return 'Développez vos ateliers, approvisionnez la recherche et débloquez les blindés.';
 }
 // Reconstruit la structure de l’écran, puis ses compteurs.
+// La fin de campagne remplace toute l’interface : aucun contrôle ne reste derrière.
+function defeatScreen() {
+  screen = 'defeat';
+  clearTimeout(toastTimer);
+  telegramQueue.length = 0;
+  telegramActive = false;
+  $('#toast').classList.remove('show');
+  $('#toast').innerHTML = '';
+  document.querySelector('dialog')?.close?.();
+  const f = state.front;
+  $('#app').innerHTML = `<main class="defeat-screen">
+    <section class="defeat-panel" aria-labelledby="defeat-title">
+      <span class="defeat-stamp">TRANSMISSION INTERROMPUE</span>
+      <p class="defeat-eyebrow">ÉTAT-MAJOR · ${COUNTRIES[state.country].name}</p>
+      <h1 id="defeat-title">DÉFAITE</h1>
+      <div class="defeat-rule" aria-hidden="true"></div>
+      <p class="defeat-lead">Le front s’est effondré.</p>
+      <p>Trois défaites consécutives ont mis fin à votre campagne. Les ateliers se taisent.</p>
+      <dl class="defeat-summary"><div><dt>Dernière vague</dt><dd>${fmt(f.wave)}</dd></div><div><dt>Victoires</dt><dd>${fmt(f.victories)}</dd></div><div><dt>Assauts affrontés</dt><dd>${fmt(f.battles)}</dd></div></dl>
+      <p class="defeat-saved">Le bilan de votre campagne est conservé.</p>
+      <button class="secondary" id="defeat-home" data-action="home">Retour à l’écran titre</button>
+    </section>
+  </main>`;
+  syncMusic();
+  document.getElementById('defeat-home')?.focus?.();
+}
 function shell() {
+  if (state.front.status === 'ended') {
+    defeatScreen();
+    return;
+  }
   screen = 'game';
   if (musicPlayer) syncMusic();
   const c = COUNTRIES[state.country];
@@ -582,6 +696,7 @@ function shell() {
               research: 'Bureau de recherche',
               patents: 'Bureau des brevets',
               storage: 'Magasins & réserves',
+              front: 'Quartier général du front',
             }[view]}
           </h1>
         </div>
@@ -590,6 +705,7 @@ function shell() {
       <div class="mission">
         <span>ORDRE DU JOUR</span>
         <p id="current-goal">${goal()}</p>
+        <button class="secondary" data-view="front" id="front-global-status"></button>
       </div>
       <div class="workspace-layout">
         <div id="content"></div>
@@ -763,6 +879,7 @@ function editMarketQuantity(event) {
 }
 document.addEventListener('input', (event) => {
   editMarketQuantity(event);
+  if (event.target.id?.startsWith('front-quantity-')) updateFrontNumbers();
   // Le curseur de musique partage le même événement délégué.
   if (event.target.id !== 'music-volume') return;
   musicVolume = Math.max(0, Math.min(1, Number(event.target.value) / 100));
@@ -1374,10 +1491,118 @@ function storage() {
       ).join('')}
     </section>`;
 }
+// Rapport persistant : aucune perte n’est cachée dans un simple message temporaire.
+function battleReport() {
+  const r = state.front.lastBattle;
+  if (!r) return '<p>Aucun assaut pour le moment.</p>';
+  return `<h3>${r.won ? 'VICTOIRE' : state.front.status === 'ended' ? 'CAPITULATION' : 'DÉFAITE'} · Vague ${fmt(r.wave)}</h3>
+    <p>Puissance engagée : ${recipeAmount(r.power)} / ${fmt(r.enemy)}</p>
+    <p>${fmt(r.losses)} soldats perdus · ${fmt(r.ammunition)} munitions consommées · ${fmt(r.support)} soutiens utilisés</p>
+    <p>${fmt(r.factories)} usines détruites · ${fmt(r.requisitioned)} ouvriers réquisitionnés</p>
+    ${r.won ? `<p>Récompense : ${money(r.reward)} or · 10 réservistes arrivés</p>` : ''}`;
+}
+function front() {
+  const f = state.front;
+  return `<section class="storage-panel front-overview">
+    <h2>${f.status === 'ended' ? 'CAMPAGNE TERMINÉE' : 'DÉFENDRE LE FRONT'}</h2>
+    <p id="front-status" role="status"></p>
+    <div class="front-stats">
+      <p>Vague <strong id="front-wave"></strong></p><p>Prochain assaut <strong id="front-timer"></strong></p>
+      <p>Notre puissance <strong id="front-power"></strong></p><p>Menace ennemie <strong id="front-enemy"></strong></p>
+      <p>Soldats <strong id="front-soldiers"></strong></p><p>Réservistes <strong id="front-reservists"></strong></p>
+      <p>Défaites consécutives <strong id="front-defeats"></strong></p><p>Moral <strong id="front-morale"></strong></p>
+    </div>
+    <div class="front-actions">
+      <button class="primary" id="front-assault" data-action="front-assault">Déclencher l’assaut</button>
+      ${f.status === 'paused' ? '<button class="secondary" data-action="front-resume">Reprendre la préparation · 10 min</button>' : ''}
+      <button class="secondary" id="front-recruit" data-action="front-recruit">Équiper les réservistes</button>
+    </div>
+    <p>Un uniforme équipe un réserviste. Les soldats sans fusil ou sans munition défendent moins efficacement. Le soutien renforce l’armée et réduit ses pertes.</p>
+    <p>Le compte à rebours avance uniquement pendant le jeu actif. Après une victoire, la vague suivante arrive dans 10 minutes.</p>
+    <p>1re et 2e défaites : −10 % d’usines et −25 % d’ouvriers réquisitionnés, arrondis au supérieur. Moral : −10 %, puis −20 %. Une victoire restaure le moral. 3e défaite consécutive : fin de partie.</p>
+    ${f.status === 'ended' ? '<p>Votre industrie est arrêtée. La sauvegarde et le bilan restent disponibles.</p><button class="secondary" data-action="home">Retour à l’écran titre</button>' : ''}
+  </section>
+  <section class="storage-panel front-log">${battleReport()}</section>
+  <section class="storage-panel front-supply"><h2>APPROVISIONNER L’ARMÉE</h2>
+    <p>Seuls les équipements que vous livrez ici sont envoyés au front.</p>
+    ${FRONT_ITEMS.map((id) => {
+      const p = PRODUCTS.find((p) => p.id === id);
+      return `<div class="front-supply-row"><div><h3>${p.name}</h3><p>${productName(state, p)}</p>
+        <p>En stock : <strong id="front-stock-${id}"></strong> · Au front : <strong id="front-equipped-${id}"></strong></p></div>
+        <div class="front-delivery"><label for="front-quantity-${id}">Quantité</label>
+        <div class="market-number-field">
+          <input type="number" id="front-quantity-${id}" min="1" step="1" value="1" inputmode="numeric" />
+          <div class="market-number-arrows">
+            <button type="button" class="market-step market-step-up" data-front-step="1" data-id="${id}" id="front-more-${id}" aria-label="Augmenter la livraison : ${p.name}"><span aria-hidden="true"></span></button>
+            <button type="button" class="market-step market-step-down" data-front-step="-1" data-id="${id}" id="front-less-${id}" aria-label="Réduire la livraison : ${p.name}"><span aria-hidden="true"></span></button>
+          </div>
+        </div>
+        <button class="secondary" data-action="front-deliver" data-id="${id}" id="front-deliver-${id}">Livrer</button></div></div>`;
+    }).join('')}
+  </section>`;
+}
+function updateFrontNumbers() {
+  if (view !== 'front') return;
+  const f = state.front,
+    stats = armyStats(state);
+  text(
+    'front-status',
+    f.status === 'ended'
+      ? 'Trois défaites consécutives : le front s’est effondré.'
+      : f.status === 'paused'
+        ? 'Assauts suspendus : réarmez votre armée.'
+        : 'Préparation en cours.',
+  );
+  text('front-wave', f.wave);
+  text('front-timer', f.status === 'preparing' ? clock(f.remaining) : '—');
+  text('front-power', recipeAmount(stats.power));
+  text('front-enemy', fmt(enemyPower(state)));
+  text('front-soldiers', fmt(f.soldiers));
+  text('front-reservists', fmt(f.reservists));
+  text('front-defeats', `${f.defeats} / 3`);
+  text('front-morale', `${Math.round(stats.morale * 100)} %`);
+  disable('front-assault', f.status === 'ended');
+  disable('front-recruit', !f.reservists || !f.equipment.uniform);
+  for (const id of FRONT_ITEMS) {
+    const stock = state.lines.find((l) => l.id === id).stock;
+    text('front-stock-' + id, fmt(stock));
+    text('front-equipped-' + id, fmt(f.equipment[id]));
+    disable('front-deliver-' + id, stock < 1);
+    const input = document.getElementById('front-quantity-' + id);
+    if (input) {
+      input.min = stock ? '1' : '0';
+      input.max = String(stock);
+      input.disabled = f.status === 'ended' || stock === 0;
+      if (document.activeElement !== input) {
+        const chosen = Math.floor(Number(input.value) || 1);
+        input.value = String(stock ? Math.max(1, Math.min(stock, chosen)) : 0);
+      }
+      const quantity = Number(input.value);
+      disable('front-more-' + id, !stock || quantity >= stock);
+      disable('front-less-' + id, !stock || quantity <= 1);
+      disable(
+        'front-deliver-' + id,
+        !Number.isSafeInteger(quantity) || quantity < 1 || quantity > stock,
+      );
+    }
+  }
+}
+function announceBattle() {
+  const f = state.front,
+    r = f.lastBattle;
+  notify(
+    f.status === 'ended'
+      ? 'Capitulation. Trois défaites consécutives : campagne terminée. Consultez votre bilan dans Front.'
+      : `${r.won ? 'Victoire' : 'Défaite'} au front, vague ${r.wave}. ${r.losses} soldats perdus. ${r.factories} usines détruites, ${r.requisitioned} ouvriers réquisitionnés.${r.won ? ' La prochaine vague se prépare.' : ' Assauts suspendus : réarmez votre armée.'}`,
+  );
+}
+
 // Reconstruit uniquement le contenu de l’onglet ouvert.
 function renderContent() {
   cancelResearchHover();
-  $('#content').innerHTML = { harvest, market, production, research, patents, storage }[view]();
+  $('#content').innerHTML = { harvest, market, production, research, patents, storage, front }[
+    view
+  ]();
 }
 function text(id, value) {
   const el = document.getElementById(id);
@@ -1396,11 +1621,20 @@ function width(id, v) {
 }
 function disable(id, value) {
   const el = document.getElementById(id);
-  if (el) el.disabled = value;
+  if (el) el.disabled = value || state?.front.status === 'ended';
 }
 // Rafraîchit les valeurs et les boutons sans reconstruire tout l’écran.
 function updateNumbers() {
   if (screen !== 'game') return;
+  updateFrontNumbers();
+  text(
+    'front-global-status',
+    state.front.status === 'ended'
+      ? 'Front · campagne terminée'
+      : state.front.status === 'paused'
+        ? 'Front · assauts suspendus'
+        : `Front · vague ${state.front.wave} · ${clock(state.front.remaining)}`,
+  );
   text('credits', money(state.credits) + ' or');
   text('current-goal', goal());
   text(
@@ -1789,8 +2023,24 @@ document.addEventListener('keydown', (event) => {
 document.addEventListener('click', (e) => {
   unlockTelegramAudio();
   const button = e.target.closest('button,a');
+  if (screen === 'defeat' && button?.dataset.action !== 'home') return;
   if (button?.dataset.action !== 'music-toggle') syncMusic();
   if (!button) return;
+  if (button.dataset.frontStep) {
+    const id = button.dataset.id;
+    if (!state || state.front.status === 'ended' || !FRONT_ITEMS.includes(id)) return;
+    const stock = state.lines.find((line) => line.id === id).stock;
+    const input = document.getElementById('front-quantity-' + id);
+    if (!input || !stock) return;
+    input.value = String(
+      Math.max(
+        1,
+        Math.min(stock, Math.floor(Number(input.value) || 1) + Number(button.dataset.frontStep)),
+      ),
+    );
+    updateFrontNumbers();
+    return;
+  }
   if (button.dataset.marketStep) {
     const id = button.dataset.id;
     if (!state || !RESOURCES.some((resource) => resource.id === id)) return;
@@ -1903,6 +2153,15 @@ document.addEventListener('click', (e) => {
     importSave();
     return;
   }
+  if (a === 'front-deliver' && state) {
+    const input = document.getElementById('front-quantity-' + button.dataset.id);
+    if (input && input.value.trim() && act(state, a, button.dataset.id, Number(input.value))) {
+      save();
+      updateNumbers();
+    } else
+      notify('Livraison impossible : choisissez une quantité entière disponible dans votre stock.');
+    return;
+  }
   if (a === 'set-auto-reserve' && state) {
     const input = document.getElementById('auto-reserve-' + button.dataset.id);
     if (
@@ -1923,15 +2182,30 @@ document.addEventListener('click', (e) => {
     }
     shell();
     if (a === 'patent') notify('Brevet acquis. Votre ligne de production est autorisée.');
-  } else notify('Conditions ou ressources insuffisantes.');
+    if (a === 'front-assault') announceBattle();
+  } else
+    notify(
+      state?.front.status === 'ended'
+        ? 'Campagne terminée. Votre bilan reste consultable dans Front.'
+        : 'Conditions ou ressources insuffisantes.',
+    );
 });
 // Le moteur reçoit le temps écoulé réel, y compris après une pause du navigateur.
 setInterval(() => {
   const now = Date.now();
   if (state) {
     const before = state.tech.length,
+      battlesBefore = state.front.battles,
       completed = state.lines.filter((line) => line.made > 0).length;
-    advance(state, (now - last) / 1000);
+    advance(state, (now - last) / 1000, {
+      frontActive: screen === 'game' && !document.hidden && now - last < 2000,
+    });
+    if (state.front.battles !== battlesBefore) {
+      save();
+      if (state.front.status === 'ended') view = 'front';
+      if (screen === 'game') shell();
+      announceBattle();
+    }
     checkPayrollNotice();
     if (state.tech.length !== before) {
       if (screen === 'game') shell();

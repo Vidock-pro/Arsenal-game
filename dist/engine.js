@@ -934,11 +934,132 @@ const LEGACY_PATENT_COSTS = {
   series: 1000,
   logistics: 900,
 };
+// Le front avance uniquement pendant le jeu actif ; les livraisons sont explicites.
+export const ASSAULT_DELAY = 600;
+export const FRONT_ITEMS = ['uniform', 'support', 'rifle', 'rifle_ammo'];
+export function newFront() {
+  return {
+    wave: 1,
+    remaining: ASSAULT_DELAY,
+    status: 'preparing',
+    defeats: 0,
+    victories: 0,
+    battles: 0,
+    soldiers: 10,
+    reservists: 20,
+    equipment: { uniform: 0, support: 0, rifle: 10, rifle_ammo: 30 },
+    lastBattle: null,
+  };
+}
+export const enemyPower = (state) => Math.min(1e12, Math.ceil(12 * 1.35 ** (state.front.wave - 1)));
+export function armyStats(state) {
+  const f = state.front;
+  const armed = Math.min(f.soldiers, f.equipment.rifle);
+  const supplied = Math.min(armed, f.equipment.rifle_ammo);
+  const support = Math.min(f.equipment.support, Math.ceil(f.soldiers / 10), 5);
+  const morale = 1 - 0.1 * Math.min(2, f.defeats);
+  return {
+    armed,
+    supplied,
+    support,
+    morale,
+    power:
+      Math.round((supplied + (f.soldiers - supplied) * 0.25) * (1 + support * 0.1) * morale * 100) /
+      100,
+  };
+}
+// Détruire d’abord les usines libres. Un lot touché perd seulement ses unités détruites.
+function destroyFactories(state, count) {
+  let remaining = Math.max(0, count - freeFactories(state));
+  for (const line of [...state.lines].reverse()) {
+    if (!remaining) break;
+    const occupied = Math.max(line.factories, line.batch);
+    const removed = Math.min(remaining, occupied);
+    const kept = occupied - removed;
+    line.factories = Math.min(line.factories, kept);
+    line.batch = Math.min(line.batch, kept);
+    if (!line.batch) line.remaining = 0;
+    if (!line.factories && !line.batch) line.enabled = false;
+    remaining -= removed;
+  }
+  state.factories -= count;
+}
+// Arrondir la réquisition une seule fois sur l’ensemble des sites, puis la répartir.
+function requisitionWorkers(state) {
+  const sites = RESOURCES.map((r) => ({ id: r.id, count: state.workers[r.id].length }));
+  const target = Math.ceil(sites.reduce((n, r) => n + r.count, 0) * 0.25);
+  let allocated = 0;
+  for (const r of sites) {
+    r.take = Math.floor(r.count * 0.25);
+    allocated += r.take;
+  }
+  sites.sort((a, b) => b.count * 0.25 - b.take - (a.count * 0.25 - a.take));
+  for (const r of sites)
+    if (allocated < target && r.take < r.count) {
+      r.take++;
+      allocated++;
+    }
+  for (const r of sites) state.workers[r.id].splice(state.workers[r.id].length - r.take, r.take);
+  state.front.reservists += target;
+  return target;
+}
+function resolveAssault(state) {
+  const f = state.front,
+    stats = armyStats(state),
+    enemy = enemyPower(state);
+  const won = stats.power >= enemy;
+  const losses = Math.min(
+    f.soldiers,
+    Math.ceil((f.soldiers * (won ? 0.05 : 0.25)) / (1 + stats.support * 0.2)),
+  );
+  const rifleLosses = f.soldiers
+    ? Math.min(f.equipment.rifle, Math.ceil((losses * stats.armed) / f.soldiers))
+    : 0;
+  f.equipment.rifle_ammo -= stats.supplied;
+  f.equipment.support -= stats.support;
+  f.equipment.rifle -= rifleLosses;
+  f.soldiers -= losses;
+  const report = {
+    wave: f.wave,
+    won,
+    power: stats.power,
+    enemy,
+    losses,
+    ammunition: stats.supplied,
+    support: stats.support,
+    factories: 0,
+    requisitioned: 0,
+    reward: 0,
+  };
+  f.battles++;
+  if (won) {
+    report.reward = Math.min(1e9, Math.ceil(100 * 1.3 ** (f.wave - 1)));
+    state.credits += report.reward;
+    f.victories++;
+    f.wave++;
+    f.defeats = 0;
+    f.reservists += 10;
+    f.status = 'preparing';
+  } else {
+    f.defeats++;
+    if (f.defeats === 3) f.status = 'ended';
+    else {
+      report.factories = Math.ceil(state.factories * 0.1);
+      destroyFactories(state, report.factories);
+      report.requisitioned = requisitionWorkers(state);
+      f.status = 'paused';
+    }
+  }
+  f.remaining = ASSAULT_DELAY;
+  f.lastBattle = report;
+}
+
 // Crée une partie vide avec seulement le charbon accessible.
 export function newGame(country, now = Date.now()) {
   if (!COUNTRIES[country]) throw Error('Pays invalide');
   return {
-    version: 9,
+    version: 10,
+    front: newFront(),
     starterFactoryGranted: false,
     autoSales: Object.fromEntries(RESOURCES.map((r) => [r.id, { enabled: false, reserve: 100 }])),
     storageLevels: Object.fromEntries(RESOURCES.map((resource) => [resource.id, 0])),
@@ -1091,10 +1212,11 @@ function initializeHarvestProgress(state) {
   );
 }
 // Fait avancer salaires, récolte, recherches et production, au maximum sur huit heures.
-export function advance(state, seconds) {
+export function advance(state, seconds, { frontActive = false } = {}) {
+  if (state.front.status === 'ended') return state;
   initializeHarvestProgress(state);
   let left = Math.max(0, Math.min(28800, Number(seconds) || 0));
-  while (left > 1e-8) {
+  while (left > 1e-8 && state.front.status !== 'ended') {
     sellSurplus(state);
     // Le salaire finance une minute ; sans or, l’ouvrier attend le prochain paiement.
     for (const resource of RESOURCES)
@@ -1136,7 +1258,9 @@ export function advance(state, seconds) {
               : Infinity;
           }).filter((time) => time > 1e-8)
         : [];
-    const dt = Math.min(1, left, ...remaining, ...filling, ...saleEvents);
+    const frontTime =
+      frontActive && state.front.status === 'preparing' ? state.front.remaining : Infinity;
+    const dt = Math.min(1, left, ...remaining, ...filling, ...saleEvents, frontTime);
     left -= dt;
     state.elapsed += dt;
     for (const resource of RESOURCES) {
@@ -1194,11 +1318,45 @@ export function advance(state, seconds) {
       }
     }
     sellSurplus(state);
+    if (frontActive && state.front.status === 'preparing') {
+      state.front.remaining = Math.max(0, state.front.remaining - dt);
+      if (state.front.remaining <= 1e-8) resolveAssault(state);
+    }
   }
   return state;
 }
 // Valide une action avant de dépenser ses coûts. Renvoie false si elle est impossible.
 export function act(state, type, id, requestedAmount) {
+  if (state.front.status === 'ended') return false;
+  if (type === 'front-assault') {
+    resolveAssault(state);
+    return true;
+  }
+  if (type === 'front-resume') {
+    if (state.front.status !== 'paused') return false;
+    state.front.status = 'preparing';
+    state.front.remaining = ASSAULT_DELAY;
+    return true;
+  }
+  if (type === 'front-deliver') {
+    if (!FRONT_ITEMS.includes(id) || !Number.isSafeInteger(requestedAmount) || requestedAmount <= 0)
+      return false;
+    const line = state.lines.find((l) => l.id === id);
+    if (!line || line.stock < requestedAmount || state.front.equipment[id] + requestedAmount > 1e9)
+      return false;
+    line.stock -= requestedAmount;
+    state.front.equipment[id] += requestedAmount;
+    return true;
+  }
+  if (type === 'front-recruit') {
+    const count = Math.min(state.front.reservists, state.front.equipment.uniform);
+    if (!count) return false;
+    state.front.reservists -= count;
+    state.front.equipment.uniform -= count;
+    state.front.soldiers += count;
+    return true;
+  }
+
   if (type === 'toggle-auto-sale' || type === 'set-auto-reserve') {
     const resource = RESOURCES.find((r) => r.id === id);
     if (!resource || !unlocked(state, resource) || !autoSalesUnlocked(state)) return false;
@@ -1371,7 +1529,7 @@ export function validateSave(raw) {
   const unique = (a) => new Set(a).size === a.length;
   if (
     !state ||
-    ![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(state.version) ||
+    ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(state.version) ||
     !COUNTRIES[state.country] ||
     !finite(state.credits) ||
     !finite(state.elapsed) ||
@@ -1659,5 +1817,41 @@ export function validateSave(raw) {
     )
   )
     throw Error('Progression de récolte invalide');
+  if (state.version < 10) {
+    state.front = newFront();
+    state.version = 10;
+  }
+  const f = state.front;
+  const whole = (n) => Number.isSafeInteger(n) && finite(n, 1e9);
+  if (
+    !f ||
+    !['preparing', 'paused', 'ended'].includes(f.status) ||
+    !whole(f.wave) ||
+    f.wave < 1 ||
+    !finite(f.remaining, ASSAULT_DELAY) ||
+    !whole(f.defeats) ||
+    f.defeats > 3 ||
+    !whole(f.victories) ||
+    f.wave !== f.victories + 1 ||
+    !whole(f.battles) ||
+    f.battles < f.victories + f.defeats ||
+    !whole(f.soldiers) ||
+    !whole(f.reservists) ||
+    !f.equipment ||
+    FRONT_ITEMS.some((id) => !whole(f.equipment[id])) ||
+    (f.status === 'ended') !== (f.defeats === 3) ||
+    (f.status === 'paused' && ![1, 2].includes(f.defeats)) ||
+    (f.lastBattle !== null &&
+      (!f.lastBattle ||
+        typeof f.lastBattle.won !== 'boolean' ||
+        !whole(f.lastBattle.wave) ||
+        f.lastBattle.wave < 1 ||
+        !finite(f.lastBattle.power) ||
+        !finite(f.lastBattle.enemy) ||
+        ['losses', 'ammunition', 'support', 'factories', 'requisitioned', 'reward'].some(
+          (k) => !whole(f.lastBattle[k]),
+        )))
+  )
+    throw Error('Front invalide');
   return state;
 }

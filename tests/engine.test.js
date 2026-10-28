@@ -3,6 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   productionRecipe,
+  armyStats,
+  enemyPower,
   factoryCost,
   storageUpgradeCost,
   freeFactories,
@@ -293,7 +295,7 @@ test('Save migration preserves legacy assets and validates new payroll', () => {
   old.levels.platinum = 0;
   delete old.workers;
   const migrated = validateSave(old);
-  assert.equal(migrated.version, 9);
+  assert.equal(migrated.version, 10);
   assert.equal(migrated.credits, 700);
   assert.equal(migrated.resources.wood, 100);
   assert.equal(rate(migrated, RESOURCES[0]), 0);
@@ -388,7 +390,7 @@ test('Version 2 migration retains workers, converts platinum, and preserves acce
   old.levels = { coal: 1, wood: 2, iron: 1, rubber: 1, platinum: 1 };
   old.workers = { coal: [40], wood: [25], iron: [], rubber: [], platinum: [12] };
   const s = validateSave(old);
-  assert.equal(s.version, 9);
+  assert.equal(s.version, 10);
   assert.equal(s.credits, 52);
   assert.equal(s.resources.cotton, 0);
   assert.equal(s.resources.wood, 30);
@@ -536,7 +538,7 @@ test('Version 3 line migration preserves stock, in-flight work and old unlocks',
   old.lines[0] = { id: 'rifle', enabled: true, remaining: 5, stock: 7, made: 12 };
   old.lines[2].stock = 2;
   const s = validateSave(old);
-  assert.equal(s.version, 9);
+  assert.equal(s.version, 10);
   assert.equal(s.lines.length, 19);
   const rifle = s.lines.find((l) => l.id === 'rifle');
   assert.equal(rifle.stock, 7);
@@ -571,7 +573,7 @@ test('Version 4 migration refunds royalty certificates once and preserves acquir
   old.lines[0].made = 3;
   old.lines[0].stock = 2;
   const s = validateSave(old);
-  assert.equal(s.version, 9);
+  assert.equal(s.version, 10);
   assert.equal(s.credits, 950);
   assert.deepEqual(s.patents, ['uniform']);
   assert.equal(s.lines[0].stock, 2);
@@ -801,7 +803,7 @@ test('Version 6 technology migration preserves owned equipment and paid work', (
   old.research = { id: 'assembly', remaining: 20 };
   old.levels.cotton = 1;
   const next = validateSave(old);
-  assert.equal(next.version, 9);
+  assert.equal(next.version, 10);
   assert.ok(next.tech.includes('sewing'));
   assert.ok(next.tech.includes('precision'));
   assert.ok(next.tech.includes('electricity'));
@@ -1169,4 +1171,188 @@ test('Japan reduces production materials only and combines with industrial tooli
   assert.equal(game.resources.cotton, 0);
   assert.deepEqual(validateSave(game), game);
   assert.equal(PRODUCT_NAMES.jp.length, 19);
+});
+
+test('First assault arrives at ten active minutes and never during offline progress', () => {
+  const s = newGame('fr');
+  advance(s, 1200);
+  assert.equal(s.front.remaining, 600);
+  assert.equal(s.front.battles, 0);
+  advance(s, 599.75, { frontActive: true });
+  assert.equal(s.front.battles, 0);
+  advance(s, 0.25, { frontActive: true });
+  assert.equal(s.front.battles, 1);
+  assert.equal(s.front.status, 'paused');
+  advance(s, 1200, { frontActive: true });
+  assert.equal(s.front.battles, 1);
+  assert.deepEqual(validateSave(s), s);
+});
+
+test('Manual assault, victory, reserve recruitment and ammunition are deterministic', () => {
+  const s = newGame('fr');
+  s.lines[0].stock = 8;
+  assert.equal(act(s, 'front-deliver', 'uniform', 9), false);
+  for (const amount of [-1, 0, 0.5, NaN, '2'])
+    assert.equal(act(s, 'front-deliver', 'uniform', amount), false);
+  assert.ok(act(s, 'front-deliver', 'uniform', 8));
+  assert.equal(s.lines[0].stock, 0);
+  assert.ok(act(s, 'front-recruit'));
+  assert.equal(s.front.soldiers, 18);
+  assert.equal(s.front.reservists, 12);
+  assert.equal(s.front.equipment.uniform, 0);
+  assert.equal(armyStats(s).power, 12);
+  assert.ok(act(s, 'front-assault'));
+  assert.equal(s.front.victories, 1);
+  assert.equal(s.front.wave, 2);
+  assert.equal(s.front.status, 'preparing');
+  assert.equal(s.front.remaining, 600);
+  assert.equal(s.front.equipment.rifle_ammo, 20);
+  assert.equal(s.front.soldiers, 17);
+  assert.equal(s.credits, 100);
+  assert.equal(s.front.reservists, 22);
+  assert.equal(s.front.lastBattle.factories, 0);
+  assert.equal(s.front.lastBattle.requisitioned, 0);
+  assert.deepEqual(validateSave(s), s);
+});
+
+test('First two defeats destroy factories and requisition total crews; third ends the game', () => {
+  const s = newGame('fr');
+  s.factories = 11;
+  for (const r of RESOURCES.slice(0, 4)) {
+    s.levels[r.id] = 1;
+    s.workers[r.id] = [60];
+  }
+  act(s, 'front-assault');
+  assert.equal(s.front.defeats, 1);
+  assert.equal(s.factories, 9);
+  assert.equal(s.front.lastBattle.requisitioned, 1);
+  assert.equal(Object.values(s.workers).flat().length, 3);
+  assert.equal(s.front.reservists, 21);
+  assert.equal(armyStats(s).morale, 0.9);
+  assert.deepEqual(validateSave(s), s);
+  act(s, 'front-assault');
+  assert.equal(s.front.defeats, 2);
+  assert.equal(s.factories, 8);
+  assert.equal(Object.values(s.workers).flat().length, 2);
+  assert.equal(armyStats(s).morale, 0.8);
+  const reserves = s.front.reservists;
+  act(s, 'front-assault');
+  assert.equal(s.front.status, 'ended');
+  assert.equal(s.factories, 8);
+  assert.equal(Object.values(s.workers).flat().length, 2);
+  assert.equal(s.front.reservists, reserves);
+  assert.equal(s.front.lastBattle.factories, 0);
+  assert.equal(s.front.lastBattle.requisitioned, 0);
+  const ended = structuredClone(s);
+  advance(s, 600, { frontActive: true });
+  assert.deepEqual(s, ended);
+  for (const action of [
+    'harvest',
+    'front-assault',
+    'front-resume',
+    'hire',
+    'buy-factory',
+    'front-recruit',
+  ])
+    assert.equal(act(s, action, 'coal'), false);
+  assert.deepEqual(validateSave(s), s);
+});
+
+test('Factory destruction reduces occupied batches without refunds or over-allocation', () => {
+  const s = permit(established('fr'));
+  s.factories = 10;
+  s.lines[0].factories = 10;
+  s.resources.coal = 100;
+  s.resources.cotton = 100;
+  act(s, 'toggle', 'uniform');
+  advance(s, 1);
+  assert.equal(s.lines[0].batch, 10);
+  const resources = structuredClone(s.resources);
+  act(s, 'front-assault');
+  assert.equal(s.factories, 9);
+  assert.equal(s.lines[0].factories, 9);
+  assert.equal(s.lines[0].batch, 9);
+  assert.deepEqual(s.resources, resources);
+  assert.equal(freeFactories(s), 0);
+  assert.deepEqual(validateSave(s), s);
+  s.lines[0].factories = 0;
+  advance(s, 7);
+  assert.equal(s.lines[0].stock, 9);
+  const one = permit(established('fr'));
+  act(one, 'toggle', 'uniform');
+  advance(one, 1);
+  act(one, 'front-assault');
+  assert.equal(one.factories, 0);
+  assert.equal(one.lines[0].batch, 0);
+  assert.equal(one.lines[0].remaining, 0);
+  assert.equal(one.lines[0].enabled, false);
+  assert.deepEqual(validateSave(one), one);
+});
+
+test('A victory restores morale and the defeat counter without restoring industry', () => {
+  const s = newGame('fr');
+  s.factories = 10;
+  s.workers.coal = [60, 60, 60, 60];
+  act(s, 'front-assault');
+  s.front.soldiers = 50;
+  s.front.equipment.rifle = 50;
+  s.front.equipment.rifle_ammo = 100;
+  act(s, 'front-assault');
+  assert.equal(s.front.defeats, 0);
+  assert.equal(armyStats(s).morale, 1);
+  assert.equal(s.factories, 9);
+  assert.equal(s.workers.coal.length, 3);
+  assert.equal(s.front.wave, 2);
+  assert.equal(s.front.remaining, 600);
+  assert.deepEqual(validateSave(s), s);
+});
+
+test('Support reduces losses and no ammunition reduces army power', () => {
+  const s = newGame('fr');
+  assert.equal(armyStats(s).power, 10);
+  s.front.equipment.rifle_ammo = 0;
+  assert.equal(armyStats(s).power, 2.5);
+  s.front.equipment.rifle_ammo = 30;
+  s.front.equipment.support = 1;
+  assert.equal(armyStats(s).power, 11);
+  act(s, 'front-assault');
+  assert.equal(s.front.equipment.support, 0);
+  assert.ok(s.front.lastBattle.losses <= 3);
+});
+
+test('Front advances identically in a long active call and quarter-second calls', () => {
+  const a = newGame('fr');
+  a.front.soldiers = 100;
+  a.front.equipment.rifle = 100;
+  a.front.equipment.rifle_ammo = 1000;
+  const b = structuredClone(a);
+  advance(a, 1201, { frontActive: true });
+  for (let i = 0; i < 4804; i++) advance(b, 0.25, { frontActive: true });
+  assert.deepEqual(a.front, b.front);
+  assert.equal(a.credits, b.credits);
+});
+
+test('Existing saves get a fresh ten-minute front; malformed current fronts are rejected', () => {
+  const old = newGame('jp');
+  old.version = 9;
+  old.elapsed = 40000;
+  delete old.front;
+  const s = validateSave(old);
+  assert.equal(s.version, 10);
+  assert.equal(s.front.remaining, 600);
+  assert.equal(s.front.battles, 0);
+  assert.deepEqual(validateSave(s), s);
+  for (const mutate of [
+    (s) => delete s.front,
+    (s) => (s.front.defeats = 4),
+    (s) => (s.front.status = 'ended'),
+    (s) => (s.front.remaining = -1),
+    (s) => (s.front.equipment.rifle = -1),
+    (s) => (s.front.soldiers = 1.5),
+    (s) => (s.front.lastBattle = { won: true }),
+  ]) {
+    const bad = newGame('fr');
+    mutate(bad);
+    assert.throws(() => validateSave(bad));
+  }
 });

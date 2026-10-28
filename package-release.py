@@ -26,6 +26,7 @@ def build_player():
     app = app.replace('src="assets/', 'src="dist/assets/')
     app = app.replace("'assets/rising-sun-game-loop.wav'", "'dist/assets/rising-sun-game-loop.wav'")
     app = app.replace("'assets/dogs-of-war-menu-loop.wav'", "'dist/assets/dogs-of-war-menu-loop.wav'")
+    app = app.replace("'assets/the-way-defeat.mp3'", "'dist/assets/the-way-defeat.mp3'")
     app = app.replace('href="arsenal-source.zip" download', 'href="README.md"')
 
     # La page est à la racine ; les images restent dans dist/assets.
