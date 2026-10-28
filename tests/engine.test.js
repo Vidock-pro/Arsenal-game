@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   productionRecipe,
   factoryCost,
+  storageUpgradeCost,
   freeFactories,
   productionUnlocked,
   productionRequirements,
@@ -212,9 +213,9 @@ test('New game starts with only manual coal and empty treasury', () => {
 });
 test('Manual sales fund the first worker and new sites', () => {
   const s = newGame('fr');
-  for (let i = 0; i < 27; i++) act(s, 'harvest', 'coal');
+  for (let i = 0; i < 37; i++) act(s, 'harvest', 'coal');
   assert.ok(act(s, 'sell-all', 'coal'));
-  assert.equal(s.credits, 27);
+  assert.equal(s.credits, 37);
   assert.ok(act(s, 'hire', 'coal'));
   assert.equal(s.credits, 0);
   advance(s, 60);
@@ -223,10 +224,11 @@ test('Manual sales fund the first worker and new sites', () => {
   advance(s, 60);
   assert.equal(s.resources.coal, stock);
   assert.equal(s.credits, 0);
-  assert.ok(act(s, 'sell-ten', 'coal'));
+  assert.ok(act(s, 'sell-all', 'coal'));
   advance(s, 1);
-  assert.equal(s.credits, 8);
-  assert.ok(s.resources.coal > stock - 10);
+  assert.equal(s.credits, 12);
+  assert.equal(s.resources.coal, 0);
+  assert.ok(s.harvestProgress.coal > 0);
   s.credits = 600;
   assert.equal(act(s, 'upgrade', 'wood'), false);
   assert.ok(act(s, 'upgrade', 'cotton'));
@@ -244,16 +246,16 @@ test('Hiring, wages, dismissal and full stores cannot create unpaid labor', () =
   s.credits = 100;
   act(s, 'hire', 'coal');
   act(s, 'hire', 'coal');
-  assert.equal(s.credits, 38);
-  s.resources.coal = 5000;
+  assert.equal(s.credits, 18);
+  s.resources.coal = capacity(s, RESOURCES[0]);
   advance(s, 61);
-  assert.equal(s.credits, 34);
-  assert.equal(s.resources.coal, 5000);
+  assert.equal(s.credits, 18);
+  assert.equal(s.resources.coal, 500);
   assert.equal(act(s, 'harvest', 'coal'), false);
   act(s, 'dismiss', 'coal');
   act(s, 'dismiss', 'coal');
   advance(s, 120);
-  assert.equal(s.credits, 34);
+  assert.equal(s.credits, 18);
   assert.equal(act(s, 'dismiss', 'coal'), false);
 });
 test('Market respects unit prices, whole units, and available inventory', () => {
@@ -289,7 +291,7 @@ test('Save migration preserves legacy assets and validates new payroll', () => {
   old.levels.platinum = 0;
   delete old.workers;
   const migrated = validateSave(old);
-  assert.equal(migrated.version, 7);
+  assert.equal(migrated.version, 8);
   assert.equal(migrated.credits, 700);
   assert.equal(migrated.resources.wood, 100);
   assert.equal(rate(migrated, RESOURCES[0]), 0);
@@ -320,22 +322,22 @@ test('Hiring scales per site while salaries stay fixed', () => {
     assert.equal(hireCost(s, coal), price);
     const before = s.credits;
     assert.ok(act(s, 'hire', 'coal'));
-    assert.equal(before - s.credits, price + 2);
+    assert.equal(before - s.credits, price + workerWage(coal));
   }
   assert.equal(hireCost(s, wood), 38);
   const before = s.credits;
   advance(s, 61);
-  assert.equal(before - s.credits, 8);
+  assert.equal(before - s.credits, 48);
   const saved = validateSave(s);
   assert.equal(hireCost(saved, coal), hireCost(s, coal));
   act(s, 'dismiss', 'coal');
   assert.equal(hireCost(s, coal), 55);
-  s.credits = 56;
+  s.credits = 66;
   const crew = structuredClone(s.workers.coal);
   assert.equal(act(s, 'hire', 'coal'), false);
-  assert.equal(s.credits, 56);
+  assert.equal(s.credits, 66);
   assert.deepEqual(s.workers.coal, crew);
-  s.credits = 57;
+  s.credits = 67;
   assert.ok(act(s, 'hire', 'coal'));
   assert.equal(s.credits, 0);
 });
@@ -371,7 +373,7 @@ test('All twelve sites open in order with x5 costs and x1.5 sale prices', () => 
     assert.equal(s.resources[r.id], 1);
     assert.ok(act(s, 'hire', r.id));
     assert.ok(rate(s, r) > 0);
-    assert.ok(capacity(s, r) / r.rate >= 12500);
+    assert.equal(capacity(s, r), 500);
   }
   assert.deepEqual(validateSave(s), s);
 });
@@ -384,7 +386,7 @@ test('Version 2 migration retains workers, converts platinum, and preserves acce
   old.levels = { coal: 1, wood: 2, iron: 1, rubber: 1, platinum: 1 };
   old.workers = { coal: [40], wood: [25], iron: [], rubber: [], platinum: [12] };
   const s = validateSave(old);
-  assert.equal(s.version, 7);
+  assert.equal(s.version, 8);
   assert.equal(s.credits, 52);
   assert.equal(s.resources.cotton, 0);
   assert.equal(s.resources.wood, 30);
@@ -404,6 +406,7 @@ test('Resource sales round up and late-game capacity survives save/load', () => 
   const r = RESOURCES.at(-1);
   s.levels[r.id] = 1;
   s.workers[r.id] = [60];
+  s.storageLevels[r.id] = 5;
   s.resources[r.id] = 10000;
   s.credits = 100;
   advance(s, 60);
@@ -531,7 +534,7 @@ test('Version 3 line migration preserves stock, in-flight work and old unlocks',
   old.lines[0] = { id: 'rifle', enabled: true, remaining: 5, stock: 7, made: 12 };
   old.lines[2].stock = 2;
   const s = validateSave(old);
-  assert.equal(s.version, 7);
+  assert.equal(s.version, 8);
   assert.equal(s.lines.length, 19);
   const rifle = s.lines.find((l) => l.id === 'rifle');
   assert.equal(rifle.stock, 7);
@@ -566,7 +569,7 @@ test('Version 4 migration refunds royalty certificates once and preserves acquir
   old.lines[0].made = 3;
   old.lines[0].stock = 2;
   const s = validateSave(old);
-  assert.equal(s.version, 7);
+  assert.equal(s.version, 8);
   assert.equal(s.credits, 950);
   assert.deepEqual(s.patents, ['uniform']);
   assert.equal(s.lines[0].stock, 2);
@@ -796,7 +799,7 @@ test('Version 6 technology migration preserves owned equipment and paid work', (
   old.research = { id: 'assembly', remaining: 20 };
   old.levels.cotton = 1;
   const next = validateSave(old);
-  assert.equal(next.version, 7);
+  assert.equal(next.version, 8);
   assert.ok(next.tech.includes('sewing'));
   assert.ok(next.tech.includes('precision'));
   assert.ok(next.tech.includes('electricity'));
@@ -844,7 +847,7 @@ test('Resource rank scales hiring and wages but all workers share the same base 
   s.credits = 1e9;
   for (const r of RESOURCES) {
     s.levels[r.id] = 1;
-    const wage = Math.ceil(2 * 1.5 ** r.tier);
+    const wage = 12 * MARKET_PRICES[r.id];
     assert.equal(workerWage(r), wage);
     for (let count = 0; count < 2; count++) {
       const price = Math.ceil(25 * 1.5 ** r.tier * 1.3 ** count);
@@ -861,7 +864,7 @@ test('Resource rank scales hiring and wages but all workers share the same base 
     before - s.credits,
     RESOURCES.reduce((sum, r) => sum + 2 * workerWage(r), 0),
   );
-  for (const r of RESOURCES) assert.ok(Math.abs(s.resources[r.id] - 48.8) < 1e-7);
+  for (const r of RESOURCES) assert.equal(s.resources[r.id], 48);
   assert.deepEqual(validateSave(s), s);
 });
 
@@ -876,7 +879,8 @@ test('An expensive site waits for its own wage and resumes with enough gold', ()
   s.credits = workerWage(r);
   advance(s, 1);
   assert.equal(s.credits, 0);
-  assert.equal(s.resources[r.id], 0.4);
+  assert.equal(s.resources[r.id], 0);
+  assert.equal(s.harvestProgress[r.id], 0.4);
 });
 
 test('Mixed resource wages and yields match offline and small-step simulation', () => {
@@ -910,4 +914,109 @@ test('Custom resource sales charge exactly the chosen whole quantity and reject 
   assert.equal(s.credits, 17 * MARKET_PRICES.cotton);
   assert.ok(act(s, 'sell-quantity', 'cotton', 8));
   assert.equal(s.resources.cotton, 0.75);
+});
+
+test('Automatic harvesting credits whole units without losing partial work on save', () => {
+  const s = newGame('fr');
+  s.workers.coal = [60];
+  for (let i = 0; i < 9; i++) {
+    advance(s, 0.25);
+    assert.equal(s.resources.coal, 0);
+  }
+  const loaded = validateSave(s);
+  advance(loaded, 0.25);
+  assert.equal(loaded.resources.coal, 1);
+  advance(loaded, 57.5);
+  assert.equal(loaded.resources.coal, 24);
+  assert.ok(Number.isInteger(loaded.resources.coal));
+  const old = newGame('fr');
+  delete old.harvestProgress;
+  old.resources.coal = 3.75;
+  const migrated = validateSave(old);
+  assert.equal(migrated.resources.coal, 3);
+  assert.equal(migrated.harvestProgress.coal, 0.75);
+  for (const bad of [NaN, -1, 1, Infinity]) {
+    const invalid = structuredClone(s);
+    invalid.harvestProgress.coal = bad;
+    assert.throws(() => validateSave(invalid));
+  }
+});
+
+test('New warehouses start at 500 per resource and upgrades are paid and independent', () => {
+  const s = newGame('fr'),
+    coal = RESOURCES[0],
+    cotton = RESOURCES[1];
+  for (const r of RESOURCES) assert.equal(capacity(s, r), 500);
+  s.credits = 99;
+  assert.equal(act(s, 'expand-storage', 'coal'), false);
+  s.credits = 1000;
+  assert.equal(act(s, 'expand-storage', 'cotton'), false);
+  const cost = storageUpgradeCost(s, coal);
+  assert.ok(act(s, 'expand-storage', 'coal'));
+  assert.equal(s.credits, 1000 - cost);
+  assert.equal(capacity(s, coal), 1000);
+  assert.equal(capacity(s, cotton), 500);
+  assert.ok(storageUpgradeCost(s, coal) > cost);
+  assert.deepEqual(validateSave(s), s);
+  const invalid = structuredClone(s);
+  invalid.storageLevels.coal = -1;
+  assert.throws(() => validateSave(invalid));
+});
+
+test('Old warehouses migrate without losing stock or previous capacity', () => {
+  const s = newGame('fr');
+  s.version = 7;
+  delete s.storageLevels;
+  s.resources.coal = 6200;
+  const loaded = validateSave(s);
+  assert.equal(loaded.resources.coal, 6200);
+  for (const r of RESOURCES)
+    assert.ok(capacity(loaded, r) >= Math.ceil(5000 * (5 / (1.5 * 1.3)) ** r.tier));
+  assert.ok(capacity(loaded, RESOURCES[0]) >= 6200);
+  assert.deepEqual(validateSave(loaded), loaded);
+});
+
+test('Full warehouses halve wages, preserve prepaid work and resume after selling', () => {
+  const s = newGame('fr'),
+    coal = RESOURCES[0];
+  s.credits = 100;
+  s.resources.coal = capacity(s, coal);
+  assert.equal(workerWage(coal), 12);
+  assert.equal(workerWage(coal, s), 6);
+  assert.ok(act(s, 'hire', 'coal'));
+  assert.equal(s.credits, 69);
+  assert.equal(rate(s, coal), 0);
+  advance(s, 60);
+  assert.equal(s.resources.coal, 500);
+  assert.equal(s.workers.coal[0], 0);
+  advance(s, 10);
+  assert.equal(s.credits, 63);
+  assert.equal(s.workers.coal[0], 25);
+  act(s, 'sell-quantity', 'coal', 100);
+  assert.equal(workerWage(coal, s), 12);
+  assert.equal(rate(s, coal), 0.4);
+  advance(s, 25);
+  assert.equal(s.resources.coal, 410);
+  assert.equal(s.workers.coal[0], 0);
+  advance(s, 1);
+  assert.equal(s.credits, 151);
+});
+
+test('Filling a warehouse stretches prepaid wages equally online and offline', () => {
+  const a = newGame('fr');
+  a.credits = 1000;
+  a.resources.coal = 499;
+  act(a, 'hire', 'coal');
+  const b = structuredClone(a);
+  advance(a, 119);
+  for (let i = 0; i < 476; i++) advance(b, 0.25);
+  assert.equal(a.resources.coal, 500);
+  assert.equal(a.credits, 957);
+  assert.equal(a.credits, b.credits);
+  assert.ok(Math.abs(a.workers.coal[0] - b.workers.coal[0]) < 1e-8);
+  assert.deepEqual(validateSave(a), a);
+  a.credits = 0;
+  advance(a, 180);
+  assert.equal(a.workers.coal[0], 0);
+  assert.equal(a.resources.coal, 500);
 });
