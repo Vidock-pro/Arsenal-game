@@ -22,6 +22,12 @@ export const COUNTRIES = {
     icon: 'DE',
   },
   su: { name: 'URSS', motto: 'La force des grands complexes', bonus: 'Récolte +15 %', icon: 'SU' },
+  jp: {
+    name: 'Japon',
+    motto: 'Chaque matière au service de la production',
+    bonus: 'Matières consommées en production −10 %',
+    icon: 'JP',
+  },
 };
 export const RESOURCE_CAPACITY_GROWTH = 5 / (1.5 * 1.3);
 export const RESOURCES = [
@@ -79,7 +85,7 @@ export const RESOURCES = [
       ][i - 1]
     : null,
   rate: 0.4,
-  cost: i ? 100 * 5 ** (i - 1) : 90,
+  cost: i ? Math.ceil(100 * 2.5 ** (i - 1)) : 90,
   icon: '◆',
 }));
 // Recherches : coûts en ressources, durée, prérequis et coordonnées des illustrations.
@@ -172,7 +178,7 @@ export const TECHS = [
     time: 30,
     col: 1,
     row: 1,
-    desc: 'Confection des uniformes.',
+    desc: 'Confection des uniformes. Offre une première usine et débloque la vente automatique du surplus.',
   },
   {
     id: 'press',
@@ -867,6 +873,27 @@ export const PRODUCT_NAMES = {
     'Yakovlev Yak-3',
     'Petlyakov Pe-2',
   ],
+  jp: [
+    'Tenue de campagne Type 98',
+    'Équipement de soutien japonais',
+    'Cartouches de pistolet 8 mm Nambu',
+    'Nambu Type 14',
+    'Grenade Type 97',
+    'Cartouches de fusil 7,7 mm',
+    'Arisaka Type 99',
+    'Mitrailleuse légère Type 99',
+    'Obus japonais de 75 mm',
+    'Canon Type 90 de 75 mm',
+    'Type 95 Kurogane',
+    'Isuzu Type 94',
+    'Type 1 Ho-Ha',
+    'Type 95 Ha-Go',
+    'Type 97 Chi-Ha',
+    'O-I · prototype uchronique',
+    'Mitsubishi Ki-46',
+    'Mitsubishi A6M2 Zero',
+    'Mitsubishi G4M',
+  ],
 };
 export const productName = (state, product) => PRODUCT_NAMES[state.country][product.tier];
 // Liste les conditions encore manquantes pour acheter le brevet.
@@ -911,7 +938,9 @@ const LEGACY_PATENT_COSTS = {
 export function newGame(country, now = Date.now()) {
   if (!COUNTRIES[country]) throw Error('Pays invalide');
   return {
-    version: 8,
+    version: 9,
+    starterFactoryGranted: false,
+    autoSales: Object.fromEntries(RESOURCES.map((r) => [r.id, { enabled: false, reserve: 100 }])),
     storageLevels: Object.fromEntries(RESOURCES.map((resource) => [resource.id, 0])),
     factories: 0,
     country,
@@ -940,6 +969,32 @@ export function newGame(country, now = Date.now()) {
     elapsed: 0,
   };
 }
+// Récompense unique, y compris pour les anciennes parties. Au plafond, compenser en or.
+function grantStarterFactory(state) {
+  if (!state.tech.includes('sewing') || state.starterFactoryGranted) return;
+  if (state.factories < MAX_FACTORIES) state.factories++;
+  else state.credits += 1000;
+  state.starterFactoryGranted = true;
+}
+export const autoSalesUnlocked = (state) => state.tech.includes('sewing');
+// Ne vendre que des unités entières au-dessus de la réserve choisie.
+function sellSurplus(state) {
+  if (!autoSalesUnlocked(state)) return;
+  for (const resource of RESOURCES) {
+    const rule = state.autoSales[resource.id];
+    if (!rule.enabled || !unlocked(state, resource)) continue;
+    const amount = Math.max(0, Math.floor(state.resources[resource.id] - rule.reserve));
+    state.resources[resource.id] -= amount;
+    state.credits += amount * MARKET_PRICES[resource.id];
+  }
+}
+export const WORKER_MILESTONES = [
+  { count: 5, multiplier: 1.25 },
+  { count: 10, multiplier: 1.5 },
+  { count: 25, multiplier: 2 },
+];
+export const workerMultiplier = (count) =>
+  WORKER_MILESTONES.filter((step) => count >= step.count).at(-1)?.multiplier ?? 1;
 export const MAX_FACTORIES = 250;
 export const factoryCost = (state) => Math.ceil(1000 * 1.3 ** Math.floor(state.factories / 5));
 // Un lot commencé garde ses usines réservées jusqu’à son achèvement.
@@ -951,7 +1006,13 @@ export const productionRecipe = (state, product) =>
   Object.fromEntries(
     Object.entries(product.recipe).map(([id, amount]) => [
       id,
-      amount * (state.tech.includes('tooling') ? 0.9 : 1),
+      // Deux décimales évitent les résidus binaires lors du cumul des réductions.
+      Math.round(
+        amount *
+          (state.tech.includes('tooling') ? 0.9 : 1) *
+          (state.country === 'jp' ? 0.9 : 1) *
+          100,
+      ) / 100,
     ]),
   );
 export const productionBatch = (state, product, line) =>
@@ -997,6 +1058,7 @@ export const rate = (state, resource) =>
     ? resource.rate *
       state.levels[resource.id] *
       activeWorkers(state, resource) *
+      workerMultiplier(activeWorkers(state, resource)) *
       (state.country === 'su' ? 1.15 : 1) *
       (state.tech.includes('steam') ? 1.2 : 1) *
       (state.tech.includes('logistics') ? 1.25 : 1)
@@ -1033,6 +1095,7 @@ export function advance(state, seconds) {
   initializeHarvestProgress(state);
   let left = Math.max(0, Math.min(28800, Number(seconds) || 0));
   while (left > 1e-8) {
+    sellSurplus(state);
     // Le salaire finance une minute ; sans or, l’ouvrier attend le prochain paiement.
     for (const resource of RESOURCES)
       for (let i = 0; i < state.workers[resource.id].length; i++)
@@ -1062,7 +1125,18 @@ export function advance(state, seconds) {
             speed
         : Infinity;
     }).filter((time) => time > 1e-8);
-    const dt = Math.min(1, left, ...remaining, ...filling);
+    // Découper aux unités récoltées vendables pour garder les mêmes salaires hors ligne.
+    const waitingForWages = RESOURCES.some((r) => state.workers[r.id].some((t) => t <= 1e-8));
+    const saleEvents =
+      waitingForWages && autoSalesUnlocked(state)
+        ? RESOURCES.map((resource) => {
+            const speed = rate(state, resource);
+            return state.autoSales[resource.id].enabled && speed > 0
+              ? (1 - state.harvestProgress[resource.id]) / speed
+              : Infinity;
+          }).filter((time) => time > 1e-8)
+        : [];
+    const dt = Math.min(1, left, ...remaining, ...filling, ...saleEvents);
     left -= dt;
     state.elapsed += dt;
     for (const resource of RESOURCES) {
@@ -1086,6 +1160,7 @@ export function advance(state, seconds) {
       if (state.research.remaining <= 0) {
         state.tech.push(state.research.id);
         state.research = null;
+        grantStarterFactory(state);
       }
     }
     for (const line of state.lines) {
@@ -1118,11 +1193,28 @@ export function advance(state, seconds) {
         }
       }
     }
+    sellSurplus(state);
   }
   return state;
 }
 // Valide une action avant de dépenser ses coûts. Renvoie false si elle est impossible.
 export function act(state, type, id, requestedAmount) {
+  if (type === 'toggle-auto-sale' || type === 'set-auto-reserve') {
+    const resource = RESOURCES.find((r) => r.id === id);
+    if (!resource || !unlocked(state, resource) || !autoSalesUnlocked(state)) return false;
+    const rule = state.autoSales[id];
+    if (type === 'toggle-auto-sale') rule.enabled = !rule.enabled;
+    else {
+      if (
+        !Number.isSafeInteger(requestedAmount) ||
+        requestedAmount < 0 ||
+        requestedAmount > capacity(state, resource)
+      )
+        return false;
+      rule.reserve = requestedAmount;
+    }
+    return true;
+  }
   if (type === 'expand-storage') {
     const resource = RESOURCES.find((resource) => resource.id === id);
     if (
@@ -1279,7 +1371,7 @@ export function validateSave(raw) {
   const unique = (a) => new Set(a).size === a.length;
   if (
     !state ||
-    ![1, 2, 3, 4, 5, 6, 7, 8].includes(state.version) ||
+    ![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(state.version) ||
     !COUNTRIES[state.country] ||
     !finite(state.credits) ||
     !finite(state.elapsed) ||
@@ -1531,6 +1623,30 @@ export function validateSave(raw) {
     )
   )
     throw Error('Extensions de stockage invalides');
+  if (state.version < 9) {
+    state.autoSales = Object.fromEntries(
+      RESOURCES.map((r) => [r.id, { enabled: false, reserve: 100 }]),
+    );
+    state.starterFactoryGranted = false;
+    grantStarterFactory(state);
+    state.version = 9;
+  }
+  if (
+    typeof state.starterFactoryGranted !== 'boolean' ||
+    (state.starterFactoryGranted && !state.tech.includes('sewing')) ||
+    !state.autoSales ||
+    RESOURCES.some((r) => {
+      const rule = state.autoSales[r.id];
+      return (
+        !rule ||
+        typeof rule.enabled !== 'boolean' ||
+        !Number.isSafeInteger(rule.reserve) ||
+        !finite(rule.reserve) ||
+        (rule.enabled && (!autoSalesUnlocked(state) || !unlocked(state, r)))
+      );
+    })
+  )
+    throw Error('Vente automatique ou récompense invalide');
   initializeHarvestProgress(state);
   if (
     !state.harvestProgress ||

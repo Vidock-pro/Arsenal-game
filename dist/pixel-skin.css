@@ -3643,12 +3643,11 @@ dialog,
   .sidebar nav {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
+    container: mobile-menu / inline-size;
     overflow: visible;
     gap: 4px;
   }
   .sidebar nav button {
-    container-type: inline-size;
-    container-name: menu-item;
     min-width: 0;
     width: 100%;
     padding: 8px 2px;
@@ -3659,7 +3658,7 @@ dialog,
     font-size: inherit;
   }
 }
-@container menu-item (max-width: 6.3rem) {
+@container mobile-menu (max-width: 40rem) {
   .menu-label {
     display: none;
   }
@@ -3693,4 +3692,94 @@ dialog,
   .sidebar nav b:empty {
     display: none;
   }
+}
+
+/* La sélection change le contraste, jamais la visibilité du libellé.
+   Le seuil mobile dépend de toute la barre, pas de la bordure du bouton actif. */
+.sidebar nav button.active .menu-label {
+  color: #18200d;
+  text-shadow: none;
+}
+
+/* Les réglages de vente gardent la réserve lisible, même sur une petite tuile. */
+.worker-bonus {
+  grid-column: 1 / -1;
+  color: #d7c982;
+  font:
+    bold 0.75rem/1.4 'Courier New',
+    monospace;
+}
+.auto-sale-controls {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #71683f;
+  font:
+    bold 0.8rem/1.4 'Courier New',
+    monospace;
+}
+.auto-sale-controls button {
+  min-height: 42px;
+  white-space: normal;
+}
+.auto-sale-controls button[aria-pressed='true'] {
+  color: #eed68a;
+  border-color: #d5b95f;
+}
+.auto-reserve-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.auto-reserve-row input {
+  min-width: 0;
+  width: 6rem;
+  flex: 1 1 6rem;
+  padding: 8px;
+  background: #121c10;
+  color: #f1e4ac;
+  border: 1px solid #978951;
+  font: inherit;
+}
+.auto-reserve-row button {
+  flex: 1 1 6rem;
+}
+.auto-sale-controls small {
+  font: inherit;
+  color: #d7d2b7;
+}
+
+/* Cinquième nation : le Hinomaru reste net quelle que soit sa taille. */
+.flag.jp {
+  position: relative;
+  background: #eee9d9;
+  overflow: hidden;
+}
+.flag.jp::before {
+  content: '';
+  position: absolute;
+  height: 60%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #ac3036;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+@media (min-width: 1151px) {
+  .countries {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    max-width: 1400px;
+  }
+}
+@media (min-width: 761px) and (max-width: 1150px) {
+  .countries {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.country-name,
+.country-motto,
+.country strong {
+  overflow-wrap: anywhere;
 }

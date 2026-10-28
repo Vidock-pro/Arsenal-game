@@ -73,7 +73,7 @@ function mount(options = {}) {
   };
 }
 test('Production renders all 19 national cards and filters without missing imagery', () => {
-  for (const country of ['fr', 'us', 'de', 'su']) {
+  for (const country of ['fr', 'us', 'de', 'su', 'jp']) {
     const ui = mount();
     vm.runInContext(`state=newGame('${country}');view='production';shell();`, ui.context);
     const html = ui.get('#content').innerHTML;
@@ -112,7 +112,7 @@ test('A completed first item refreshes the production prerequisites', () => {
 });
 
 test('Patent catalog shows national images, research gates, affordability and acquisition', () => {
-  for (const country of ['fr', 'us', 'de', 'su']) {
+  for (const country of ['fr', 'us', 'de', 'su', 'jp']) {
     const ui = mount();
     vm.runInContext(`state=newGame('${country}');view='patents';shell();`, ui.context);
     const html = ui.get('#content').innerHTML;
@@ -618,4 +618,56 @@ test('Full resource cards show partial unemployment and reduced wages live', () 
   vm.runInContext("act(state,'sell-quantity','coal',100);updateNumbers();", ui.context);
   assert.equal(Number(ui.get('payroll-coal').textContent), 12);
   assert.equal(ui.get('worker-condition-coal').textContent, '');
+});
+
+test('Market exposes saved automatic-sale controls only after research and for owned sites', () => {
+  const ui = mount();
+  vm.runInContext("state=newGame('fr');view='market';shell();", ui.context);
+  assert.ok(!ui.get('#content').innerHTML.includes('id="auto-sale-coal"'));
+  vm.runInContext("state.tech=['sewing'];shell();", ui.context);
+  assert.ok(ui.get('#content').innerHTML.includes('id="auto-sale-coal"'));
+  assert.ok(!ui.get('#content').innerHTML.includes('id="auto-sale-cotton"'));
+  ui.events.click({
+    target: { closest: () => ({ dataset: { action: 'toggle-auto-sale', id: 'coal' } }) },
+  });
+  assert.equal(vm.runInContext('state.autoSales.coal.enabled', ui.context), true);
+  ui.get('auto-reserve-coal').value = '75';
+  ui.events.click({
+    target: { closest: () => ({ dataset: { action: 'set-auto-reserve', id: 'coal' } }) },
+  });
+  assert.equal(vm.runInContext('state.autoSales.coal.reserve', ui.context), 75);
+  assert.match(ui.get('auto-reserve-status-coal').textContent, /75/);
+  ui.get('auto-reserve-coal').value = '';
+  ui.events.click({
+    target: { closest: () => ({ dataset: { action: 'set-auto-reserve', id: 'coal' } }) },
+  });
+  assert.equal(vm.runInContext('state.autoSales.coal.reserve', ui.context), 75);
+});
+
+test('Harvest shows the next crew milestone and the active bonus', () => {
+  const ui = mount();
+  vm.runInContext("state=newGame('fr');view='harvest';shell();", ui.context);
+  assert.match(ui.get('worker-bonus-coal').textContent, /5 ouvriers/);
+  vm.runInContext('state.workers.coal=Array(5).fill(60);updateNumbers();', ui.context);
+  assert.match(ui.get('worker-bonus-coal').textContent, /25 %/);
+});
+
+test('Japan can be selected from the title and starts a valid game', () => {
+  const ui = mount();
+  assert.ok(ui.get('#app').innerHTML.includes('data-country="jp"'));
+  ui.events.click({ target: { closest: () => ({ dataset: { country: 'jp' } }) } });
+  assert.equal(vm.runInContext('selected', ui.context), 'jp');
+  ui.events.click({ target: { closest: () => ({ dataset: { action: 'start' } }) } });
+  assert.equal(vm.runInContext('state.country', ui.context), 'jp');
+  assert.ok(ui.get('#app').innerHTML.includes('flag jp'));
+  assert.doesNotThrow(() => vm.runInContext('validateSave(state)', ui.context));
+});
+
+test('Japanese production displays the actual discounted recipe amounts', () => {
+  const ui = mount();
+  vm.runInContext("state=newGame('jp');view='production';shell();", ui.context);
+  assert.match(ui.get('#content').innerHTML, /<b>1,8<\/b\s*>/);
+  assert.match(ui.get('#content').innerHTML, /<b>3,6<\/b\s*>/);
+  vm.runInContext("state.tech=['tooling'];shell();", ui.context);
+  assert.match(ui.get('#content').innerHTML, /<b>3,24<\/b\s*>/);
 });
