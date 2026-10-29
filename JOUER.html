@@ -5563,6 +5563,92 @@ dialog,
   flex-wrap: wrap;
 }
 
+/* Classement local, lisible sans défilement horizontal sur téléphone. */
+.leaderboard-dialog {
+  width: min(760px, 94vw);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.leaderboard-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.leaderboard-heading h2 {
+  font-size: 1.2rem;
+  color: #ebcd78;
+}
+.leaderboard-dialog p {
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.leaderboard-list {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0 0;
+  display: grid;
+  gap: 12px;
+}
+.leaderboard-list li {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  background: #172011;
+  border: 1px solid #847447;
+}
+.leaderboard-list .current-campaign {
+  border-color: #e1bf60;
+}
+.leaderboard-rank {
+  font: 1.5rem var(--pixel);
+  color: #e4c56e;
+  min-width: 1.8em;
+}
+.leaderboard-result {
+  min-width: 0;
+  flex: 1;
+}
+.leaderboard-result h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+.leaderboard-result h3 small {
+  display: block;
+  margin-top: 6px;
+  color: #bebba4;
+  font: 0.7rem monospace;
+}
+.leaderboard-result > strong {
+  color: #f4d77c;
+}
+.leaderboard-result dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.leaderboard-result dt {
+  color: #bfbba4;
+  font-size: 0.75rem;
+}
+.leaderboard-result dd {
+  margin: 4px 0 0;
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+.leaderboard-result > small {
+  color: #bfbba4;
+}
+@media (max-width: 450px) {
+  .leaderboard-result dl {
+    grid-template-columns: 1fr;
+  }
+  .leaderboard-list li {
+    padding: 10px;
+    gap: 6px;
+  }
+}
+
     </style>
   </head>
   <body>
@@ -6627,15 +6713,26 @@ function resolveAssault(state) {
     stats = armyStats(state),
     enemy = enemyPower(state);
   const won = stats.power >= enemy;
-  // Une petite menace ne mobilise qu’une fraction des moyens d’une grande armée.
+  // À cinq contre un, le vainqueur impose un combat bref, sans subir de pertes.
+  const overwhelming = won ? stats.power >= enemy * 5 : enemy >= stats.power * 5;
   const intensity = Math.min(1, enemy / Math.max(1, stats.power));
+  const ammunitionFactor = overwhelming
+    ? won
+      ? intensity ** 2
+      : stats.power / Math.max(1, enemy)
+    : intensity;
   const spent = Object.fromEntries(
-    FRONT_ITEMS.map((id) => [id, Math.ceil(stats.spent[id] * intensity)]),
+    FRONT_ITEMS.map((id) => [id, Math.ceil(stats.spent[id] * ammunitionFactor)]),
   );
-  const losses = Math.min(
-    f.soldiers,
-    Math.ceil((f.soldiers * (won ? 0.05 * intensity : 0.25)) / (1 + stats.support * 0.2)),
-  );
+  // Pas de soutien médical consommé quand aucune perte n’est subie.
+  if (won && overwhelming) spent.support = 0;
+  const losses =
+    won && overwhelming
+      ? 0
+      : Math.min(
+          f.soldiers,
+          Math.ceil((f.soldiers * (won ? 0.05 * intensity : 0.25)) / (1 + stats.support * 0.2)),
+        );
   for (const id of FRONT_ITEMS) {
     f.equipment[id] -= spent[id];
     // Seul le matériel engagé subit les pertes ; le matériel en réserve reste disponible.
@@ -6649,6 +6746,7 @@ function resolveAssault(state) {
   const report = {
     wave: f.wave,
     won,
+    overwhelming,
     power: stats.power,
     enemy,
     losses,
@@ -6686,6 +6784,7 @@ function newGame(country, now = Date.now()) {
   if (!COUNTRIES[country]) throw Error('Pays invalide');
   return {
     version: 12,
+    campaignId: `campaign-${now}-${Math.random().toString(36).slice(2, 10)}`,
     front: newFront(),
     starterFactoryGranted: false,
     autoSales: Object.fromEntries(RESOURCES.map((r) => [r.id, { enabled: false, reserve: 100 }])),
@@ -7539,6 +7638,10 @@ function validateSave(raw) {
         )))
   )
     throw Error('Front invalide');
+  if (state.campaignId === undefined)
+    state.campaignId = `legacy-${state.country}-${state.lastSaved}`;
+  if (typeof state.campaignId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(state.campaignId))
+    throw Error('Identifiant de campagne invalide');
   return state;
 }
 
@@ -7859,11 +7962,92 @@ function checkPayrollNotice() {
     );
   wagesBlocked = blocked;
 }
+// Un résultat par campagne ; les nouvelles parties ne remplacent pas l’historique.
+const RECORDS_KEY = 'arsenal.records.v1';
+function readRecords() {
+  try {
+    const raw = localStorage.getItem(RECORDS_KEY);
+    if (!raw || raw.length > 100000) return [];
+    const rows = JSON.parse(raw);
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .filter(
+        (r) =>
+          r &&
+          typeof r.id === 'string' &&
+          /^[a-zA-Z0-9-]{1,100}$/.test(r.id) &&
+          Object.hasOwn(COUNTRIES, r.country) &&
+          ['active', 'ended'].includes(r.status) &&
+          ['victories', 'battles', 'power', 'elapsed', 'made', 'date'].every(
+            (k) => Number.isFinite(r[k]) && r[k] >= 0 && r[k] <= 1e15,
+          ),
+      )
+      .slice(0, 50);
+  } catch {
+    return [];
+  }
+}
+function rankRecords(rows) {
+  return rows.sort(
+    (a, b) => b.victories - a.victories || b.power - a.power || a.elapsed - b.elapsed,
+  );
+}
+function recordCampaign() {
+  if (!state?.front.battles) return;
+  try {
+    const rows = readRecords();
+    const previous = rows.find((r) => r.id === state.campaignId);
+    const record = {
+      id: state.campaignId,
+      country: state.country,
+      victories: state.front.victories,
+      battles: state.front.battles,
+      power: Math.max(
+        armyStats(state).power,
+        state.front.lastBattle?.power || 0,
+        previous?.power || 0,
+      ),
+      elapsed: Math.floor(state.elapsed),
+      made: state.lines.reduce((n, l) => n + l.made, 0),
+      date: Date.now(),
+      status: state.front.status === 'ended' ? 'ended' : 'active',
+    };
+    // Recharger un ancien instantané ne doit pas effacer un meilleur résultat déjà enregistré.
+    const keep =
+      previous &&
+      (previous.victories > record.victories ||
+        previous.battles > record.battles ||
+        previous.status === 'ended')
+        ? previous
+        : record;
+    localStorage.setItem(
+      RECORDS_KEY,
+      JSON.stringify(rankRecords([...rows.filter((r) => r.id !== record.id), keep]).slice(0, 50)),
+    );
+  } catch {
+    /* Une indisponibilité du classement ne bloque pas la sauvegarde de la partie. */
+  }
+}
+function leaderboard() {
+  if (state) save();
+  const rows = rankRecords(readRecords());
+  document.querySelector('dialog')?.close();
+  const d = document.createElement('dialog');
+  d.className = 'leaderboard-dialog';
+  d.innerHTML = `<form method="dialog"><div class="leaderboard-heading"><h2>TABLEAU D’HONNEUR</h2><button aria-label="Fermer le classement" class="secondary">Fermer</button></div>
+    <p>Meilleures campagnes sur cet appareil · Vagues repoussées, puis puissance maximale.</p>
+    ${rows.length ? `<ol class="leaderboard-list">${rows.map((r, i) => `<li class="${r.id === state?.campaignId ? 'current-campaign' : ''}"><div class="leaderboard-rank">${i + 1}</div><div class="leaderboard-result"><h3>${COUNTRIES[r.country].name} <small>${r.status === 'ended' ? 'Terminée' : 'En cours / archivée'}</small></h3><strong>${fmt(r.victories)} vagues repoussées</strong><dl><div><dt>Puissance max.</dt><dd>${recipeAmount(r.power)}</dd></div><div><dt>Assauts</dt><dd>${fmt(r.battles)}</dd></div><div><dt>Durée</dt><dd>${Math.floor(r.elapsed / 3600)} h ${Math.floor(r.elapsed / 60) % 60} min</dd></div><div><dt>Objets fabriqués</dt><dd>${fmt(r.made)}</dd></div></dl><small>${new Date(r.date).toLocaleDateString('fr-FR')}</small></div></li>`).join('')}</ol>` : '<p class="leaderboard-empty">Aucune campagne classée pour le moment. Repoussez votre premier assaut pour inscrire votre résultat.</p>'}
+    </form>`;
+  document.body.append(d);
+  d.addEventListener('close', () => d.remove());
+  d.showModal();
+}
 // Enregistre la partie ; une erreur de stockage ne doit pas bloquer le jeu.
 function save() {
   if (!state) return;
   try {
     state.lastSaved = Date.now();
+    recordCampaign();
     localStorage.setItem(KEY, serializeSave(state));
     saved = true;
   } catch {
@@ -8079,7 +8263,8 @@ function title() {
     <footer class="title-footer">
       <span>SOLO · PROGRESSION HORS LIGNE · SANS COMPTE</span>
       <div>
-        <button data-action="import">Importer une partie</button
+        <button data-action="leaderboard">Classement</button
+        ><button data-action="import">Importer une partie</button
         ><a href="README.md">Code source ↗</a><span>MIT · Open source</span>
       </div>
     </footer>
@@ -9023,7 +9208,7 @@ function storage() {
 function battleReport() {
   const r = state.front.lastBattle;
   if (!r) return '<p>Aucun assaut pour le moment.</p>';
-  return `<h3>${r.won ? 'VICTOIRE' : state.front.status === 'ended' ? 'CAPITULATION' : 'DÉFAITE'} · Vague ${fmt(r.wave)}</h3>
+  return `<h3>${r.won ? (r.overwhelming ? 'VICTOIRE ÉCRASANTE' : 'VICTOIRE') : state.front.status === 'ended' ? 'CAPITULATION' : r.overwhelming ? 'ENNEMI ÉCRASANT' : 'DÉFAITE'} · Vague ${fmt(r.wave)}</h3>
     <p>Puissance engagée : ${recipeAmount(r.power)} / ${fmt(r.enemy)}</p>
     <p>${fmt(r.losses)} soldats perdus · ${fmt(r.ammunition)} munitions consommées · ${fmt(r.support)} soutiens utilisés</p>
     <p>${fmt(r.factories)} usines détruites · ${fmt(r.requisitioned)} ouvriers réquisitionnés</p>
@@ -9190,9 +9375,15 @@ function announceBattle() {
 // Reconstruit uniquement le contenu de l’onglet ouvert.
 function renderContent() {
   cancelResearchHover();
-  $('#content').innerHTML = { harvest, market, production, research, patents, storage, front }[
-    view
-  ]();
+  $('#content').innerHTML = {
+    harvest,
+    market,
+    production,
+    research,
+    patents,
+    storage,
+    front,
+  }[view]();
 }
 function text(id, value) {
   const el = document.getElementById(id);
@@ -9528,6 +9719,9 @@ function settings() {
       />
     </section>
     <div class="modal-actions">
+      <button type="button" class="secondary" data-action="leaderboard">
+        Classement des parties
+      </button>
       <button type="button" class="primary" data-action="export" ${!state ? 'disabled' : ''}>
         Exporter la sauvegarde</button
       ><button type="button" class="secondary" data-action="import">Importer une sauvegarde</button
@@ -9730,6 +9924,10 @@ document.addEventListener('click', (e) => {
   if (a === 'home') {
     save();
     title();
+    return;
+  }
+  if (a === 'leaderboard') {
+    leaderboard();
     return;
   }
   if (a === 'settings') {

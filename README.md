@@ -211,3 +211,13 @@ L’import restaure exactement l’instantané du fichier, notamment `stock` ind
 La consommation de munitions et de soutien est pondérée par `min(1, puissance ennemie / puissance de l’armée)`, arrondie au supérieur. Les pertes de soldats en victoire sont pondérées par ce même rapport. Les pertes de matériel en victoire sont arrondies à l’inférieur pour éviter de détruire automatiquement une unité de chaque famille lors d’un combat insignifiant. Les règles de défaite industrielle restent inchangées.
 
 Les sauvegardes locales et exports utilisent une enveloppe JSON avec un contenu encodé en base64 et une somme de contrôle. L’import accepte aussi les anciens fichiers JSON. Ce format détecte des altérations accidentelles mais n’est ni un chiffrement ni une protection anti-triche : un client contrôlé par le joueur peut recalculer cette somme et modifier son état en mémoire. Une protection réelle exige une simulation et une validation côté serveur.
+
+
+### Tableau d’honneur
+
+Le bouton « Classement » de l’écran titre et des paramètres affiche les 50 meilleures campagnes locales. Tri : vagues repoussées décroissantes, puissance maximale enregistrée décroissante, puis durée croissante. Les campagnes sans assaut ne figurent pas encore au classement. Une seule entrée par identifiant de campagne, conservée après une nouvelle partie ; l’import d’un instantané plus ancien ne dégrade pas un résultat déjà enregistré. Les anciens fichiers reçoivent un identifiant lors de leur lecture. Cet historique démarre avec cette fonctionnalité : les parties précédemment effacées ne peuvent pas être récupérées. Le classement est local et non certifié ; il n’est pas partagé entre navigateurs ou joueurs.
+
+
+### Supériorité écrasante au front
+
+À partir d’un rapport de puissance de 5 contre 1, une victoire du joueur ne cause aucune perte de soldats ou de matériel et ne consomme pas de soutien. Les munitions et grenades consommées sont alors pondérées par le carré du rapport ennemi/armée (arrondi supérieur). En cas de supériorité écrasante ennemie, le combat bref réduit la consommation selon le rapport armée/ennemi ; les pertes et pénalités de défaite restent applicables. Aucun effectif ennemi persistant n’est simulé.

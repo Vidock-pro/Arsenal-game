@@ -4239,3 +4239,89 @@ dialog,
 .front-delivery {
   flex-wrap: wrap;
 }
+
+/* Classement local, lisible sans défilement horizontal sur téléphone. */
+.leaderboard-dialog {
+  width: min(760px, 94vw);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.leaderboard-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.leaderboard-heading h2 {
+  font-size: 1.2rem;
+  color: #ebcd78;
+}
+.leaderboard-dialog p {
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.leaderboard-list {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0 0;
+  display: grid;
+  gap: 12px;
+}
+.leaderboard-list li {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  background: #172011;
+  border: 1px solid #847447;
+}
+.leaderboard-list .current-campaign {
+  border-color: #e1bf60;
+}
+.leaderboard-rank {
+  font: 1.5rem var(--pixel);
+  color: #e4c56e;
+  min-width: 1.8em;
+}
+.leaderboard-result {
+  min-width: 0;
+  flex: 1;
+}
+.leaderboard-result h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+.leaderboard-result h3 small {
+  display: block;
+  margin-top: 6px;
+  color: #bebba4;
+  font: 0.7rem monospace;
+}
+.leaderboard-result > strong {
+  color: #f4d77c;
+}
+.leaderboard-result dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.leaderboard-result dt {
+  color: #bfbba4;
+  font-size: 0.75rem;
+}
+.leaderboard-result dd {
+  margin: 4px 0 0;
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+.leaderboard-result > small {
+  color: #bfbba4;
+}
+@media (max-width: 450px) {
+  .leaderboard-result dl {
+    grid-template-columns: 1fr;
+  }
+  .leaderboard-list li {
+    padding: 10px;
+    gap: 6px;
+  }
+}

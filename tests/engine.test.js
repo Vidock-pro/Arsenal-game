@@ -1497,8 +1497,8 @@ test('Overwhelming victory preserves army power and does not spend all ammunitio
   const before = armyStats(s).power;
   act(s, 'front-assault');
   assert.ok(armyStats(s).power > before * 0.99);
-  assert.ok(s.front.lastBattle.losses <= 1);
-  assert.equal(s.front.lastBattle.ammunition, 12);
+  assert.equal(s.front.lastBattle.losses, 0);
+  assert.equal(s.front.lastBattle.ammunition, 1);
   assert.ok(s.front.equipment.rifle > 11990);
 });
 test('Small attacks do not destroy a vehicle from every equipped family', () => {
@@ -1529,4 +1529,40 @@ test('Encoded and legacy save round trips retain actual stock separately from to
   broken.payload = broken.payload.slice(0, -2) + 'AA';
   assert.throws(() => validateSave(broken));
   assert.throws(() => validateSave(' '.repeat(200001)));
+});
+
+test('Five-to-one victory has no casualties or equipment losses and minimal ammunition', () => {
+  const s = newGame('fr');
+  s.front.soldiers = 60;
+  Object.assign(s.front.equipment, { rifle: 60, rifle_ammo: 60, support: 1 });
+  const rifles = s.front.equipment.rifle;
+  act(s, 'front-assault');
+  assert.equal(s.front.lastBattle.overwhelming, true);
+  assert.equal(s.front.lastBattle.losses, 0);
+  assert.equal(s.front.soldiers, 60);
+  assert.equal(s.front.equipment.rifle, rifles);
+  assert.equal(s.front.equipment.support, 1);
+  assert.ok(s.front.lastBattle.ammunition <= 3);
+  assert.deepEqual(validateSave(s), s);
+});
+test('Close victory still has losses and consumes ammunition', () => {
+  const s = newGame('fr');
+  s.front.soldiers = 12;
+  Object.assign(s.front.equipment, { rifle: 12, rifle_ammo: 12 });
+  act(s, 'front-assault');
+  assert.equal(s.front.lastBattle.overwhelming, false);
+  assert.equal(s.front.lastBattle.losses, 1);
+  assert.equal(s.front.lastBattle.ammunition, 12);
+});
+test('Overwhelming enemy causes a short defeat without draining all ammunition', () => {
+  const s = newGame('fr');
+  s.front.wave = 20;
+  s.front.victories = 19;
+  s.front.battles = 19;
+  act(s, 'front-assault');
+  assert.equal(s.front.lastBattle.won, false);
+  assert.equal(s.front.lastBattle.overwhelming, true);
+  assert.ok(s.front.lastBattle.ammunition < 10);
+  assert.equal(s.front.status, 'paused');
+  assert.equal(s.front.defeats, 1);
 });
