@@ -45,3 +45,11 @@ La police Arsenal Pixel 1.1 ajoute la virgule et la ponctuation des valeurs num�
 
 
 - `dist/assets/the-way-defeat.mp3` : copie du fichier « Zack Hemsey - The Way (Instrumental).mp3 » fourni par l’utilisateur, utilisée pour l’écran de défaite. Musique de Zack Hemsey, distincte des illustrations générées et de la licence MIT du code ; aucun transfert de droits n’est impliqué. Le panneau délabré est réalisé en CSS (rouille, rayures, bords abîmés).
+
+
+## Garnison française (prototype)
+- `dist/assets/front-base-fr.png` : décor original généré avec l’outil intégré image_gen ; base française de 1939, casernes, hangar et cour vide, pixel art olive/kaki.
+- Brief de génération : paysage 3:2, vue oblique surélevée, bâtiments en arrière-plan, deux tiers inférieurs libres, sans personnages ni véhicules ni texte, palette olive/kaki/brun/laiton et pixels nets.
+- `dist/assets/front-units-fr-v3.png` : atlas transparent de quatre sprites généré avec l’outil intégré image_gen, à partir d’une première planche inspirée de `production-fr.png`. Soldat, jeep, char et avion sont affichés en couches indépendantes.
+- Brief final : quatre cellules carrées, soldats français en casque Adrian, jeep, char et avion à hélice français en vue de face/trois quarts ; pixel art de jeu de stratégie des années 1990, gros pixels visibles, palette limitée, ombrages par amas de pixels et contours en escalier ; fond réellement transparent, sans texte ni panneaux. Les dessins sont stylisés, sans modèle historique exact revendiqué.
+- La scène est ramenée au ratio 640/250 et les unités se chevauchent par plans : aviation, blindés, véhicules, infanterie. Les rangs de soldats sont décalés pour laisser leurs silhouettes lisibles.

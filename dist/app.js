@@ -1,5 +1,6 @@
 import {
   FRONT_ITEMS,
+  takeAssaultWarning,
   armyStats,
   enemyPower,
   autoSalesUnlocked,
@@ -504,7 +505,7 @@ function title() {
     <header class="title-top">
       <a class="brand" href="#">A<span class="brand-rule"></span></a
       ><span>JEU DE GESTION INDUSTRIELLE · 1914—1945</span
-      ><span class="edition">ÉDITION PIXEL / 0.2</span>
+      ><span class="edition">ÉDITION PIXEL / 1.0</span>
       <button
         class="icon-btn title-settings"
         data-action="settings"
@@ -570,6 +571,8 @@ function goal() {
     return 'Front effondré. Campagne terminée. Le bilan reste consultable dans Front.';
   if (state.front.status === 'paused')
     return 'Assauts suspendus. Réarmez votre armée dans Front avant de reprendre.';
+  if (state.lines.find((line) => line.id === 'uniform')?.stock > 0)
+    return 'Des uniformes attendent en stock. Un envoi au front permettrait d’équiper de nouvelles recrues.';
   if (!Object.values(state.workers).some((crew) => crew.length))
     return 'Engagez votre premier ouvrier.';
   const next = RESOURCES.find((resource) => !state.levels[resource.id]);
@@ -619,6 +622,10 @@ function shell() {
   if (musicPlayer) syncMusic();
   const c = COUNTRIES[state.country];
   $('#app').innerHTML = /* HTML */ `<div class="game-shell">
+    <div class="wallet wallet-overlay" role="group" aria-label="Trésorerie">
+      ${wageIcon()}
+      <div><small>TRÉSORERIE</small><strong id="credits"></strong></div>
+    </div>
     <header class="topbar">
       <div class="brand-banner">
         <button class="wordmark" data-action="home">
@@ -649,10 +656,6 @@ function shell() {
               </div>`,
           )
           .join('')}
-      </div>
-      <div class="wallet">
-        ${wageIcon()}
-        <div><small>TRÉSORERIE</small><strong id="credits"></strong></div>
       </div>
     </header>
     <aside class="sidebar">
@@ -713,7 +716,7 @@ function shell() {
       </div>
       <footer class="game-footer">
         <span id="save-status">● Sauvegarde automatique</span
-        ><span>ARSENAL / VERSION 0.2 · ÉCONOMIE FICTIVE</span>
+        ><span>ARSENAL / VERSION 1.0 · ÉCONOMIE FICTIVE</span>
       </footer>
     </main>
   </div>`;
@@ -1499,7 +1502,63 @@ function battleReport() {
     <p>Puissance engagée : ${recipeAmount(r.power)} / ${fmt(r.enemy)}</p>
     <p>${fmt(r.losses)} soldats perdus · ${fmt(r.ammunition)} munitions consommées · ${fmt(r.support)} soutiens utilisés</p>
     <p>${fmt(r.factories)} usines détruites · ${fmt(r.requisitioned)} ouvriers réquisitionnés</p>
-    ${r.won ? `<p>Récompense : ${money(r.reward)} or · 10 réservistes arrivés</p>` : ''}`;
+    ${r.won ? `<p>Récompense : ${money(r.reward)} or</p>` : ''}`;
+}
+// Prototype français : un pictogramme par dizaine commencée, avec des plafonds visuels.
+function frontSceneCounts() {
+  const e = state.front.equipment;
+  const count = (n, max) => Math.min(max, Math.ceil(n / 10));
+  return {
+    soldier: count(state.front.soldiers, 20),
+    jeep: count(e.jeep, 5),
+    tank: count(e.light_tank + e.medium_tank + e.heavy_tank, 5),
+    plane: count(e.recon + e.fighter + e.bomber, 2),
+  };
+}
+function frontBase() {
+  if (state.country !== 'fr') return '';
+  return `<section class="storage-panel front-base"><div class="front-base-heading"><h2>LA GARNISON</h2><span>FRANCE · QUARTIER GÉNÉRAL</span></div>
+    <div class="front-base-yard" id="front-base-yard" role="img" aria-label="Base militaire française">
+    <div class="front-base-units" id="front-base-sprites" aria-hidden="true"></div></div>
+  </section>`;
+}
+function updateFrontBase() {
+  if (state.country !== 'fr') return;
+  const layer = document.getElementById('front-base-sprites');
+  if (!layer) return;
+  const counts = frontSceneCounts();
+  const signature = JSON.stringify(counts);
+  // Ne pas reconstruire les sprites à chaque tic si les effectifs affichés sont identiques.
+  if (layer.dataset.counts !== signature) {
+    layer.dataset.counts = signature;
+    const sprites = [];
+    const add = (type, x, y, size, depth) =>
+      sprites.push(
+        `<span class="garrison-unit garrison-${type}" data-unit="${type}" style="left:${x / 6.4}%;top:${y / 2.5}%;width:${size / 6.4}%;z-index:${depth}"></span>`,
+      );
+    // Plans chevauchants : l’ordre et les ombres donnent la profondeur sans animation permanente.
+    for (let i = 0; i < counts.plane; i++) add('plane', 310 + i * 142, 20, 165, 1);
+    for (let i = 0; i < counts.tank; i++)
+      add('tank', 5 + i * 112, 62 + (i % 2) * 8, 150, 2 + (i % 2));
+    for (let i = 0; i < counts.jeep; i++)
+      add('jeep', 35 + i * 112, 105 + (i % 2) * 5, 105, 4 + (i % 2));
+    for (let i = 0; i < counts.soldier; i++)
+      add(
+        'soldier',
+        66 + (i % 10) * 48 + Math.floor(i / 10) * 12,
+        162 + Math.floor(i / 10) * 18,
+        55,
+        6 + Math.floor(i / 10),
+      );
+    layer.innerHTML = sprites.join('');
+  }
+  const e = state.front.equipment;
+  document
+    .getElementById('front-base-yard')
+    ?.setAttribute(
+      'aria-label',
+      `Base française : ${fmt(state.front.soldiers)} soldats, ${fmt(e.jeep)} jeeps, ${fmt(e.light_tank + e.medium_tank + e.heavy_tank)} chars et ${fmt(e.recon + e.fighter + e.bomber)} avions au front.`,
+    );
 }
 function front() {
   const f = state.front;
@@ -1509,26 +1568,31 @@ function front() {
     <div class="front-stats">
       <p>Vague <strong id="front-wave"></strong></p><p>Prochain assaut <strong id="front-timer"></strong></p>
       <p>Notre puissance <strong id="front-power"></strong></p><p>Menace ennemie <strong id="front-enemy"></strong></p>
-      <p>Soldats <strong id="front-soldiers"></strong></p><p>Réservistes <strong id="front-reservists"></strong></p>
+      <p>Soldats <strong id="front-soldiers"></strong></p>
       <p>Défaites consécutives <strong id="front-defeats"></strong></p><p>Moral <strong id="front-morale"></strong></p>
     </div>
     <div class="front-actions">
       <button class="primary" id="front-assault" data-action="front-assault">Déclencher l’assaut</button>
       ${f.status === 'paused' ? '<button class="secondary" data-action="front-resume">Reprendre la préparation · 10 min</button>' : ''}
-      <button class="secondary" id="front-recruit" data-action="front-recruit">Équiper les réservistes</button>
     </div>
-    <p>Un uniforme équipe un réserviste. Les soldats sans fusil ou sans munition défendent moins efficacement. Le soutien renforce l’armée et réduit ses pertes.</p>
-    <p>Le compte à rebours avance uniquement pendant le jeu actif. Après une victoire, la vague suivante arrive dans 10 minutes.</p>
-    <p>1re et 2e défaites : −10 % d’usines et −25 % d’ouvriers réquisitionnés, arrondis au supérieur. Moral : −10 %, puis −20 %. Une victoire restaure le moral. 3e défaite consécutive : fin de partie.</p>
     ${f.status === 'ended' ? '<p>Votre industrie est arrêtée. La sauvegarde et le bilan restent disponibles.</p><button class="secondary" data-action="home">Retour à l’écran titre</button>' : ''}
   </section>
   <section class="storage-panel front-log">${battleReport()}</section>
+  ${frontBase()}
   <section class="storage-panel front-supply"><h2>APPROVISIONNER L’ARMÉE</h2>
     <p>Seuls les équipements que vous livrez ici sont envoyés au front.</p>
-    ${FRONT_ITEMS.map((id) => {
-      const p = PRODUCTS.find((p) => p.id === id);
-      return `<div class="front-supply-row"><div><h3>${p.name}</h3><p>${productName(state, p)}</p>
-        <p>En stock : <strong id="front-stock-${id}"></strong> · Au front : <strong id="front-equipped-${id}"></strong></p></div>
+    ${FRONT_ITEMS.filter(
+      (id) =>
+        id === 'uniform' ||
+        productionUnlocked(
+          state,
+          PRODUCTS.find((p) => p.id === id),
+        ),
+    )
+      .map((id) => {
+        const p = PRODUCTS.find((p) => p.id === id);
+        return `<div class="front-supply-row"><div><h3>${p.name}</h3><p>${productName(state, p)}</p>
+        <p>En stock : <strong id="front-stock-${id}"></strong> ${id === 'uniform' ? '· 1 uniforme = 1 soldat' : `· Au front : <strong id="front-equipped-${id}"></strong>`}</p></div>
         <div class="front-delivery"><label for="front-quantity-${id}">Quantité</label>
         <div class="market-number-field">
           <input type="number" id="front-quantity-${id}" min="1" step="1" value="1" inputmode="numeric" />
@@ -1538,11 +1602,13 @@ function front() {
           </div>
         </div>
         <button class="secondary" data-action="front-deliver" data-id="${id}" id="front-deliver-${id}">Livrer</button></div></div>`;
-    }).join('')}
+      })
+      .join('')}
   </section>`;
 }
 function updateFrontNumbers() {
   if (view !== 'front') return;
+  updateFrontBase();
   const f = state.front,
     stats = armyStats(state);
   text(
@@ -1558,11 +1624,9 @@ function updateFrontNumbers() {
   text('front-power', recipeAmount(stats.power));
   text('front-enemy', fmt(enemyPower(state)));
   text('front-soldiers', fmt(f.soldiers));
-  text('front-reservists', fmt(f.reservists));
   text('front-defeats', `${f.defeats} / 3`);
   text('front-morale', `${Math.round(stats.morale * 100)} %`);
   disable('front-assault', f.status === 'ended');
-  disable('front-recruit', !f.reservists || !f.equipment.uniform);
   for (const id of FRONT_ITEMS) {
     const stock = state.lines.find((l) => l.id === id).stock;
     text('front-stock-' + id, fmt(stock));
@@ -2205,6 +2269,14 @@ setInterval(() => {
       if (state.front.status === 'ended') view = 'front';
       if (screen === 'game') shell();
       announceBattle();
+    }
+    if (screen === 'game' && takeAssaultWarning(state)) {
+      notify(
+        'ASSAUT IMMINENT · Moins d’une minute avant la vague ' +
+          state.front.wave +
+          '. Livrez vos uniformes et vos équipements pour renforcer votre armée.',
+      );
+      save();
     }
     checkPayrollNotice();
     if (state.tech.length !== before) {
