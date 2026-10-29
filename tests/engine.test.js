@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {
   productionRecipe,
   armyStats,
+  FRONT_ITEMS,
+  takeAssaultWarning,
   enemyPower,
   factoryCost,
   storageUpgradeCost,
@@ -295,7 +297,7 @@ test('Save migration preserves legacy assets and validates new payroll', () => {
   old.levels.platinum = 0;
   delete old.workers;
   const migrated = validateSave(old);
-  assert.equal(migrated.version, 10);
+  assert.equal(migrated.version, 12);
   assert.equal(migrated.credits, 700);
   assert.equal(migrated.resources.wood, 100);
   assert.equal(rate(migrated, RESOURCES[0]), 0);
@@ -390,7 +392,7 @@ test('Version 2 migration retains workers, converts platinum, and preserves acce
   old.levels = { coal: 1, wood: 2, iron: 1, rubber: 1, platinum: 1 };
   old.workers = { coal: [40], wood: [25], iron: [], rubber: [], platinum: [12] };
   const s = validateSave(old);
-  assert.equal(s.version, 10);
+  assert.equal(s.version, 12);
   assert.equal(s.credits, 52);
   assert.equal(s.resources.cotton, 0);
   assert.equal(s.resources.wood, 30);
@@ -538,7 +540,7 @@ test('Version 3 line migration preserves stock, in-flight work and old unlocks',
   old.lines[0] = { id: 'rifle', enabled: true, remaining: 5, stock: 7, made: 12 };
   old.lines[2].stock = 2;
   const s = validateSave(old);
-  assert.equal(s.version, 10);
+  assert.equal(s.version, 12);
   assert.equal(s.lines.length, 19);
   const rifle = s.lines.find((l) => l.id === 'rifle');
   assert.equal(rifle.stock, 7);
@@ -573,7 +575,7 @@ test('Version 4 migration refunds royalty certificates once and preserves acquir
   old.lines[0].made = 3;
   old.lines[0].stock = 2;
   const s = validateSave(old);
-  assert.equal(s.version, 10);
+  assert.equal(s.version, 12);
   assert.equal(s.credits, 950);
   assert.deepEqual(s.patents, ['uniform']);
   assert.equal(s.lines[0].stock, 2);
@@ -803,7 +805,7 @@ test('Version 6 technology migration preserves owned equipment and paid work', (
   old.research = { id: 'assembly', remaining: 20 };
   old.levels.cotton = 1;
   const next = validateSave(old);
-  assert.equal(next.version, 10);
+  assert.equal(next.version, 12);
   assert.ok(next.tech.includes('sewing'));
   assert.ok(next.tech.includes('precision'));
   assert.ok(next.tech.includes('electricity'));
@@ -1196,9 +1198,9 @@ test('Manual assault, victory, reserve recruitment and ammunition are determinis
     assert.equal(act(s, 'front-deliver', 'uniform', amount), false);
   assert.ok(act(s, 'front-deliver', 'uniform', 8));
   assert.equal(s.lines[0].stock, 0);
-  assert.ok(act(s, 'front-recruit'));
+  assert.equal(act(s, 'front-recruit'), false);
   assert.equal(s.front.soldiers, 18);
-  assert.equal(s.front.reservists, 12);
+  assert.equal('reservists' in s.front, false);
   assert.equal(s.front.equipment.uniform, 0);
   assert.equal(armyStats(s).power, 12);
   assert.ok(act(s, 'front-assault'));
@@ -1209,7 +1211,7 @@ test('Manual assault, victory, reserve recruitment and ammunition are determinis
   assert.equal(s.front.equipment.rifle_ammo, 20);
   assert.equal(s.front.soldiers, 17);
   assert.equal(s.credits, 100);
-  assert.equal(s.front.reservists, 22);
+  assert.equal('reservists' in s.front, false);
   assert.equal(s.front.lastBattle.factories, 0);
   assert.equal(s.front.lastBattle.requisitioned, 0);
   assert.deepEqual(validateSave(s), s);
@@ -1227,7 +1229,7 @@ test('First two defeats destroy factories and requisition total crews; third end
   assert.equal(s.factories, 9);
   assert.equal(s.front.lastBattle.requisitioned, 1);
   assert.equal(Object.values(s.workers).flat().length, 3);
-  assert.equal(s.front.reservists, 21);
+  assert.equal('reservists' in s.front, false);
   assert.equal(armyStats(s).morale, 0.9);
   assert.deepEqual(validateSave(s), s);
   act(s, 'front-assault');
@@ -1235,12 +1237,11 @@ test('First two defeats destroy factories and requisition total crews; third end
   assert.equal(s.factories, 8);
   assert.equal(Object.values(s.workers).flat().length, 2);
   assert.equal(armyStats(s).morale, 0.8);
-  const reserves = s.front.reservists;
   act(s, 'front-assault');
   assert.equal(s.front.status, 'ended');
   assert.equal(s.factories, 8);
   assert.equal(Object.values(s.workers).flat().length, 2);
-  assert.equal(s.front.reservists, reserves);
+  assert.equal('reservists' in s.front, false);
   assert.equal(s.front.lastBattle.factories, 0);
   assert.equal(s.front.lastBattle.requisitioned, 0);
   const ended = structuredClone(s);
@@ -1338,7 +1339,7 @@ test('Existing saves get a fresh ten-minute front; malformed current fronts are 
   old.elapsed = 40000;
   delete old.front;
   const s = validateSave(old);
-  assert.equal(s.version, 10);
+  assert.equal(s.version, 12);
   assert.equal(s.front.remaining, 600);
   assert.equal(s.front.battles, 0);
   assert.deepEqual(validateSave(s), s);
@@ -1355,4 +1356,134 @@ test('Existing saves get a fresh ten-minute front; malformed current fronts are 
     mutate(bad);
     assert.throws(() => validateSave(bad));
   }
+});
+
+test('All nineteen finished goods can be delivered without duplicating inventory', () => {
+  const s = newGame('fr');
+  assert.equal(FRONT_ITEMS.length, 19);
+  for (const p of PRODUCTS) {
+    const line = s.lines.find((l) => l.id === p.id);
+    line.stock = 3;
+    const before = s.front.equipment[p.id];
+    assert.ok(act(s, 'front-deliver', p.id, 3));
+    assert.equal(line.stock, 0);
+    assert.equal(s.front.equipment[p.id], p.id === 'uniform' ? 0 : before + 3);
+    if (p.id === 'uniform') assert.equal(s.front.soldiers, 13);
+    assert.equal(act(s, 'front-deliver', p.id, 1), false);
+  }
+  assert.deepEqual(validateSave(s), s);
+});
+test('Heavy equipment requires crews and ammunition, which are consumed once', () => {
+  const s = newGame('fr');
+  s.front.equipment.rifle = 0;
+  s.front.equipment.artillery = 2;
+  assert.equal(armyStats(s).power, 2.5);
+  s.front.equipment.shell = 1;
+  assert.equal(armyStats(s).used.artillery, 1);
+  assert.equal(armyStats(s).power, 21.5);
+  act(s, 'front-assault');
+  assert.equal(s.front.equipment.shell, 0);
+  assert.equal(s.front.lastBattle.ammunition, 1);
+  s.front.soldiers = 0;
+  s.front.equipment.shell = 10;
+  assert.equal(armyStats(s).power, 0);
+});
+test('Pistols, grenades and logistics contribute with no double assignment', () => {
+  const s = newGame('fr');
+  const e = s.front.equipment;
+  e.rifle = 0;
+  e.pistol = 10;
+  e.pistol_ammo = 10;
+  assert.equal(armyStats(s).power, 7.5);
+  e.grenade = 10;
+  e.jeep = 1;
+  e.truck = 1;
+  assert.ok(armyStats(s).power > 12.5);
+  act(s, 'front-assault');
+  assert.equal(e.pistol_ammo, 0);
+  assert.equal(e.grenade, 0);
+});
+test('Each vehicle and aircraft has a useful combat role', () => {
+  for (const id of [
+    'machine_gun',
+    'halftrack',
+    'light_tank',
+    'medium_tank',
+    'heavy_tank',
+    'fighter',
+    'bomber',
+    'recon',
+    'jeep',
+    'truck',
+  ]) {
+    const s = newGame('fr');
+    s.front.soldiers = 100;
+    Object.assign(s.front.equipment, { rifle: 0, rifle_ammo: 100, shell: 100 });
+    const before = armyStats(s).power;
+    s.front.equipment[id] = 1;
+    assert.ok(armyStats(s).power > before, id);
+  }
+});
+test('Warning is issued once at one minute, survives reload and resets after a battle', () => {
+  const s = newGame('fr');
+  assert.equal(takeAssaultWarning(s), false);
+  s.front.remaining = 60;
+  assert.equal(takeAssaultWarning(s), true);
+  const restored = validateSave(s);
+  assert.equal(takeAssaultWarning(restored), false);
+  act(s, 'front-assault');
+  assert.equal(takeAssaultWarning(s), false);
+  act(s, 'front-resume');
+  s.front.remaining = 59;
+  assert.equal(takeAssaultWarning(s), true);
+});
+test('Old front saves gain missing equipment and reserve reinforcement only once', () => {
+  const s = newGame('fr');
+  s.version = 10;
+  s.front.reservists = 20;
+  for (const id of FRONT_ITEMS)
+    if (!['uniform', 'support', 'rifle', 'rifle_ammo'].includes(id)) delete s.front.equipment[id];
+  delete s.front.assaultWarned;
+  const restored = validateSave(s);
+  assert.equal('reservists' in restored.front, false);
+  assert.equal(restored.front.equipment.artillery, 0);
+  assert.deepEqual(validateSave(restored), restored);
+});
+test('Enemy growth and reserve arrivals scale with victorious waves', () => {
+  const s = newGame('fr');
+  s.front.soldiers = 100;
+  s.front.equipment.rifle = 100;
+  s.front.equipment.rifle_ammo = 1000;
+  assert.equal(enemyPower(s), 12);
+  act(s, 'front-assault');
+  assert.equal(enemyPower(s), 16);
+  assert.equal('reservists' in s.front, false);
+  act(s, 'front-assault');
+  assert.equal(enemyPower(s), 21);
+  assert.equal('reservists' in s.front, false);
+});
+
+test('Uniform delivery creates soldiers directly without a reserve limit', () => {
+  const s = newGame('fr');
+  s.lines[0].stock = 500;
+  assert.ok(act(s, 'front-deliver', 'uniform', 500));
+  assert.equal(s.front.soldiers, 510);
+  assert.equal(s.front.equipment.uniform, 0);
+  assert.equal(s.lines[0].stock, 0);
+  assert.deepEqual(validateSave(s), s);
+  s.lines[0].stock = 1;
+  s.front.soldiers = 1e9;
+  assert.equal(act(s, 'front-deliver', 'uniform', 1), false);
+  assert.equal(s.lines[0].stock, 1);
+});
+test('Version 11 migrates already delivered uniforms once and removes reserves', () => {
+  const s = newGame('fr');
+  s.version = 11;
+  s.front.equipment.uniform = 12;
+  s.front.reservists = 2;
+  const restored = validateSave(s);
+  assert.equal(restored.front.soldiers, 22);
+  assert.equal(restored.front.equipment.uniform, 0);
+  assert.equal('reservists' in restored.front, false);
+  assert.deepEqual(validateSave(restored), restored);
 });

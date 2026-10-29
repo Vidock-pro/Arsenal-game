@@ -936,7 +936,7 @@ const LEGACY_PATENT_COSTS = {
 };
 // Le front avance uniquement pendant le jeu actif ; les livraisons sont explicites.
 export const ASSAULT_DELAY = 600;
-export const FRONT_ITEMS = ['uniform', 'support', 'rifle', 'rifle_ammo'];
+export const FRONT_ITEMS = PRODUCTS.map((p) => p.id);
 export function newFront() {
   return {
     wave: 1,
@@ -946,27 +946,76 @@ export function newFront() {
     victories: 0,
     battles: 0,
     soldiers: 10,
-    reservists: 20,
-    equipment: { uniform: 0, support: 0, rifle: 10, rifle_ammo: 30 },
+    assaultWarned: false,
+    equipment: {
+      ...Object.fromEntries(FRONT_ITEMS.map((id) => [id, 0])),
+      rifle: 10,
+      rifle_ammo: 30,
+    },
     lastBattle: null,
   };
 }
-export const enemyPower = (state) => Math.min(1e12, Math.ceil(12 * 1.35 ** (state.front.wave - 1)));
+export const enemyPower = (state) => Math.min(1e12, Math.ceil(12 * 1.3 ** (state.front.wave - 1)));
 export function armyStats(state) {
   const f = state.front;
-  const armed = Math.min(f.soldiers, f.equipment.rifle);
-  const supplied = Math.min(armed, f.equipment.rifle_ammo);
-  const support = Math.min(f.equipment.support, Math.ceil(f.soldiers / 10), 5);
+  const e = f.equipment;
+  const used = Object.fromEntries(FRONT_ITEMS.map((id) => [id, 0]));
+  const spent = Object.fromEntries(FRONT_ITEMS.map((id) => [id, 0]));
+  let crew = f.soldiers,
+    strength = 0;
+  // Affecter les équipages aux matériels les plus puissants, sans compter un soldat deux fois.
+  const units = [
+    ['bomber', 5, 90, 'shell', 4],
+    ['fighter', 1, 45, 'rifle_ammo', 4],
+    ['heavy_tank', 5, 60, 'shell', 3],
+    ['medium_tank', 4, 40, 'shell', 2],
+    ['light_tank', 3, 24, 'shell', 1],
+    ['artillery', 4, 20, 'shell', 1],
+    ['halftrack', 2, 10, 'rifle_ammo', 2],
+    ['machine_gun', 2, 6, 'rifle_ammo', 3],
+    ['rifle', 1, 1, 'rifle_ammo', 1],
+    ['pistol', 1, 0.75, 'pistol_ammo', 1],
+  ];
+  for (const [id, men, power, ammo, rounds] of units) {
+    const count = Math.min(
+      e[id],
+      Math.floor(crew / men),
+      Math.floor((e[ammo] - spent[ammo]) / rounds),
+    );
+    used[id] = count;
+    spent[ammo] += count * rounds;
+    crew -= count * men;
+    strength += count * power;
+  }
+  const supplied = f.soldiers - crew;
+  const armed = Math.min(f.soldiers, e.rifle);
+  strength += crew * 0.25;
+  spent.grenade = Math.min(e.grenade, f.soldiers);
+  strength += spent.grenade * 0.5;
+  const support = Math.min(e.support, Math.ceil(f.soldiers / 10), 5);
+  spent.support = support;
+  // Transport et reconnaissance soutiennent une armée existante ; leur bonus est plafonné.
+  used.jeep = Math.min(e.jeep, Math.ceil(f.soldiers / 10), 5);
+  used.truck = Math.min(e.truck, Math.ceil(f.soldiers / 20), 5);
+  used.recon = Math.min(e.recon, Math.floor(crew / 2), 3);
+  const bonus = support * 0.1 + used.jeep * 0.03 + used.truck * 0.05 + used.recon * 0.1;
   const morale = 1 - 0.1 * Math.min(2, f.defeats);
   return {
     armed,
     supplied,
     support,
     morale,
-    power:
-      Math.round((supplied + (f.soldiers - supplied) * 0.25) * (1 + support * 0.1) * morale * 100) /
-      100,
+    used,
+    spent,
+    power: Math.round(strength * (1 + bonus) * morale * 100) / 100,
   };
+}
+// Une seule alerte par préparation, conservée dans la sauvegarde.
+export function takeAssaultWarning(state) {
+  const f = state.front;
+  if (f.status !== 'preparing' || f.remaining > 60 || f.assaultWarned) return false;
+  f.assaultWarned = true;
+  return true;
 }
 // Détruire d’abord les usines libres. Un lot touché perd seulement ses unités détruites.
 function destroyFactories(state, count) {
@@ -1000,7 +1049,6 @@ function requisitionWorkers(state) {
       allocated++;
     }
   for (const r of sites) state.workers[r.id].splice(state.workers[r.id].length - r.take, r.take);
-  state.front.reservists += target;
   return target;
 }
 function resolveAssault(state) {
@@ -1012,12 +1060,15 @@ function resolveAssault(state) {
     f.soldiers,
     Math.ceil((f.soldiers * (won ? 0.05 : 0.25)) / (1 + stats.support * 0.2)),
   );
-  const rifleLosses = f.soldiers
-    ? Math.min(f.equipment.rifle, Math.ceil((losses * stats.armed) / f.soldiers))
-    : 0;
-  f.equipment.rifle_ammo -= stats.supplied;
-  f.equipment.support -= stats.support;
-  f.equipment.rifle -= rifleLosses;
+  for (const id of FRONT_ITEMS) {
+    f.equipment[id] -= stats.spent[id];
+    // Seul le matériel engagé subit les pertes ; le matériel en réserve reste disponible.
+    if (stats.used[id] && f.soldiers)
+      f.equipment[id] -= Math.min(
+        stats.used[id],
+        Math.ceil((stats.used[id] * losses) / f.soldiers),
+      );
+  }
   f.soldiers -= losses;
   const report = {
     wave: f.wave,
@@ -1025,7 +1076,7 @@ function resolveAssault(state) {
     power: stats.power,
     enemy,
     losses,
-    ammunition: stats.supplied,
+    ammunition: stats.spent.pistol_ammo + stats.spent.rifle_ammo + stats.spent.shell,
     support: stats.support,
     factories: 0,
     requisitioned: 0,
@@ -1038,7 +1089,6 @@ function resolveAssault(state) {
     f.victories++;
     f.wave++;
     f.defeats = 0;
-    f.reservists += 10;
     f.status = 'preparing';
   } else {
     f.defeats++;
@@ -1051,6 +1101,7 @@ function resolveAssault(state) {
     }
   }
   f.remaining = ASSAULT_DELAY;
+  f.assaultWarned = false;
   f.lastBattle = report;
 }
 
@@ -1058,7 +1109,7 @@ function resolveAssault(state) {
 export function newGame(country, now = Date.now()) {
   if (!COUNTRIES[country]) throw Error('Pays invalide');
   return {
-    version: 10,
+    version: 12,
     front: newFront(),
     starterFactoryGranted: false,
     autoSales: Object.fromEntries(RESOURCES.map((r) => [r.id, { enabled: false, reserve: 100 }])),
@@ -1336,27 +1387,24 @@ export function act(state, type, id, requestedAmount) {
     if (state.front.status !== 'paused') return false;
     state.front.status = 'preparing';
     state.front.remaining = ASSAULT_DELAY;
+    state.front.assaultWarned = false;
     return true;
   }
   if (type === 'front-deliver') {
     if (!FRONT_ITEMS.includes(id) || !Number.isSafeInteger(requestedAmount) || requestedAmount <= 0)
       return false;
     const line = state.lines.find((l) => l.id === id);
-    if (!line || line.stock < requestedAmount || state.front.equipment[id] + requestedAmount > 1e9)
+    if (
+      !line ||
+      line.stock < requestedAmount ||
+      (id === 'uniform' ? state.front.soldiers : state.front.equipment[id]) + requestedAmount > 1e9
+    )
       return false;
     line.stock -= requestedAmount;
-    state.front.equipment[id] += requestedAmount;
+    if (id === 'uniform') state.front.soldiers += requestedAmount;
+    else state.front.equipment[id] += requestedAmount;
     return true;
   }
-  if (type === 'front-recruit') {
-    const count = Math.min(state.front.reservists, state.front.equipment.uniform);
-    if (!count) return false;
-    state.front.reservists -= count;
-    state.front.equipment.uniform -= count;
-    state.front.soldiers += count;
-    return true;
-  }
-
   if (type === 'toggle-auto-sale' || type === 'set-auto-reserve') {
     const resource = RESOURCES.find((r) => r.id === id);
     if (!resource || !unlocked(state, resource) || !autoSalesUnlocked(state)) return false;
@@ -1529,7 +1577,7 @@ export function validateSave(raw) {
   const unique = (a) => new Set(a).size === a.length;
   if (
     !state ||
-    ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(state.version) ||
+    ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(state.version) ||
     !COUNTRIES[state.country] ||
     !finite(state.credits) ||
     !finite(state.elapsed) ||
@@ -1821,11 +1869,34 @@ export function validateSave(raw) {
     state.front = newFront();
     state.version = 10;
   }
+  if (state.version === 10 && state.front?.equipment) {
+    for (const id of FRONT_ITEMS)
+      if (!['uniform', 'support', 'rifle', 'rifle_ammo'].includes(id))
+        state.front.equipment[id] = 0;
+    state.front.assaultWarned = false;
+    state.version = 11;
+  }
+  if (state.version === 11 && state.front?.equipment) {
+    // Les uniformes déjà livrés deviennent des soldats ; aucune réserve n’est requise.
+    const uniforms = state.front.equipment.uniform;
+    if (
+      !Number.isSafeInteger(uniforms) ||
+      !finite(uniforms, 1e9) ||
+      !Number.isSafeInteger(state.front.soldiers) ||
+      state.front.soldiers + uniforms > 1e9
+    )
+      throw Error('Effectif du front invalide');
+    state.front.soldiers += uniforms;
+    state.front.equipment.uniform = 0;
+    delete state.front.reservists;
+    state.version = 12;
+  }
   const f = state.front;
   const whole = (n) => Number.isSafeInteger(n) && finite(n, 1e9);
   if (
     !f ||
     !['preparing', 'paused', 'ended'].includes(f.status) ||
+    typeof f.assaultWarned !== 'boolean' ||
     !whole(f.wave) ||
     f.wave < 1 ||
     !finite(f.remaining, ASSAULT_DELAY) ||
@@ -1836,7 +1907,7 @@ export function validateSave(raw) {
     !whole(f.battles) ||
     f.battles < f.victories + f.defeats ||
     !whole(f.soldiers) ||
-    !whole(f.reservists) ||
+    f.equipment?.uniform !== 0 ||
     !f.equipment ||
     FRONT_ITEMS.some((id) => !whole(f.equipment[id])) ||
     (f.status === 'ended') !== (f.defeats === 3) ||

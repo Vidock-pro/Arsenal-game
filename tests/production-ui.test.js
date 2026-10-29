@@ -684,7 +684,7 @@ test('Front navigation delivers finished goods, recruits and shows a persisted b
     target: { closest: () => ({ dataset: { action: 'front-deliver', id: 'uniform' } }) },
   });
   assert.equal(vm.runInContext('state.lines[0].stock', ui.context), 0);
-  ui.events.click({ target: { closest: () => ({ dataset: { action: 'front-recruit' } }) } });
+
   assert.equal(Number(ui.get('front-soldiers').textContent), 18);
   ui.events.click({ target: { closest: () => ({ dataset: { action: 'front-assault' } }) } });
   assert.match(ui.get('#content').innerHTML, /VICTOIRE/);
@@ -801,4 +801,69 @@ test('Track transitions fade out once, accept a new destination and cancel on mu
   assert.equal(vm.runInContext('musicPlayer.paused', ui.context), true);
   assert.equal(vm.runInContext('pendingMusicTrack', ui.context), null);
   assert.equal(vm.runInContext('musicPlayer.volume', ui.context), 0);
+});
+
+test('Front only offers unlocked products and always retains uniforms', () => {
+  const ui = mount();
+  vm.runInContext("state=newGame('fr');view='front';shell();", ui.context);
+  let html = ui.get('#content').innerHTML;
+  assert.ok(html.includes('id="front-deliver-uniform"'));
+  assert.equal((html.match(/data-action="front-deliver"/g) || []).length, 1);
+  vm.runInContext(
+    'state.tech=TECHS.map(t=>t.id);state.patents=PRODUCTS.map(p=>p.id);for(const r of RESOURCES)state.levels[r.id]=1;for(const l of state.lines)l.made=1;shell();',
+    ui.context,
+  );
+  html = ui.get('#content').innerHTML;
+  assert.equal((html.match(/data-action="front-deliver"/g) || []).length, 19);
+  // Un manque temporaire de matières ne masque pas une fabrication débloquée.
+  assert.ok(html.includes('id="front-deliver-artillery"'));
+});
+test('Daily order suggests uniforms when available and changes after delivery', () => {
+  const ui = mount();
+  vm.runInContext("state=newGame('fr');state.lines[0].stock=3;view='front';shell();", ui.context);
+  assert.match(ui.get('current-goal').textContent, /uniformes.*front/);
+  vm.runInContext("act(state,'front-deliver','uniform',3);updateNumbers();", ui.context);
+  assert.doesNotMatch(ui.get('current-goal').textContent, /uniformes attendent/);
+});
+
+test('French garrison reflects front inventory and caps each sprite family', () => {
+  const ui = mount();
+  vm.runInContext("state=newGame('fr');view='front';shell();", ui.context);
+  assert.ok(ui.get('#content').innerHTML.includes('front-base-yard'));
+  assert.equal(
+    (ui.get('front-base-sprites').innerHTML.match(/data-unit="soldier"/g) || []).length,
+    1,
+  );
+  vm.runInContext(
+    'state.front.soldiers=999;Object.assign(state.front.equipment,{jeep:80,light_tank:1,medium_tank:29,heavy_tank:30,recon:1,fighter:5,bomber:15});updateFrontNumbers();',
+    ui.context,
+  );
+  let html = ui.get('front-base-sprites').innerHTML;
+  for (const [type, n] of [
+    ['soldier', 20],
+    ['jeep', 5],
+    ['tank', 5],
+    ['plane', 2],
+  ])
+    assert.equal((html.match(new RegExp('data-unit="' + type + '"', 'g')) || []).length, n);
+  vm.runInContext(
+    'state.front.soldiers=0;for(const id of FRONT_ITEMS)state.front.equipment[id]=0;updateFrontNumbers();',
+    ui.context,
+  );
+  assert.equal(ui.get('front-base-sprites').innerHTML, '');
+  vm.runInContext(
+    "state.lines[0].stock=11;act(state,'front-deliver','uniform',11);updateFrontNumbers();",
+    ui.context,
+  );
+  assert.equal(
+    (ui.get('front-base-sprites').innerHTML.match(/data-unit="soldier"/g) || []).length,
+    2,
+  );
+});
+test('Garrison prototype is absent for all other nations', () => {
+  const ui = mount();
+  for (const country of ['us', 'de', 'su', 'jp']) {
+    vm.runInContext(`state=newGame('${country}');view='front';shell();`, ui.context);
+    assert.ok(!ui.get('#content').innerHTML.includes('front-base-yard'));
+  }
 });
