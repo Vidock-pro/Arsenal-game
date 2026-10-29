@@ -28,6 +28,8 @@ function mount(options = {}) {
   };
   const context = vm.createContext({
     structuredClone,
+    btoa,
+    atob,
     localStorage: { getItem: options.getItem || (() => null), setItem() {} },
     document: {
       querySelector: get,
@@ -866,4 +868,35 @@ test('Garrison prototype is absent for all other nations', () => {
     vm.runInContext(`state=newGame('${country}');view='front';shell();`, ui.context);
     assert.ok(!ui.get('#content').innerHTML.includes('front-base-yard'));
   }
+});
+
+test('Live price refresh preserves button content when its label is unchanged', () => {
+  const ui = mount();
+  vm.runInContext("state=newGame('fr');view='storage';shell();", ui.context);
+  const el = ui.get('probe');
+  let writes = 0;
+  let content = '';
+  Object.defineProperty(el, 'innerHTML', {
+    get: () => content,
+    set: (v) => {
+      writes++;
+      content = v;
+    },
+  });
+  vm.runInContext("goldLabel('probe','100');goldLabel('probe','100');", ui.context);
+  assert.equal(writes, 1);
+  vm.runInContext("goldLabel('probe','150');", ui.context);
+  assert.equal(writes, 2);
+});
+test('Deliver all uses current inventory rather than the quantity input', () => {
+  const ui = mount();
+  vm.runInContext("state=newGame('fr');view='front';state.lines[0].stock=51;shell();", ui.context);
+  assert.ok(ui.get('#content').innerHTML.includes('front-deliver-all-uniform'));
+  ui.get('front-quantity-uniform').value = '1';
+  ui.events.click({
+    target: { closest: () => ({ dataset: { action: 'front-deliver-all', id: 'uniform' } }) },
+  });
+  assert.equal(vm.runInContext('state.front.soldiers', ui.context), 61);
+  assert.equal(vm.runInContext('state.lines[0].stock', ui.context), 0);
+  assert.equal(ui.get('front-deliver-all-uniform').disabled, true);
 });
