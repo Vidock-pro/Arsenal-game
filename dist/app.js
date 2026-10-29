@@ -358,11 +358,92 @@ function checkPayrollNotice() {
     );
   wagesBlocked = blocked;
 }
+// Un résultat par campagne ; les nouvelles parties ne remplacent pas l’historique.
+const RECORDS_KEY = 'arsenal.records.v1';
+function readRecords() {
+  try {
+    const raw = localStorage.getItem(RECORDS_KEY);
+    if (!raw || raw.length > 100000) return [];
+    const rows = JSON.parse(raw);
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .filter(
+        (r) =>
+          r &&
+          typeof r.id === 'string' &&
+          /^[a-zA-Z0-9-]{1,100}$/.test(r.id) &&
+          Object.hasOwn(COUNTRIES, r.country) &&
+          ['active', 'ended'].includes(r.status) &&
+          ['victories', 'battles', 'power', 'elapsed', 'made', 'date'].every(
+            (k) => Number.isFinite(r[k]) && r[k] >= 0 && r[k] <= 1e15,
+          ),
+      )
+      .slice(0, 50);
+  } catch {
+    return [];
+  }
+}
+function rankRecords(rows) {
+  return rows.sort(
+    (a, b) => b.victories - a.victories || b.power - a.power || a.elapsed - b.elapsed,
+  );
+}
+function recordCampaign() {
+  if (!state?.front.battles) return;
+  try {
+    const rows = readRecords();
+    const previous = rows.find((r) => r.id === state.campaignId);
+    const record = {
+      id: state.campaignId,
+      country: state.country,
+      victories: state.front.victories,
+      battles: state.front.battles,
+      power: Math.max(
+        armyStats(state).power,
+        state.front.lastBattle?.power || 0,
+        previous?.power || 0,
+      ),
+      elapsed: Math.floor(state.elapsed),
+      made: state.lines.reduce((n, l) => n + l.made, 0),
+      date: Date.now(),
+      status: state.front.status === 'ended' ? 'ended' : 'active',
+    };
+    // Recharger un ancien instantané ne doit pas effacer un meilleur résultat déjà enregistré.
+    const keep =
+      previous &&
+      (previous.victories > record.victories ||
+        previous.battles > record.battles ||
+        previous.status === 'ended')
+        ? previous
+        : record;
+    localStorage.setItem(
+      RECORDS_KEY,
+      JSON.stringify(rankRecords([...rows.filter((r) => r.id !== record.id), keep]).slice(0, 50)),
+    );
+  } catch {
+    /* Une indisponibilité du classement ne bloque pas la sauvegarde de la partie. */
+  }
+}
+function leaderboard() {
+  if (state) save();
+  const rows = rankRecords(readRecords());
+  document.querySelector('dialog')?.close();
+  const d = document.createElement('dialog');
+  d.className = 'leaderboard-dialog';
+  d.innerHTML = `<form method="dialog"><div class="leaderboard-heading"><h2>TABLEAU D’HONNEUR</h2><button aria-label="Fermer le classement" class="secondary">Fermer</button></div>
+    <p>Meilleures campagnes sur cet appareil · Vagues repoussées, puis puissance maximale.</p>
+    ${rows.length ? `<ol class="leaderboard-list">${rows.map((r, i) => `<li class="${r.id === state?.campaignId ? 'current-campaign' : ''}"><div class="leaderboard-rank">${i + 1}</div><div class="leaderboard-result"><h3>${COUNTRIES[r.country].name} <small>${r.status === 'ended' ? 'Terminée' : 'En cours / archivée'}</small></h3><strong>${fmt(r.victories)} vagues repoussées</strong><dl><div><dt>Puissance max.</dt><dd>${recipeAmount(r.power)}</dd></div><div><dt>Assauts</dt><dd>${fmt(r.battles)}</dd></div><div><dt>Durée</dt><dd>${Math.floor(r.elapsed / 3600)} h ${Math.floor(r.elapsed / 60) % 60} min</dd></div><div><dt>Objets fabriqués</dt><dd>${fmt(r.made)}</dd></div></dl><small>${new Date(r.date).toLocaleDateString('fr-FR')}</small></div></li>`).join('')}</ol>` : '<p class="leaderboard-empty">Aucune campagne classée pour le moment. Repoussez votre premier assaut pour inscrire votre résultat.</p>'}
+    </form>`;
+  document.body.append(d);
+  d.addEventListener('close', () => d.remove());
+  d.showModal();
+}
 // Enregistre la partie ; une erreur de stockage ne doit pas bloquer le jeu.
 function save() {
   if (!state) return;
   try {
     state.lastSaved = Date.now();
+    recordCampaign();
     localStorage.setItem(KEY, serializeSave(state));
     saved = true;
   } catch {
@@ -578,7 +659,8 @@ function title() {
     <footer class="title-footer">
       <span>SOLO · PROGRESSION HORS LIGNE · SANS COMPTE</span>
       <div>
-        <button data-action="import">Importer une partie</button
+        <button data-action="leaderboard">Classement</button
+        ><button data-action="import">Importer une partie</button
         ><a href="arsenal-source.zip" download>Code source ↗</a><span>MIT · Open source</span>
       </div>
     </footer>
@@ -1522,7 +1604,7 @@ function storage() {
 function battleReport() {
   const r = state.front.lastBattle;
   if (!r) return '<p>Aucun assaut pour le moment.</p>';
-  return `<h3>${r.won ? 'VICTOIRE' : state.front.status === 'ended' ? 'CAPITULATION' : 'DÉFAITE'} · Vague ${fmt(r.wave)}</h3>
+  return `<h3>${r.won ? (r.overwhelming ? 'VICTOIRE ÉCRASANTE' : 'VICTOIRE') : state.front.status === 'ended' ? 'CAPITULATION' : r.overwhelming ? 'ENNEMI ÉCRASANT' : 'DÉFAITE'} · Vague ${fmt(r.wave)}</h3>
     <p>Puissance engagée : ${recipeAmount(r.power)} / ${fmt(r.enemy)}</p>
     <p>${fmt(r.losses)} soldats perdus · ${fmt(r.ammunition)} munitions consommées · ${fmt(r.support)} soutiens utilisés</p>
     <p>${fmt(r.factories)} usines détruites · ${fmt(r.requisitioned)} ouvriers réquisitionnés</p>
@@ -1689,9 +1771,15 @@ function announceBattle() {
 // Reconstruit uniquement le contenu de l’onglet ouvert.
 function renderContent() {
   cancelResearchHover();
-  $('#content').innerHTML = { harvest, market, production, research, patents, storage, front }[
-    view
-  ]();
+  $('#content').innerHTML = {
+    harvest,
+    market,
+    production,
+    research,
+    patents,
+    storage,
+    front,
+  }[view]();
 }
 function text(id, value) {
   const el = document.getElementById(id);
@@ -2027,6 +2115,9 @@ function settings() {
       />
     </section>
     <div class="modal-actions">
+      <button type="button" class="secondary" data-action="leaderboard">
+        Classement des parties
+      </button>
       <button type="button" class="primary" data-action="export" ${!state ? 'disabled' : ''}>
         Exporter la sauvegarde</button
       ><button type="button" class="secondary" data-action="import">Importer une sauvegarde</button
@@ -2229,6 +2320,10 @@ document.addEventListener('click', (e) => {
   if (a === 'home') {
     save();
     title();
+    return;
+  }
+  if (a === 'leaderboard') {
+    leaderboard();
     return;
   }
   if (a === 'settings') {

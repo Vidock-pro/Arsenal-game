@@ -1056,15 +1056,26 @@ function resolveAssault(state) {
     stats = armyStats(state),
     enemy = enemyPower(state);
   const won = stats.power >= enemy;
-  // Une petite menace ne mobilise qu’une fraction des moyens d’une grande armée.
+  // À cinq contre un, le vainqueur impose un combat bref, sans subir de pertes.
+  const overwhelming = won ? stats.power >= enemy * 5 : enemy >= stats.power * 5;
   const intensity = Math.min(1, enemy / Math.max(1, stats.power));
+  const ammunitionFactor = overwhelming
+    ? won
+      ? intensity ** 2
+      : stats.power / Math.max(1, enemy)
+    : intensity;
   const spent = Object.fromEntries(
-    FRONT_ITEMS.map((id) => [id, Math.ceil(stats.spent[id] * intensity)]),
+    FRONT_ITEMS.map((id) => [id, Math.ceil(stats.spent[id] * ammunitionFactor)]),
   );
-  const losses = Math.min(
-    f.soldiers,
-    Math.ceil((f.soldiers * (won ? 0.05 * intensity : 0.25)) / (1 + stats.support * 0.2)),
-  );
+  // Pas de soutien médical consommé quand aucune perte n’est subie.
+  if (won && overwhelming) spent.support = 0;
+  const losses =
+    won && overwhelming
+      ? 0
+      : Math.min(
+          f.soldiers,
+          Math.ceil((f.soldiers * (won ? 0.05 * intensity : 0.25)) / (1 + stats.support * 0.2)),
+        );
   for (const id of FRONT_ITEMS) {
     f.equipment[id] -= spent[id];
     // Seul le matériel engagé subit les pertes ; le matériel en réserve reste disponible.
@@ -1078,6 +1089,7 @@ function resolveAssault(state) {
   const report = {
     wave: f.wave,
     won,
+    overwhelming,
     power: stats.power,
     enemy,
     losses,
@@ -1115,6 +1127,7 @@ export function newGame(country, now = Date.now()) {
   if (!COUNTRIES[country]) throw Error('Pays invalide');
   return {
     version: 12,
+    campaignId: `campaign-${now}-${Math.random().toString(36).slice(2, 10)}`,
     front: newFront(),
     starterFactoryGranted: false,
     autoSales: Object.fromEntries(RESOURCES.map((r) => [r.id, { enabled: false, reserve: 100 }])),
@@ -1968,5 +1981,9 @@ export function validateSave(raw) {
         )))
   )
     throw Error('Front invalide');
+  if (state.campaignId === undefined)
+    state.campaignId = `legacy-${state.country}-${state.lastSaved}`;
+  if (typeof state.campaignId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(state.campaignId))
+    throw Error('Identifiant de campagne invalide');
   return state;
 }

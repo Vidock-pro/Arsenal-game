@@ -30,7 +30,10 @@ function mount(options = {}) {
     structuredClone,
     btoa,
     atob,
-    localStorage: { getItem: options.getItem || (() => null), setItem() {} },
+    localStorage: {
+      getItem: options.getItem || (() => null),
+      setItem: options.setItem || (() => {}),
+    },
     document: {
       querySelector: get,
       getElementById: get,
@@ -899,4 +902,29 @@ test('Deliver all uses current inventory rather than the quantity input', () => 
   assert.equal(vm.runInContext('state.front.soldiers', ui.context), 61);
   assert.equal(vm.runInContext('state.lines[0].stock', ui.context), 0);
   assert.equal(ui.get('front-deliver-all-uniform').disabled, true);
+});
+
+test('Leaderboard keeps one entry per campaign, preserves finished runs and ranks victories first', () => {
+  const storage = new Map();
+  const ui = mount({
+    getItem: (k) => storage.get(k) || null,
+    setItem: (k, v) => storage.set(k, v),
+  });
+  vm.runInContext(
+    "state=newGame('fr');state.front.soldiers=100;state.front.equipment.rifle=100;state.front.equipment.rifle_ammo=500;act(state,'front-assault');save();save();",
+    ui.context,
+  );
+  assert.equal(JSON.parse(storage.get('arsenal.records.v1')).length, 1);
+  const id = vm.runInContext('state.campaignId', ui.context);
+  vm.runInContext(
+    "act(state,'front-assault');save();state=newGame('jp');act(state,'front-assault');act(state,'front-assault');act(state,'front-assault');save();",
+    ui.context,
+  );
+  const rows = JSON.parse(storage.get('arsenal.records.v1'));
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].id, id);
+  assert.equal(rows[0].victories, 2);
+  assert.equal(rows[1].status, 'ended');
+  vm.runInContext("state=newGame('us');save();", ui.context);
+  assert.equal(JSON.parse(storage.get('arsenal.records.v1')).length, 2);
 });
