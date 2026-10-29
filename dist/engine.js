@@ -1056,17 +1056,22 @@ function resolveAssault(state) {
     stats = armyStats(state),
     enemy = enemyPower(state);
   const won = stats.power >= enemy;
+  // Une petite menace ne mobilise qu’une fraction des moyens d’une grande armée.
+  const intensity = Math.min(1, enemy / Math.max(1, stats.power));
+  const spent = Object.fromEntries(
+    FRONT_ITEMS.map((id) => [id, Math.ceil(stats.spent[id] * intensity)]),
+  );
   const losses = Math.min(
     f.soldiers,
-    Math.ceil((f.soldiers * (won ? 0.05 : 0.25)) / (1 + stats.support * 0.2)),
+    Math.ceil((f.soldiers * (won ? 0.05 * intensity : 0.25)) / (1 + stats.support * 0.2)),
   );
   for (const id of FRONT_ITEMS) {
-    f.equipment[id] -= stats.spent[id];
+    f.equipment[id] -= spent[id];
     // Seul le matériel engagé subit les pertes ; le matériel en réserve reste disponible.
     if (stats.used[id] && f.soldiers)
       f.equipment[id] -= Math.min(
         stats.used[id],
-        Math.ceil((stats.used[id] * losses) / f.soldiers),
+        (won ? Math.floor : Math.ceil)((stats.used[id] * losses) / f.soldiers),
       );
   }
   f.soldiers -= losses;
@@ -1076,8 +1081,8 @@ function resolveAssault(state) {
     power: stats.power,
     enemy,
     losses,
-    ammunition: stats.spent.pistol_ammo + stats.spent.rifle_ammo + stats.spent.shell,
-    support: stats.support,
+    ammunition: spent.pistol_ammo + spent.rifle_ammo + spent.shell,
+    support: spent.support,
     factories: 0,
     requisitioned: 0,
     reward: 0,
@@ -1567,9 +1572,48 @@ export function act(state, type, id, requestedAmount) {
   }
   return false;
 }
+// Encodage portable et détection d’altération accidentelle, pas un mécanisme anti-triche.
+function saveChecksum(payload) {
+  let hash = 2166136261;
+  for (let i = 0; i < payload.length; i++) hash = Math.imul(hash ^ payload.charCodeAt(i), 16777619);
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+export function serializeSave(state) {
+  const payload = btoa(
+    encodeURIComponent(JSON.stringify(state)).replace(/%([0-9A-F]{2})/g, (_, h) =>
+      String.fromCharCode(parseInt(h, 16)),
+    ),
+  );
+  return JSON.stringify({
+    format: 'arsenal-save',
+    encoding: 'base64',
+    checksum: saveChecksum(payload),
+    payload,
+  });
+}
+function decodeSave(raw) {
+  if (typeof raw === 'string' && raw.length > 200000) throw Error('Sauvegarde trop volumineuse');
+  const data = typeof raw === 'string' ? JSON.parse(raw) : structuredClone(raw);
+  if (data?.format !== 'arsenal-save') return data;
+  if (
+    data.encoding !== 'base64' ||
+    typeof data.payload !== 'string' ||
+    data.payload.length > 180000 ||
+    data.checksum !== saveChecksum(data.payload)
+  )
+    throw Error('Sauvegarde endommagée');
+  return JSON.parse(
+    decodeURIComponent(
+      Array.from(
+        atob(data.payload),
+        (c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'),
+      ).join(''),
+    ),
+  );
+}
 // Contrôle les données importées et adapte les anciennes versions sans perdre la progression.
 export function validateSave(raw) {
-  const state = typeof raw === 'string' ? JSON.parse(raw) : structuredClone(raw);
+  const state = decodeSave(raw);
   const finite = (n, max = 1e12) =>
     typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= max;
   const saveTechs = state?.version < 7 ? LEGACY_TECHS : TECHS;

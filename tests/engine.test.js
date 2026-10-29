@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   productionRecipe,
   armyStats,
+  serializeSave,
   FRONT_ITEMS,
   takeAssaultWarning,
   enemyPower,
@@ -1400,8 +1401,8 @@ test('Pistols, grenades and logistics contribute with no double assignment', () 
   e.truck = 1;
   assert.ok(armyStats(s).power > 12.5);
   act(s, 'front-assault');
-  assert.equal(e.pistol_ammo, 0);
-  assert.equal(e.grenade, 0);
+  assert.equal(e.pistol_ammo, 1);
+  assert.equal(e.grenade, 1);
 });
 test('Each vehicle and aircraft has a useful combat role', () => {
   for (const id of [
@@ -1486,4 +1487,46 @@ test('Version 11 migrates already delivered uniforms once and removes reserves',
   assert.equal(restored.front.equipment.uniform, 0);
   assert.equal('reservists' in restored.front, false);
   assert.deepEqual(validateSave(restored), restored);
+});
+
+test('Overwhelming victory preserves army power and does not spend all ammunition', () => {
+  const s = newGame('fr');
+  s.front.soldiers = 12000;
+  s.front.equipment.rifle = 12000;
+  s.front.equipment.rifle_ammo = 12000;
+  const before = armyStats(s).power;
+  act(s, 'front-assault');
+  assert.ok(armyStats(s).power > before * 0.99);
+  assert.ok(s.front.lastBattle.losses <= 1);
+  assert.equal(s.front.lastBattle.ammunition, 12);
+  assert.ok(s.front.equipment.rifle > 11990);
+});
+test('Small attacks do not destroy a vehicle from every equipped family', () => {
+  const s = newGame('fr');
+  s.front.soldiers = 12000;
+  for (const id of ['rifle', 'rifle_ammo', 'pistol_ammo', 'shell']) s.front.equipment[id] = 12000;
+  for (const id of ['jeep', 'truck', 'recon', 'fighter', 'bomber', 'heavy_tank'])
+    s.front.equipment[id] = 1;
+  act(s, 'front-assault');
+  for (const id of ['jeep', 'truck', 'recon', 'fighter', 'bomber', 'heavy_tank'])
+    assert.equal(s.front.equipment[id], 1, id);
+});
+test('Encoded and legacy save round trips retain actual stock separately from total production', () => {
+  const s = permit(newGame('fr'));
+  s.levels.cotton = 1;
+  s.lines[0].stock = 0;
+  s.lines[0].made = 950;
+  const encoded = serializeSave(s);
+  assert.ok(!encoded.includes('soldiers'));
+  assert.equal(validateSave(encoded).lines[0].stock, 0);
+  s.lines[0].stock = 7;
+  for (const raw of [serializeSave(s), JSON.stringify(s)]) {
+    const restored = validateSave(raw);
+    assert.equal(restored.lines[0].stock, 7);
+    assert.equal(restored.lines[0].made, 950);
+  }
+  const broken = JSON.parse(encoded);
+  broken.payload = broken.payload.slice(0, -2) + 'AA';
+  assert.throws(() => validateSave(broken));
+  assert.throws(() => validateSave(' '.repeat(200001)));
 });

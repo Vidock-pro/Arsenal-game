@@ -53,3 +53,11 @@ La police Arsenal Pixel 1.1 ajoute la virgule et la ponctuation des valeurs num�
 - `dist/assets/front-units-fr-v3.png` : atlas transparent de quatre sprites généré avec l’outil intégré image_gen, à partir d’une première planche inspirée de `production-fr.png`. Soldat, jeep, char et avion sont affichés en couches indépendantes.
 - Brief final : quatre cellules carrées, soldats français en casque Adrian, jeep, char et avion à hélice français en vue de face/trois quarts ; pixel art de jeu de stratégie des années 1990, gros pixels visibles, palette limitée, ombrages par amas de pixels et contours en escalier ; fond réellement transparent, sans texte ni panneaux. Les dessins sont stylisés, sans modèle historique exact revendiqué.
 - La scène est ramenée au ratio 640/250 et les unités se chevauchent par plans : aviation, blindés, véhicules, infanterie. Les rangs de soldats sont décalés pour laisser leurs silhouettes lisibles.
+
+
+### Correction de l’avion de garnison
+
+`dist/assets/front-plane-fr-v4.png` : sprite indépendant corrigé avec l’outil intégré image_gen, à partir de `front-units-fr-v3.png`. Brief : conserver le chasseur français en pixel art et sa vue de trois quarts, retirer la fausse dérive tricolore près du nez, ne garder que la dérive arrière et dessiner trois pales noires à extrémité jaune reliées au cône central. Fond transparent, avion entier, aucun autre objet. Les trois autres modèles restent dans leur atlas existant.
+
+
+`dist/assets/front-plane-fr-v5.png` : correction avec image_gen intégré du modèle v4. Brief : ne modifier que l’hélice, trois pales liées au même moyeu, disposition en Y inversé (haut, bas-droite, bas-gauche), écartement régulier dans le plan de rotation avec perspective, extrémités jaunes ; préserver avion, palette, pixels et transparence.

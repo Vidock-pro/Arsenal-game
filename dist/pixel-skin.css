@@ -4226,6 +4226,16 @@ dialog,
 }
 .garrison-plane {
   aspect-ratio: 640 / 560;
-  background-size: 200% 228.571429%;
-  background-position: 100% 100%;
+  background-image: url('assets/front-plane-fr-v5.png');
+  background-size: contain;
+  background-position: center;
+}
+
+/* Le bouton reste la cible du clic même si son prix est actualisé pendant l’appui. */
+.gold-price-label,
+.gold-price-label * {
+  pointer-events: none;
+}
+.front-delivery {
+  flex-wrap: wrap;
 }

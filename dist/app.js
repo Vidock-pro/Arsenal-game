@@ -1,5 +1,6 @@
 import {
   FRONT_ITEMS,
+  serializeSave,
   takeAssaultWarning,
   armyStats,
   enemyPower,
@@ -43,6 +44,24 @@ import {
 } from './engine.js';
 const $ = (s) => document.querySelector(s),
   KEY = 'arsenal.save.v1';
+// Une reconstruction différée ne doit pas supprimer le bouton pendant un clic.
+let pointerHeld = false,
+  pendingShell = false;
+document.addEventListener('pointerdown', () => {
+  pointerHeld = true;
+});
+function releasePointer() {
+  pointerHeld = false;
+  setTimeout(() => {
+    if (pendingShell && !pointerHeld) {
+      pendingShell = false;
+      if (screen === 'game') shell();
+    }
+  }, 0);
+}
+document.addEventListener('pointerup', releasePointer);
+document.addEventListener('pointercancel', releasePointer);
+window.addEventListener('blur', releasePointer);
 let productionFilter = 'all',
   pinnedResearch = null;
 let researchHoverTimer = null,
@@ -344,7 +363,7 @@ function save() {
   if (!state) return;
   try {
     state.lastSaved = Date.now();
-    localStorage.setItem(KEY, JSON.stringify(state));
+    localStorage.setItem(KEY, serializeSave(state));
     saved = true;
   } catch {
     saved = false;
@@ -614,6 +633,11 @@ function defeatScreen() {
   document.getElementById('defeat-home')?.focus?.();
 }
 function shell() {
+  if (pointerHeld && state.front.status !== 'ended') {
+    pendingShell = true;
+    return;
+  }
+  pendingShell = false;
   if (state.front.status === 'ended') {
     defeatScreen();
     return;
@@ -1601,7 +1625,7 @@ function front() {
             <button type="button" class="market-step market-step-down" data-front-step="-1" data-id="${id}" id="front-less-${id}" aria-label="Réduire la livraison : ${p.name}"><span aria-hidden="true"></span></button>
           </div>
         </div>
-        <button class="secondary" data-action="front-deliver" data-id="${id}" id="front-deliver-${id}">Livrer</button></div></div>`;
+        <button class="secondary" data-action="front-deliver" data-id="${id}" id="front-deliver-${id}">Livrer</button><button class="secondary" data-action="front-deliver-all" data-id="${id}" id="front-deliver-all-${id}">Livrer tout</button></div></div>`;
       })
       .join('')}
   </section>`;
@@ -1632,6 +1656,7 @@ function updateFrontNumbers() {
     text('front-stock-' + id, fmt(stock));
     text('front-equipped-' + id, fmt(f.equipment[id]));
     disable('front-deliver-' + id, stock < 1);
+    disable('front-deliver-all-' + id, stock < 1);
     const input = document.getElementById('front-quantity-' + id);
     if (input) {
       input.min = stock ? '1' : '0';
@@ -1670,12 +1695,15 @@ function renderContent() {
 }
 function text(id, value) {
   const el = document.getElementById(id);
-  if (el) el.textContent = value;
+  if (el && el.textContent !== String(value)) el.textContent = value;
 }
 // Prix accompagné des mêmes lingots que la trésorerie et les salaires.
 function goldLabel(id, label) {
   const el = document.getElementById(id);
   if (!el) return;
+  // Le contenu du bouton doit rester en place entre l’appui et le relâchement.
+  if (el.dataset.goldLabel === String(label)) return;
+  el.dataset.goldLabel = String(label);
   el.innerHTML = `<span class="gold-price-label">${label}${wageIcon()}</span>`;
   el.setAttribute('aria-label', label + ' or');
 }
@@ -2016,9 +2044,7 @@ function settings() {
 function download() {
   if (!state) return;
   save();
-  const url = URL.createObjectURL(
-    new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }),
-  );
+  const url = URL.createObjectURL(new Blob([serializeSave(state)], { type: 'application/json' }));
   const a = document.createElement('a');
   a.href = url;
   a.download = `arsenal-${state.country}.json`;
@@ -2034,11 +2060,11 @@ function importSave() {
   input.onchange = async () => {
     try {
       const file = input.files[0];
-      if (!file || file.size > 100000) throw Error();
+      if (!file || file.size > 200000) throw Error();
       const next = validateSave(await file.text());
       if (state && !confirm('Remplacer votre partie actuelle par cette sauvegarde ?')) return;
       state = next;
-      advance(state, Math.max(0, (Date.now() - state.lastSaved) / 1000));
+      // Un import restaure un instantané exact ; le progrès hors ligne concerne seulement la reprise locale.
       save();
       last = Date.now();
       document.querySelector('dialog')?.close();
@@ -2217,6 +2243,14 @@ document.addEventListener('click', (e) => {
     importSave();
     return;
   }
+  if (a === 'front-deliver-all' && state) {
+    const stock = state.lines.find((line) => line.id === button.dataset.id)?.stock;
+    if (act(state, 'front-deliver', button.dataset.id, stock)) {
+      save();
+      updateNumbers();
+    }
+    return;
+  }
   if (a === 'front-deliver' && state) {
     const input = document.getElementById('front-quantity-' + button.dataset.id);
     if (input && input.value.trim() && act(state, a, button.dataset.id, Number(input.value))) {
@@ -2240,7 +2274,21 @@ document.addEventListener('click', (e) => {
   }
   if (state && act(state, a, button.dataset.id, marketQuantities[button.dataset.id])) {
     save();
-    if (['harvest', 'sell-resource', 'sell-ten', 'sell-all', 'sell-quantity'].includes(a)) {
+    if (
+      [
+        'harvest',
+        'sell-resource',
+        'sell-ten',
+        'sell-all',
+        'sell-quantity',
+        'expand-storage',
+        'buy-factory',
+        'assign-factory',
+        'release-factory',
+        'toggle',
+        'sell',
+      ].includes(a)
+    ) {
       updateNumbers();
       return;
     }

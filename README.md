@@ -200,3 +200,14 @@ L’écran de défaite apparaît en fondu sur environ deux secondes (désactivé
 Le front accepte les 19 équipements. Les armes sont engagées selon les équipages et les munitions disponibles : pistolets/cartouches de pistolet, fusils et armes automatiques/cartouches de fusil, artillerie et chars/obus, chasseurs/cartouches de fusil, bombardiers/obus. Chaque soldat est affecté une seule fois. Grenades et soutien sont consommés au combat ; transport et reconnaissance apportent des bonus plafonnés. Seul le matériel engagé peut être perdu.
 
 Les réservistes sont supprimés : chaque uniforme livré crée directement un soldat. La menace commence à 12 et progresse de 30 % par vague. Le délai reste de dix minutes actives, avec un télégramme unique à une minute de l’assaut. Les anciens uniformes déjà livrés sont convertis une seule fois en soldats lors de la migration vers le format de sauvegarde 12.
+
+
+### Correctifs de fiabilité — clics, imports et combats
+
+Les prix ne reconstruisent plus leur contenu à chaque tic si la valeur reste identique. Le texte et les icônes de prix ne capturent pas les clics ; les reconstructions de page attendent la fin de l’appui. Les achats de stockage et les commandes de production actualisent leurs compteurs sans reconstruire l’écran entier.
+
+L’import restaure exactement l’instantané du fichier, notamment `stock` indépendamment de `made`. Il n’ajoute plus de progression hors ligne à l’import. La reprise locale conserve sa progression hors ligne habituelle. Les livraisons proposent « Livrer tout », calculé depuis le stock disponible lors du clic.
+
+La consommation de munitions et de soutien est pondérée par `min(1, puissance ennemie / puissance de l’armée)`, arrondie au supérieur. Les pertes de soldats en victoire sont pondérées par ce même rapport. Les pertes de matériel en victoire sont arrondies à l’inférieur pour éviter de détruire automatiquement une unité de chaque famille lors d’un combat insignifiant. Les règles de défaite industrielle restent inchangées.
+
+Les sauvegardes locales et exports utilisent une enveloppe JSON avec un contenu encodé en base64 et une somme de contrôle. L’import accepte aussi les anciens fichiers JSON. Ce format détecte des altérations accidentelles mais n’est ni un chiffrement ni une protection anti-triche : un client contrôlé par le joueur peut recalculer cette somme et modifier son état en mémoire. Une protection réelle exige une simulation et une validation côté serveur.
