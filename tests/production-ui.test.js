@@ -865,11 +865,24 @@ test('French garrison reflects front inventory and caps each sprite family', () 
     2,
   );
 });
-test('Garrison prototype is absent for all other nations', () => {
+test('Every nation has its own garrison and updates after deliveries', () => {
   const ui = mount();
   for (const country of ['us', 'de', 'su', 'jp']) {
     vm.runInContext(`state=newGame('${country}');view='front';shell();`, ui.context);
-    assert.ok(!ui.get('#content').innerHTML.includes('front-base-yard'));
+    assert.ok(ui.get('#content').innerHTML.includes('front-base-yard'));
+    assert.ok(ui.get('#content').innerHTML.includes(`data-country="${country}"`));
+    vm.runInContext(
+      'state.front.soldiers=200;state.front.equipment.jeep=50;state.front.equipment.heavy_tank=50;state.front.equipment.fighter=20;updateFrontNumbers();',
+      ui.context,
+    );
+    const html = ui.get('front-base-sprites').innerHTML;
+    for (const [type, n] of [
+      ['soldier', 20],
+      ['jeep', 5],
+      ['tank', 5],
+      ['plane', 2],
+    ])
+      assert.equal((html.match(new RegExp('data-unit="' + type + '"', 'g')) || []).length, n);
   }
 });
 

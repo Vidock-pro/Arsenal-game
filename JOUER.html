@@ -5649,6 +5649,50 @@ dialog,
   }
 }
 
+/* Les autres nations partagent le décor neutre, mais ont leurs propres unités. */
+.front-base:not([data-country='fr']) .front-base-yard {
+  background-image: url('dist/assets/front-base-neutral.png');
+}
+.front-base[data-country='us'] {
+  --garrison-atlas: url('dist/assets/front-units-us.png');
+}
+.front-base[data-country='su'] {
+  --garrison-atlas: url('dist/assets/front-units-su.png');
+}
+.front-base[data-country='de'] {
+  --garrison-atlas: url('dist/assets/front-units-de.png');
+}
+.front-base[data-country='jp'] {
+  --garrison-atlas: url('dist/assets/front-units-jp.png');
+}
+.front-base:not([data-country='fr']) .garrison-unit {
+  background-image: var(--garrison-atlas);
+  background-size: 200% 200%;
+  aspect-ratio: 1;
+}
+.front-base:not([data-country='fr']) .garrison-plane {
+  background-position: 100% 100%;
+}
+/* Les silhouettes du haut débordent légèrement la moitié de l’atlas :
+   cadrages distincts pour ne pas afficher un fragment du véhicule voisin. */
+.front-base:not([data-country='fr']) .garrison-soldier {
+  aspect-ratio: 600 / 680;
+  background-size: 213.333333% 188.235294%;
+}
+.front-base:not([data-country='fr']) .garrison-jeep {
+  aspect-ratio: 680 / 680;
+  background-size: 188.235294% 188.235294%;
+}
+/* La rangée basse commence après les roues des véhicules de la rangée haute. */
+.front-base:not([data-country='fr']) .garrison-tank,
+.front-base:not([data-country='fr']) .garrison-plane {
+  aspect-ratio: 640 / 580;
+  background-size: 200% 220.689655%;
+}
+.front-base:not([data-country='fr']) .garrison-plane {
+  clip-path: inset(0 0 0 1%);
+}
+
     </style>
   </head>
   <body>
@@ -9226,18 +9270,16 @@ function frontSceneCounts() {
   };
 }
 function frontBase() {
-  if (state.country !== 'fr') return '';
-  return `<section class="storage-panel front-base"><div class="front-base-heading"><h2>LA GARNISON</h2><span>FRANCE · QUARTIER GÉNÉRAL</span></div>
-    <div class="front-base-yard" id="front-base-yard" role="img" aria-label="Base militaire française">
+  return `<section class="storage-panel front-base" data-country="${state.country}"><div class="front-base-heading"><h2>LA GARNISON</h2><span>${COUNTRIES[state.country].name.toUpperCase()} · QUARTIER GÉNÉRAL</span></div>
+    <div class="front-base-yard" id="front-base-yard" role="img" aria-label="Base militaire · ${COUNTRIES[state.country].name}">
     <div class="front-base-units" id="front-base-sprites" aria-hidden="true"></div></div>
   </section>`;
 }
 function updateFrontBase() {
-  if (state.country !== 'fr') return;
   const layer = document.getElementById('front-base-sprites');
   if (!layer) return;
   const counts = frontSceneCounts();
-  const signature = JSON.stringify(counts);
+  const signature = state.country + JSON.stringify(counts);
   // Ne pas reconstruire les sprites à chaque tic si les effectifs affichés sont identiques.
   if (layer.dataset.counts !== signature) {
     layer.dataset.counts = signature;
@@ -9267,7 +9309,7 @@ function updateFrontBase() {
     .getElementById('front-base-yard')
     ?.setAttribute(
       'aria-label',
-      `Base française : ${fmt(state.front.soldiers)} soldats, ${fmt(e.jeep)} jeeps, ${fmt(e.light_tank + e.medium_tank + e.heavy_tank)} chars et ${fmt(e.recon + e.fighter + e.bomber)} avions au front.`,
+      `Base ${COUNTRIES[state.country].name} : ${fmt(state.front.soldiers)} soldats, ${fmt(e.jeep)} jeeps, ${fmt(e.light_tank + e.medium_tank + e.heavy_tank)} chars et ${fmt(e.recon + e.fighter + e.bomber)} avions au front.`,
     );
 }
 function front() {

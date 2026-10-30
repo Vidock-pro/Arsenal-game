@@ -4325,3 +4325,47 @@ dialog,
     gap: 6px;
   }
 }
+
+/* Les autres nations partagent le décor neutre, mais ont leurs propres unités. */
+.front-base:not([data-country='fr']) .front-base-yard {
+  background-image: url('assets/front-base-neutral.png');
+}
+.front-base[data-country='us'] {
+  --garrison-atlas: url('assets/front-units-us.png');
+}
+.front-base[data-country='su'] {
+  --garrison-atlas: url('assets/front-units-su.png');
+}
+.front-base[data-country='de'] {
+  --garrison-atlas: url('assets/front-units-de.png');
+}
+.front-base[data-country='jp'] {
+  --garrison-atlas: url('assets/front-units-jp.png');
+}
+.front-base:not([data-country='fr']) .garrison-unit {
+  background-image: var(--garrison-atlas);
+  background-size: 200% 200%;
+  aspect-ratio: 1;
+}
+.front-base:not([data-country='fr']) .garrison-plane {
+  background-position: 100% 100%;
+}
+/* Les silhouettes du haut débordent légèrement la moitié de l’atlas :
+   cadrages distincts pour ne pas afficher un fragment du véhicule voisin. */
+.front-base:not([data-country='fr']) .garrison-soldier {
+  aspect-ratio: 600 / 680;
+  background-size: 213.333333% 188.235294%;
+}
+.front-base:not([data-country='fr']) .garrison-jeep {
+  aspect-ratio: 680 / 680;
+  background-size: 188.235294% 188.235294%;
+}
+/* La rangée basse commence après les roues des véhicules de la rangée haute. */
+.front-base:not([data-country='fr']) .garrison-tank,
+.front-base:not([data-country='fr']) .garrison-plane {
+  aspect-ratio: 640 / 580;
+  background-size: 200% 220.689655%;
+}
+.front-base:not([data-country='fr']) .garrison-plane {
+  clip-path: inset(0 0 0 1%);
+}
