@@ -61,3 +61,15 @@ La police Arsenal Pixel 1.1 ajoute la virgule et la ponctuation des valeurs num�
 
 
 `dist/assets/front-plane-fr-v5.png` : correction avec image_gen intégré du modèle v4. Brief : ne modifier que l’hélice, trois pales liées au même moyeu, disposition en Y inversé (haut, bas-droite, bas-gauche), écartement régulier dans le plan de rotation avec perspective, extrémités jaunes ; préserver avion, palette, pixels et transparence.
+
+## Garnisons des autres nations
+
+Création avec l’outil intégré image_gen. Les quatre atlas transparents `dist/assets/front-units-us.png`, `front-units-su.png`, `front-units-de.png`, `front-units-jp.png` reprennent la palette et le pixel art des équipements de Production, avec des silhouettes nationales distinctes. Les équipements sont des représentations stylisées, pas des reproductions techniques exactes.
+
+Prompt commun : atlas carré transparent en quatre cellules (soldat en haut à gauche, véhicule léger à droite, char en bas à gauche, avion à droite), vue de face/trois quarts, pixel art détaillé par amas de pixels, palette olive/brun/acier, contours nets, objets isolés sans sol ni texte, hélice cohérente et une seule queue à l’arrière de l’avion.
+- USA : GI avec casque M1, Willys MB, Sherman, chasseur inspiré du P-51, étoiles américaines.
+- URSS : fantassin en casque et uniforme kaki, GAZ-67, T-34, chasseur inspiré du Yak-9, étoiles rouges.
+- Allemagne : fantassin avec Stahlhelm, véhicule inspiré du Kübelwagen, Panzer IV et chasseur inspiré du Bf 109, croix blanches/noires.
+- Japon : fantassin avec casque Type 90, Kurogane Type 95, Type 97 Chi-Ha et chasseur inspiré du Zero, cocardes rouges.
+
+`dist/assets/front-base-neutral.png` : édition du décor français avec image_gen. Prompt : retirer uniquement le drapeau français et son mât, reconstruire le fond, préserver les bâtiments, la cour vide, le cadrage et la palette pixel art. Utilisé pour les quatre autres nations ; leur nom apparaît dans l’en-tête de la garnison.

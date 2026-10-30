@@ -1622,18 +1622,16 @@ function frontSceneCounts() {
   };
 }
 function frontBase() {
-  if (state.country !== 'fr') return '';
-  return `<section class="storage-panel front-base"><div class="front-base-heading"><h2>LA GARNISON</h2><span>FRANCE · QUARTIER GÉNÉRAL</span></div>
-    <div class="front-base-yard" id="front-base-yard" role="img" aria-label="Base militaire française">
+  return `<section class="storage-panel front-base" data-country="${state.country}"><div class="front-base-heading"><h2>LA GARNISON</h2><span>${COUNTRIES[state.country].name.toUpperCase()} · QUARTIER GÉNÉRAL</span></div>
+    <div class="front-base-yard" id="front-base-yard" role="img" aria-label="Base militaire · ${COUNTRIES[state.country].name}">
     <div class="front-base-units" id="front-base-sprites" aria-hidden="true"></div></div>
   </section>`;
 }
 function updateFrontBase() {
-  if (state.country !== 'fr') return;
   const layer = document.getElementById('front-base-sprites');
   if (!layer) return;
   const counts = frontSceneCounts();
-  const signature = JSON.stringify(counts);
+  const signature = state.country + JSON.stringify(counts);
   // Ne pas reconstruire les sprites à chaque tic si les effectifs affichés sont identiques.
   if (layer.dataset.counts !== signature) {
     layer.dataset.counts = signature;
@@ -1663,7 +1661,7 @@ function updateFrontBase() {
     .getElementById('front-base-yard')
     ?.setAttribute(
       'aria-label',
-      `Base française : ${fmt(state.front.soldiers)} soldats, ${fmt(e.jeep)} jeeps, ${fmt(e.light_tank + e.medium_tank + e.heavy_tank)} chars et ${fmt(e.recon + e.fighter + e.bomber)} avions au front.`,
+      `Base ${COUNTRIES[state.country].name} : ${fmt(state.front.soldiers)} soldats, ${fmt(e.jeep)} jeeps, ${fmt(e.light_tank + e.medium_tank + e.heavy_tank)} chars et ${fmt(e.recon + e.fighter + e.bomber)} avions au front.`,
     );
 }
 function front() {
