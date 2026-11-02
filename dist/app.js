@@ -3,6 +3,8 @@ import {
   serializeSave,
   takeAssaultWarning,
   armyStats,
+  battlePreview,
+  COMBAT_UNITS,
   enemyPower,
   autoSalesUnlocked,
   workerMultiplier,
@@ -1604,13 +1606,22 @@ function storage() {
 function battleReport() {
   const r = state.front.lastBattle;
   if (!r) return '<p>Aucun assaut pour le moment.</p>';
-  return `<h3>${r.won ? (r.overwhelming ? 'VICTOIRE ÉCRASANTE' : 'VICTOIRE') : state.front.status === 'ended' ? 'CAPITULATION' : r.overwhelming ? 'ENNEMI ÉCRASANT' : 'DÉFAITE'} · Vague ${fmt(r.wave)}</h3>
-    <p>Puissance engagée : ${recipeAmount(r.power)} / ${fmt(r.enemy)}</p>
-    <p>${fmt(r.losses)} soldats perdus · ${fmt(r.ammunition)} munitions consommées · ${fmt(r.support)} soutiens utilisés</p>
+  return `<h3>${r.won ? (r.overwhelming ? 'VICTOIRE ÉCRASANTE' : r.draw ? 'ASSAUT REPOUSSÉ' : 'VICTOIRE') : state.front.status === 'ended' ? 'CAPITULATION' : r.overwhelming ? 'ENNEMI ÉCRASANT' : 'DÉFAITE'} · Vague ${fmt(r.wave)}</h3>
+    <p>Puissance engagée : ${recipeAmount(r.power)} / ${recipeAmount(r.enemy)}</p>
+    <p>${fmt(r.losses)} hommes perdus · ${fmt(r.ammunition)} munitions consommées · ${fmt(r.support)} soutiens utilisés</p>
+    ${
+      r.destroyed && Object.values(r.destroyed).some(Boolean)
+        ? `<p>Matériel perdu : ${Object.keys(COMBAT_UNITS)
+            .filter((id) => r.destroyed[id])
+            .map((id) => `${PRODUCTS.find((p) => p.id === id).name} : ${fmt(r.destroyed[id])}`)
+            .join(' · ')}</p>`
+        : ''
+    }
+    ${r.phases ? `<details class="battle-phases"><summary>Déroulement de l’assaut</summary>${r.phases.map((p) => `<p>${p.name} : ${fmt(p.playerLosses)} pertes alliées · ${fmt(p.enemyLosses)} pertes ennemies</p>`).join('')}</details>` : ''}
     <p>${fmt(r.factories)} usines détruites · ${fmt(r.requisitioned)} ouvriers réquisitionnés</p>
     ${r.won ? `<p>Récompense : ${money(r.reward)} or</p>` : ''}`;
 }
-// Prototype français : un pictogramme par dizaine commencée, avec des plafonds visuels.
+// Garnison : un pictogramme par dizaine commencée, avec des plafonds visuels.
 function frontSceneCounts() {
   const e = state.front.equipment;
   const count = (n, max) => Math.min(max, Math.ceil(n / 10));
@@ -1672,9 +1683,10 @@ function front() {
     <div class="front-stats">
       <p>Vague <strong id="front-wave"></strong></p><p>Prochain assaut <strong id="front-timer"></strong></p>
       <p>Notre puissance <strong id="front-power"></strong></p><p>Menace ennemie <strong id="front-enemy"></strong></p>
-      <p>Soldats <strong id="front-soldiers"></strong></p>
+      <p>Effectif total <strong id="front-soldiers"></strong></p>
       <p>Défaites consécutives <strong id="front-defeats"></strong></p><p>Moral <strong id="front-morale"></strong></p>
     </div>
+    <p id="front-threat" class="front-threat"></p>
     <div class="front-actions">
       <button class="primary" id="front-assault" data-action="front-assault">Déclencher l’assaut</button>
       ${f.status === 'paused' ? '<button class="secondary" data-action="front-resume">Reprendre la préparation · 10 min</button>' : ''}
@@ -1682,6 +1694,7 @@ function front() {
     ${f.status === 'ended' ? '<p>Votre industrie est arrêtée. La sauvegarde et le bilan restent disponibles.</p><button class="secondary" data-action="home">Retour à l’écran titre</button>' : ''}
   </section>
   <section class="storage-panel front-log">${battleReport()}</section>
+  <section class="storage-panel front-composition"><h2>COMPOSITION DE L’ARMÉE</h2><div id="front-composition"></div></section>
   ${frontBase()}
   <section class="storage-panel front-supply"><h2>APPROVISIONNER L’ARMÉE</h2>
     <p>Seuls les équipements que vous livrez ici sont envoyés au front.</p>
@@ -1696,7 +1709,7 @@ function front() {
       .map((id) => {
         const p = PRODUCTS.find((p) => p.id === id);
         return `<div class="front-supply-row"><div><h3>${p.name}</h3><p>${productName(state, p)}</p>
-        <p>En stock : <strong id="front-stock-${id}"></strong> ${id === 'uniform' ? '· 1 uniforme = 1 soldat' : `· Au front : <strong id="front-equipped-${id}"></strong>`}</p></div>
+        <p>En stock : <strong id="front-stock-${id}"></strong> ${id === 'uniform' ? '· 1 uniforme = 1 homme' : `· Au front : <strong id="front-equipped-${id}"></strong>`}</p></div>
         <div class="front-delivery"><label for="front-quantity-${id}">Quantité</label>
         <div class="market-number-field">
           <input type="number" id="front-quantity-${id}" min="1" step="1" value="1" inputmode="numeric" />
@@ -1710,11 +1723,33 @@ function front() {
       .join('')}
   </section>`;
 }
+// Même composition que le moteur : aucun effectif reconstitué à partir des stocks.
+function updateArmyComposition(stats) {
+  const rows = stats.groups.map((g) => {
+    const u = COMBAT_UNITS[g.id];
+    const status = g.dry ? ' — sans munitions' : u.family === 'infantry' ? ' — approvisionnés' : '';
+    return `<div class="army-composition-row"><span>${u.name}${status}</span><strong>${fmt(g.count)}${u.crew > 1 || u.family === 'logistics' ? ` — ${fmt(g.men)} hommes` : ''}</strong></div>`;
+  });
+  if (stats.idle)
+    rows.push(
+      `<div class="army-composition-row"><span>Hommes sans affectation</span><strong>${fmt(stats.idle)}</strong></div>`,
+    );
+  const reserves = stats.reserves
+    .map(
+      (r) =>
+        `${PRODUCTS.find((p) => p.id === r.id).name} : ${fmt(r.count)} (${[r.withoutCrew ? `${fmt(r.withoutCrew)} sans équipage disponible` : '', r.withoutAmmo ? `${fmt(r.withoutAmmo)} sans munitions disponibles` : ''].filter(Boolean).join(', ')})`,
+    )
+    .join(' · ');
+  const html = `<p class="army-total">Effectif total : <strong>${fmt(state.front.soldiers)} hommes</strong></p><div class="army-composition-list">${rows.join('') || '<p>Aucun homme au front.</p>'}</div>${reserves ? `<p class="army-reserves"><strong>En réserve :</strong> ${reserves}</p>` : ''}`;
+  const el = document.getElementById('front-composition');
+  if (el && el.innerHTML !== html) el.innerHTML = html;
+}
 function updateFrontNumbers() {
   if (view !== 'front') return;
   updateFrontBase();
   const f = state.front,
-    stats = armyStats(state);
+    preview = battlePreview(state),
+    stats = preview.army;
   text(
     'front-status',
     f.status === 'ended'
@@ -1725,8 +1760,16 @@ function updateFrontNumbers() {
   );
   text('front-wave', f.wave);
   text('front-timer', f.status === 'preparing' ? clock(f.remaining) : '—');
-  text('front-power', recipeAmount(stats.power));
-  text('front-enemy', fmt(enemyPower(state)));
+  text('front-power', recipeAmount(preview.power));
+  text('front-enemy', recipeAmount(preview.enemyPower));
+  updateArmyComposition(stats);
+  const details = stats.used.recon
+    ? Object.entries(preview.enemy.stats.used)
+        .filter(([id, n]) => n && COMBAT_UNITS[id])
+        .map(([id, n]) => `${fmt(n)} ${COMBAT_UNITS[id].name.toLowerCase()}`)
+        .join(' · ')
+    : '';
+  text('front-threat', `Menace : ${preview.enemy.name}${details ? ' — ' + details : ''}`);
   text('front-soldiers', fmt(f.soldiers));
   text('front-defeats', `${f.defeats} / 3`);
   text('front-morale', `${Math.round(stats.morale * 100)} %`);

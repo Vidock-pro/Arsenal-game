@@ -681,7 +681,10 @@ test('Japanese production displays the actual discounted recipe amounts', () => 
 
 test('Front navigation delivers finished goods, recruits and shows a persisted battle report', () => {
   const ui = mount();
-  vm.runInContext("state=newGame('fr');view='front';state.lines[0].stock=8;shell();", ui.context);
+  vm.runInContext(
+    "state=newGame('fr');view='front';state.lines[0].stock=8;state.front.equipment.rifle=18;shell();",
+    ui.context,
+  );
   assert.ok(ui.get('#app').innerHTML.includes('data-view="front"'));
   assert.equal(ui.get('front-timer').textContent, '10:00');
   ui.get('front-quantity-uniform').value = '8';
@@ -940,4 +943,28 @@ test('Leaderboard keeps one entry per campaign, preserves finished runs and rank
   assert.equal(rows[1].status, 'ended');
   vm.runInContext("state=newGame('us');save();", ui.context);
   assert.equal(JSON.parse(storage.get('arsenal.records.v1')).length, 2);
+});
+
+test('Front composition uses exact crews, reserves and updates without duplicate men', () => {
+  const ui = mount();
+  vm.runInContext(
+    "state=newGame('fr');view='front';state.front.soldiers=50;Object.assign(state.front.equipment,{rifle:10,rifle_ammo:6,artillery:3,shell:4,fighter:4});shell();",
+    ui.context,
+  );
+  const html = ui.get('#content').innerHTML;
+  assert.ok(html.indexOf('front-composition') < html.indexOf('front-base-yard'));
+  const composition = ui.get('front-composition').innerHTML;
+  assert.match(composition, /50 hommes/);
+  assert.match(composition, /sans munitions/);
+  assert.match(composition, /Canons d’artillerie/);
+  assert.match(composition, /En réserve/);
+  assert.equal(
+    vm.runInContext(
+      'armyStats(state).idle+armyStats(state).groups.reduce((n,g)=>n+g.men,0)',
+      ui.context,
+    ),
+    50,
+  );
+  vm.runInContext('state.front.equipment.rifle_ammo=100;updateFrontNumbers();', ui.context);
+  assert.notEqual(ui.get('front-composition').innerHTML, composition);
 });
