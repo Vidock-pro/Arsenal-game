@@ -4369,3 +4369,55 @@ dialog,
 .front-base:not([data-country='fr']) .garrison-plane {
   clip-path: inset(0 0 0 1%);
 }
+
+/* La composition est lisible à côté des illustrations, y compris sur téléphone. */
+.army-composition-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 6px 20px;
+}
+.army-composition-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #85784766;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.army-composition-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.army-composition-row strong {
+  flex-shrink: 0;
+  color: #e8d58c;
+}
+.army-total,
+.army-reserves,
+.front-threat,
+.battle-phases {
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.army-reserves {
+  margin-top: 14px;
+  color: #d4c8a2;
+  overflow-wrap: anywhere;
+}
+.battle-phases summary {
+  cursor: pointer;
+  color: #e8d58c;
+}
+@media (max-width: 480px) {
+  .army-composition-row {
+    flex-wrap: wrap;
+    gap: 2px 10px;
+  }
+}
+
+.army-composition-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}

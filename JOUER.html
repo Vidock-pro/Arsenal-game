@@ -5693,6 +5693,58 @@ dialog,
   clip-path: inset(0 0 0 1%);
 }
 
+/* La composition est lisible à côté des illustrations, y compris sur téléphone. */
+.army-composition-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 6px 20px;
+}
+.army-composition-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #85784766;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.army-composition-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.army-composition-row strong {
+  flex-shrink: 0;
+  color: #e8d58c;
+}
+.army-total,
+.army-reserves,
+.front-threat,
+.battle-phases {
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.army-reserves {
+  margin-top: 14px;
+  color: #d4c8a2;
+  overflow-wrap: anywhere;
+}
+.battle-phases summary {
+  cursor: pointer;
+  color: #e8d58c;
+}
+@media (max-width: 480px) {
+  .army-composition-row {
+    flex-wrap: wrap;
+    gap: 2px 10px;
+  }
+}
+
+.army-composition-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
     </style>
   </head>
   <body>
@@ -6657,60 +6709,496 @@ function newFront() {
   };
 }
 const enemyPower = (state) => Math.min(1e12, Math.ceil(12 * 1.3 ** (state.front.wave - 1)));
+// Réglages communs à la composition, aux prévisions et à la résolution des assauts.
+const COMBAT_UNITS = {
+  rifle: {
+    name: 'Fantassins au fusil',
+    crew: 1,
+    power: 1,
+    family: 'infantry',
+    ammo: 'rifle_ammo',
+    rounds: 1,
+  },
+  pistol: {
+    name: 'Fantassins au pistolet',
+    crew: 1,
+    power: 0.6,
+    family: 'infantry',
+    ammo: 'pistol_ammo',
+    rounds: 1,
+  },
+  machine_gun: {
+    name: 'Équipes de mitrailleuses',
+    crew: 2,
+    power: 4,
+    family: 'machine',
+    ammo: 'rifle_ammo',
+    rounds: 3,
+  },
+  halftrack: {
+    name: 'Half-tracks',
+    crew: 2,
+    power: 6,
+    family: 'machine',
+    ammo: 'rifle_ammo',
+    rounds: 2,
+  },
+  artillery: {
+    name: 'Canons d’artillerie',
+    crew: 2,
+    power: 8,
+    family: 'artillery',
+    ammo: 'shell',
+    rounds: 2,
+  },
+  light_tank: { name: 'Chars légers', crew: 3, power: 8, family: 'tank', ammo: 'shell', rounds: 1 },
+  medium_tank: {
+    name: 'Chars moyens',
+    crew: 3,
+    power: 12,
+    family: 'tank',
+    ammo: 'shell',
+    rounds: 3,
+  },
+  heavy_tank: {
+    name: 'Chars lourds',
+    crew: 3,
+    power: 18,
+    family: 'tank',
+    ammo: 'shell',
+    rounds: 4,
+  },
+  fighter: {
+    name: 'Avions de chasse',
+    crew: 2,
+    power: 12,
+    family: 'fighter',
+    ammo: 'rifle_ammo',
+    rounds: 4,
+  },
+  bomber: { name: 'Bombardiers', crew: 4, power: 24, family: 'bomber', ammo: 'shell', rounds: 6 },
+  recon: { name: 'Avions de reconnaissance', crew: 2, power: 0, family: 'logistics' },
+  jeep: { name: 'Jeeps de liaison', crew: 1, power: 0, family: 'logistics' },
+  truck: { name: 'Camions de ravitaillement', crew: 1, power: 0, family: 'logistics' },
+};
+const COMBAT_RULES = {
+  infantryReserve: 0.25,
+  overwhelming: 5,
+  bombingCap: 0.5,
+  airLoss: 0.08,
+  bombingLoss: 0.04,
+  artilleryLoss: 0.03,
+  closeLoss: 0.08,
+  maxLoss: 0.45,
+  equipmentLoss: 0.35,
+  supportCap: 0.2,
+  transportCap: 0.15,
+  mobilityCap: 0.1,
+  reconCap: 0.1,
+};
+const COMBAT_MATCHUPS = {
+  infantry: { infantry: 1, machine: 0.65, artillery: 0.8, tank: 0.65 },
+  machine: { infantry: 1.5, machine: 1, artillery: 0.8, tank: 0.65 },
+  artillery: { infantry: 1.5, machine: 1.25, artillery: 1, tank: 1 },
+  tank: { infantry: 1.5, machine: 1.5, artillery: 1, tank: 1 },
+};
+const frontMap = () => Object.fromEntries(FRONT_ITEMS.map((id) => [id, 0]));
+const aliveUnits = (g) => Math.min(g.count, Math.floor(g.men / COMBAT_UNITS[g.id].crew));
+const groupPower = (g) => aliveUnits(g) * COMBAT_UNITS[g.id].power * (g.dry ? 0.5 : 1);
+const groundGroup = (g) => !!COMBAT_MATCHUPS[COMBAT_UNITS[g.id].family];
+
+// Cette fonction ne dépense rien : elle répartit les hommes et réserve les lots de munitions.
 function armyStats(state) {
-  const f = state.front;
-  const e = f.equipment;
-  const used = Object.fromEntries(FRONT_ITEMS.map((id) => [id, 0]));
-  const spent = Object.fromEntries(FRONT_ITEMS.map((id) => [id, 0]));
-  let crew = f.soldiers,
-    strength = 0;
-  // Affecter les équipages aux matériels les plus puissants, sans compter un soldat deux fois.
-  const units = [
-    ['bomber', 5, 90, 'shell', 4],
-    ['fighter', 1, 45, 'rifle_ammo', 4],
-    ['heavy_tank', 5, 60, 'shell', 3],
-    ['medium_tank', 4, 40, 'shell', 2],
-    ['light_tank', 3, 24, 'shell', 1],
-    ['artillery', 4, 20, 'shell', 1],
-    ['halftrack', 2, 10, 'rifle_ammo', 2],
-    ['machine_gun', 2, 6, 'rifle_ammo', 3],
-    ['rifle', 1, 1, 'rifle_ammo', 1],
-    ['pistol', 1, 0.75, 'pistol_ammo', 1],
-  ];
-  for (const [id, men, power, ammo, rounds] of units) {
-    const count = Math.min(
-      e[id],
-      Math.floor(crew / men),
-      Math.floor((e[ammo] - spent[ammo]) / rounds),
+  const f = state.front,
+    e = f.equipment,
+    used = frontMap(),
+    spent = frontMap(),
+    groups = [];
+  let crew = f.soldiers;
+  const add = (id, count, dry = false) => {
+    if (!count) return;
+    const u = COMBAT_UNITS[id];
+    groups.push({ id, count, men: count * u.crew, dry });
+    crew -= count * u.crew;
+    used[id] += count;
+    if (u.ammo && !dry) spent[u.ammo] += count * u.rounds;
+  };
+  // Réserver une ligne d'infanterie, puis attribuer les équipements collectifs.
+  const reserve = Math.min(Math.ceil(crew * COMBAT_RULES.infantryReserve), e.rifle + e.pistol);
+  for (const id of [
+    'fighter',
+    'bomber',
+    'artillery',
+    'heavy_tank',
+    'medium_tank',
+    'light_tank',
+    'halftrack',
+    'machine_gun',
+  ]) {
+    const u = COMBAT_UNITS[id];
+    add(
+      id,
+      Math.min(
+        e[id],
+        Math.max(0, Math.floor((crew - reserve) / u.crew)),
+        Math.floor((e[u.ammo] - spent[u.ammo]) / u.rounds),
+      ),
     );
-    used[id] = count;
-    spent[ammo] += count * rounds;
-    crew -= count * men;
-    strength += count * power;
   }
-  const supplied = f.soldiers - crew;
-  const armed = Math.min(f.soldiers, e.rifle);
-  strength += crew * 0.25;
-  spent.grenade = Math.min(e.grenade, f.soldiers);
-  strength += spent.grenade * 0.5;
-  const support = Math.min(e.support, Math.ceil(f.soldiers / 10), 5);
-  spent.support = support;
-  // Transport et reconnaissance soutiennent une armée existante ; leur bonus est plafonné.
-  used.jeep = Math.min(e.jeep, Math.ceil(f.soldiers / 10), 5);
-  used.truck = Math.min(e.truck, Math.ceil(f.soldiers / 20), 5);
-  used.recon = Math.min(e.recon, Math.floor(crew / 2), 3);
-  const bonus = support * 0.1 + used.jeep * 0.03 + used.truck * 0.05 + used.recon * 0.1;
+  for (const id of ['rifle', 'pistol']) {
+    const n = Math.min(e[id], crew),
+      ready = Math.min(n, e[COMBAT_UNITS[id].ammo] - spent[COMBAT_UNITS[id].ammo]);
+    add(id, ready);
+    add(id, n - ready, true);
+  }
+  const combatMen = f.soldiers - crew;
+  for (const [id, coverage] of [
+    ['recon', 30],
+    ['jeep', 10],
+    ['truck', 20],
+  ]) {
+    add(
+      id,
+      Math.min(e[id], Math.floor(crew / COMBAT_UNITS[id].crew), Math.ceil(combatMen / coverage)),
+    );
+  }
+  const infantry = used.rifle + used.pistol;
+  spent.grenade = Math.min(e.grenade, infantry);
+  const support = Math.min(e.support, Math.ceil(combatMen / 10));
   const morale = 1 - 0.1 * Math.min(2, f.defeats);
+  const ground = groups.filter(groundGroup).reduce((n, g) => n + groupPower(g), 0);
+  const air = groups.filter((g) => !groundGroup(g)).reduce((n, g) => n + groupPower(g), 0);
+  const reserves = Object.entries(COMBAT_UNITS).flatMap(([id, u]) => {
+    const count = e[id] - used[id];
+    if (!count) return [];
+    const availableAmmo = u.ammo ? Math.floor((e[u.ammo] - spent[u.ammo]) / u.rounds) : count;
+    const withoutAmmo = u.ammo && u.family !== 'infantry' ? Math.max(0, count - availableAmmo) : 0;
+    return [{ id, count, withoutAmmo, withoutCrew: count - withoutAmmo }];
+  });
   return {
-    armed,
-    supplied,
-    support,
-    morale,
     used,
     spent,
-    power: Math.round(strength * (1 + bonus) * morale * 100) / 100,
+    groups,
+    reserves,
+    idle: crew,
+    armed: infantry,
+    supplied: combatMen,
+    support,
+    morale,
+    ground,
+    air,
+    medical: combatMen ? COMBAT_RULES.supportCap * Math.min(1, (support * 10) / combatMen) : 0,
+    transport: combatMen
+      ? COMBAT_RULES.transportCap * Math.min(1, (used.truck * 20) / combatMen)
+      : 0,
+    mobility: infantry ? COMBAT_RULES.mobilityCap * Math.min(1, (used.jeep * 10) / infantry) : 0,
+    reconnaissance: combatMen
+      ? COMBAT_RULES.reconCap * Math.min(1, (used.recon * 30) / combatMen)
+      : 0,
+    power:
+      Math.round(
+        (ground +
+          Math.min(used.bomber * COMBAT_UNITS.bomber.power, ground * COMBAT_RULES.bombingCap)) *
+          morale *
+          100,
+      ) / 100,
   };
 }
+
+// Les profils font varier la menace sans modifier le budget exponentiel des vagues.
+function enemyArmy(state) {
+  const wave = state.front.wave,
+    budget = enemyPower(state);
+  let name = 'Infanterie',
+    shares = {};
+  if (wave >= 14) {
+    const profiles = [
+      ['Bombardiers', { bomber: 0.4, medium_tank: 0.2 }],
+      ['Offensive combinée', { artillery: 0.15, medium_tank: 0.25, fighter: 0.15, bomber: 0.2 }],
+      ['Colonne blindée', { heavy_tank: 0.45, medium_tank: 0.15, artillery: 0.15 }],
+    ];
+    [name, shares] = profiles[(wave - 14) % profiles.length];
+  } else if (wave >= 12) {
+    [name, shares] =
+      wave === 12
+        ? ['Chasse ennemie', { fighter: 0.25, medium_tank: 0.3, artillery: 0.15 }]
+        : ['Offensive terrestre', { artillery: 0.35, medium_tank: 0.45 }];
+  } else if (wave >= 9) {
+    [name, shares] =
+      wave === 10
+        ? ['Colonne blindée', { medium_tank: 0.65, artillery: 0.15 }]
+        : ['Blindés et infanterie', { medium_tank: 0.4, artillery: 0.15 }];
+  } else if (wave >= 6) {
+    [name, shares] = [
+      'Batteries d’artillerie',
+      { artillery: wave === 8 ? 0.6 : 0.4, machine_gun: 0.15 },
+    ];
+  } else if (wave >= 4) {
+    [name, shares] = ['Infanterie et mitrailleuses', { machine_gun: wave === 4 ? 0.5 : 0.2 }];
+  }
+  const equipment = frontMap();
+  let remaining = budget,
+    soldiers = 0;
+  for (const [id, share] of Object.entries(shares)) {
+    const u = COMBAT_UNITS[id],
+      count = Math.floor((budget * share) / u.power);
+    equipment[id] = count;
+    remaining -= count * u.power;
+    soldiers += count * u.crew;
+    equipment[u.ammo] += count * u.rounds;
+  }
+  equipment.rifle = Math.floor(remaining);
+  equipment.rifle_ammo += equipment.rifle;
+  soldiers += equipment.rifle;
+  return {
+    name,
+    budget,
+    soldiers,
+    equipment,
+    stats: armyStats({ front: { soldiers, equipment, defeats: 0 } }),
+  };
+}
+function groundStrength(a, b) {
+  const targets = b.groups.filter(groundGroup),
+    targetPower = targets.reduce((n, g) => n + groupPower(g), 0);
+  const infantry = a.groups
+    .filter((g) => COMBAT_UNITS[g.id].family === 'infantry')
+    .reduce((n, g) => n + aliveUnits(g), 0);
+  const enemyInfantry = b.groups
+    .filter((g) => COMBAT_UNITS[g.id].family === 'infantry')
+    .reduce((n, g) => n + aliveUnits(g), 0);
+  const enemyGuns = b.groups
+    .filter((g) => g.id === 'artillery')
+    .reduce((n, g) => n + aliveUnits(g), 0);
+  const exposure = enemyGuns ? 1 - Math.min(1, enemyInfantry / (2 * enemyGuns)) : 0;
+  return (
+    a.groups.filter(groundGroup).reduce((sum, g) => {
+      const family = COMBAT_UNITS[g.id].family;
+      const matchup = targetPower
+        ? targets.reduce((n, t) => {
+            const target = COMBAT_UNITS[t.id].family;
+            return (
+              n +
+              groupPower(t) *
+                (COMBAT_MATCHUPS[family][target] +
+                  (family === 'tank' && target === 'artillery' ? exposure * 0.5 : 0))
+            );
+          }, 0) / targetPower
+        : 1;
+      const bonus =
+        family === 'infantry'
+          ? a.mobility + (infantry ? 0.1 * Math.min(1, a.spent.grenade / infantry) : 0)
+          : 0;
+      return sum + groupPower(g) * matchup * (1 + bonus);
+    }, 0) *
+    a.morale *
+    (1 + a.reconnaissance)
+  );
+}
+function aerialPower(a, id) {
+  return a.groups.filter((g) => g.id === id).reduce((n, g) => n + groupPower(g), 0) * a.morale;
+}
+function bombingStrength(a, b) {
+  const bombers = aerialPower(a, 'bomber'),
+    escort = aerialPower(a, 'fighter'),
+    interceptors = aerialPower(b, 'fighter');
+  // L'escorte aide les bombardiers ; l'interception réduit leur frappe avant la phase terrestre.
+  const passage = bombers
+    ? (escort + bombers * 0.25) / (escort + bombers * 0.25 + interceptors * 2)
+    : 0;
+  const targets = b.groups.filter(groundGroup);
+  const total = targets.reduce((n, g) => n + groupPower(g), 0);
+  const targetBonus = total
+    ? targets.reduce(
+        (n, g) =>
+          n + groupPower(g) * (['tank', 'artillery'].includes(COMBAT_UNITS[g.id].family) ? 1.5 : 1),
+        0,
+      ) / total
+    : 1;
+  return Math.min(bombers * targetBonus, groundStrength(a, b) * COMBAT_RULES.bombingCap) * passage;
+}
+function battlePreview(state) {
+  const army = armyStats(state),
+    enemy = enemyArmy(state);
+  return {
+    army,
+    enemy,
+    power: groundStrength(army, enemy.stats) + bombingStrength(army, enemy.stats),
+    enemyPower: groundStrength(enemy.stats, army) + bombingStrength(enemy.stats, army),
+  };
+}
+
+// Répartir un nombre entier de pertes sans faire disparaître un homme dans plusieurs unités.
+function hurt(army, rate, predicate = () => true) {
+  const groups = army.groups.filter((g) => predicate(g) && g.men > 0);
+  const total = groups.reduce((n, g) => n + g.men, 0);
+  const wanted = Math.max(
+    0,
+    Math.min(total, Math.ceil(total * Math.max(0, Math.min(1, rate)) - 1e-9)),
+  );
+  let assigned = 0;
+  const shares = groups.map((g) => {
+    const exact = total ? (wanted * g.men) / total : 0;
+    const loss = Math.floor(exact);
+    assigned += loss;
+    return { g, loss, remainder: exact - loss };
+  });
+  shares.sort((a, b) => b.remainder - a.remainder);
+  for (const entry of shares)
+    if (assigned < wanted && entry.loss < entry.g.men) {
+      entry.loss++;
+      assigned++;
+    }
+  for (const { g, loss } of shares) g.men -= loss;
+  return wanted;
+}
+// Simuler sur des copies : les prévisions et les tests ne modifient jamais la sauvegarde.
+function simulateCombat(playerStats, enemyStats) {
+  const sides = [structuredClone(playerStats), structuredClone(enemyStats)];
+  const initial = sides.map(
+    (a, i) => groundStrength(a, sides[1 - i]) + bombingStrength(a, sides[1 - i]),
+  );
+  const overwhelming =
+    initial[0] > 0 && initial[0] >= initial[1] * COMBAT_RULES.overwhelming
+      ? 0
+      : initial[1] > 0 && initial[1] >= initial[0] * COMBAT_RULES.overwhelming
+        ? 1
+        : -1;
+  const fired = [frontMap(), frontMap()],
+    destroyed = [frontMap(), frontMap()];
+  const phases = [];
+  const fire = (i, predicate) => {
+    for (const g of sides[i].groups.filter(predicate)) {
+      const u = COMBAT_UNITS[g.id];
+      if (u.ammo && !g.dry) fired[i][u.ammo] += aliveUnits(g) * u.rounds;
+    }
+  };
+  const phase = (name, rates, predicate) => {
+    const losses = sides.map((a, i) => (overwhelming === i ? 0 : hurt(a, rates[i], predicate)));
+    phases.push({ name, playerLosses: losses[0], enemyLosses: losses[1] });
+  };
+  const fighters = sides.map((a) => aerialPower(a, 'fighter'));
+  const bombers = sides.map((a) => aerialPower(a, 'bomber'));
+  for (let i = 0; i < 2; i++)
+    if (fighters[1 - i] + bombers[1 - i] > 0) fire(i, (g) => g.id === 'fighter');
+  phase(
+    'Engagement aérien',
+    sides.map((a, i) =>
+      fighters[1 - i]
+        ? Math.min(
+            0.3,
+            (COMBAT_RULES.airLoss * fighters[1 - i]) / Math.max(1, fighters[i] + bombers[i] * 0.25),
+          )
+        : 0,
+    ),
+    (g) => ['fighter', 'bomber'].includes(g.id),
+  );
+  const strikes = sides.map((a, i) => bombingStrength(a, sides[1 - i]));
+  for (let i = 0; i < 2; i++)
+    if (strikes[i] > 0 && groundStrength(sides[1 - i], sides[i]) > 0)
+      fire(i, (g) => g.id === 'bomber');
+  phase(
+    'Bombardement',
+    sides.map((a, i) =>
+      Math.min(
+        0.12,
+        (COMBAT_RULES.bombingLoss * strikes[1 - i]) / Math.max(1, groundStrength(a, sides[1 - i])),
+      ),
+    ),
+    groundGroup,
+  );
+  const guns = sides.map((a) =>
+    a.groups.filter((g) => g.id === 'artillery').reduce((n, g) => n + groupPower(g), 0),
+  );
+  for (let i = 0; i < 2; i++)
+    if (groundStrength(sides[1 - i], sides[i]) > 0) fire(i, (g) => g.id === 'artillery');
+  phase(
+    'Tirs d’artillerie',
+    sides.map((a, i) =>
+      Math.min(
+        0.1,
+        (COMBAT_RULES.artilleryLoss * guns[1 - i]) / Math.max(1, groundStrength(a, sides[1 - i])),
+      ),
+    ),
+    groundGroup,
+  );
+  const powers = sides.map(
+    (a, i) => groundStrength(a, sides[1 - i]) + bombingStrength(a, sides[1 - i]),
+  );
+  const won =
+    overwhelming >= 0 ? overwhelming === 0 : powers[0] > 0 && powers[0] + 1e-9 >= powers[1];
+  const draw = won && overwhelming < 0 && Math.abs(powers[0] - powers[1]) < 1e-9;
+  for (let i = 0; i < 2; i++)
+    if (initial[1 - i] > 0) {
+      fire(i, (g) => groundGroup(g) && g.id !== 'artillery');
+      fired[i].grenade = Math.min(
+        sides[i].spent.grenade,
+        sides[i].groups
+          .filter((g) => COMBAT_UNITS[g.id].family === 'infantry')
+          .reduce((n, g) => n + aliveUnits(g), 0),
+      );
+    }
+  phase(
+    'Engagement terrestre',
+    sides.map((a, i) => {
+      const ratio = powers[i] / Math.max(0.001, powers[1 - i]);
+      return (
+        Math.min(COMBAT_RULES.maxLoss, COMBAT_RULES.closeLoss / Math.max(0.001, ratio) ** 1.2) *
+        (1 - a.medical)
+      );
+    }),
+    (g) => groundGroup(g) || ['jeep', 'truck'].includes(g.id),
+  );
+  const losses = sides.map(
+    (a, i) =>
+      playerOrEnemy(i).groups.reduce((n, g) => n + g.men, 0) -
+      a.groups.reduce((n, g) => n + g.men, 0),
+  );
+  function playerOrEnemy(i) {
+    return i === 0 ? playerStats : enemyStats;
+  }
+  const spent = sides.map((a, i) => {
+    const original = playerOrEnemy(i),
+      ratio = initial[i] / Math.max(0.001, initial[1 - i]);
+    const factor =
+      overwhelming === i
+        ? Math.min(1, 1 / ratio ** 2)
+        : overwhelming >= 0
+          ? Math.max(0.01, Math.min(1, ratio))
+          : Math.min(1, 1 / Math.max(1, ratio));
+    const result = frontMap();
+    for (const id of ['rifle_ammo', 'pistol_ammo', 'shell'])
+      result[id] = Math.min(
+        original.spent[id],
+        Math.ceil(fired[i][id] * factor * (1 - original.transport)),
+      );
+    result.grenade = Math.min(original.spent.grenade, Math.ceil(fired[i].grenade * factor));
+    result.support = losses[i] ? Math.min(original.support, Math.ceil(losses[i] / 10)) : 0;
+    // Le matériel est moins fragile que ses équipages ; les réserves sont intactes.
+    for (const id of Object.keys(COMBAT_UNITS)) {
+      const before = original.groups.filter((g) => g.id === id).reduce((n, g) => n + g.men, 0);
+      const after = a.groups.filter((g) => g.id === id).reduce((n, g) => n + g.men, 0);
+      destroyed[i][id] = before
+        ? Math.floor(((original.used[id] * (before - after)) / before) * COMBAT_RULES.equipmentLoss)
+        : 0;
+    }
+    return result;
+  });
+  return {
+    won,
+    draw,
+    overwhelming: overwhelming >= 0,
+    power: initial[0],
+    enemy: initial[1],
+    losses: losses[0],
+    enemyLosses: losses[1],
+    spent: spent[0],
+    destroyed: destroyed[0],
+    enemyDestroyed: destroyed[1],
+    phases,
+  };
+}
+
 // Une seule alerte par préparation, conservée dans la sauvegarde.
 function takeAssaultWarning(state) {
   const f = state.front;
@@ -6753,47 +7241,22 @@ function requisitionWorkers(state) {
   return target;
 }
 function resolveAssault(state) {
-  const f = state.front,
-    stats = armyStats(state),
-    enemy = enemyPower(state);
-  const won = stats.power >= enemy;
-  // À cinq contre un, le vainqueur impose un combat bref, sans subir de pertes.
-  const overwhelming = won ? stats.power >= enemy * 5 : enemy >= stats.power * 5;
-  const intensity = Math.min(1, enemy / Math.max(1, stats.power));
-  const ammunitionFactor = overwhelming
-    ? won
-      ? intensity ** 2
-      : stats.power / Math.max(1, enemy)
-    : intensity;
-  const spent = Object.fromEntries(
-    FRONT_ITEMS.map((id) => [id, Math.ceil(stats.spent[id] * ammunitionFactor)]),
-  );
-  // Pas de soutien médical consommé quand aucune perte n’est subie.
-  if (won && overwhelming) spent.support = 0;
-  const losses =
-    won && overwhelming
-      ? 0
-      : Math.min(
-          f.soldiers,
-          Math.ceil((f.soldiers * (won ? 0.05 * intensity : 0.25)) / (1 + stats.support * 0.2)),
-        );
-  for (const id of FRONT_ITEMS) {
-    f.equipment[id] -= spent[id];
-    // Seul le matériel engagé subit les pertes ; le matériel en réserve reste disponible.
-    if (stats.used[id] && f.soldiers)
-      f.equipment[id] -= Math.min(
-        stats.used[id],
-        (won ? Math.floor : Math.ceil)((stats.used[id] * losses) / f.soldiers),
-      );
-  }
+  const f = state.front;
+  const battle = simulateCombat(armyStats(state), enemyArmy(state).stats);
+  const { won, overwhelming, losses, spent } = battle;
+  for (const id of FRONT_ITEMS) f.equipment[id] -= spent[id] + battle.destroyed[id];
   f.soldiers -= losses;
   const report = {
     wave: f.wave,
     won,
     overwhelming,
-    power: stats.power,
-    enemy,
+    draw: battle.draw,
+    power: battle.power,
+    enemy: battle.enemy,
     losses,
+    enemyLosses: battle.enemyLosses,
+    destroyed: battle.destroyed,
+    phases: battle.phases,
     ammunition: spent.pistol_ammo + spent.rifle_ammo + spent.shell,
     support: spent.support,
     factories: 0,
@@ -7651,6 +8114,7 @@ function validateSave(raw) {
   }
   const f = state.front;
   const whole = (n) => Number.isSafeInteger(n) && finite(n, 1e9);
+  const reportCount = (n) => Number.isSafeInteger(n) && finite(n, 1e13);
   if (
     !f ||
     !['preparing', 'paused', 'ended'].includes(f.status) ||
@@ -7675,13 +8139,41 @@ function validateSave(raw) {
         typeof f.lastBattle.won !== 'boolean' ||
         !whole(f.lastBattle.wave) ||
         f.lastBattle.wave < 1 ||
-        !finite(f.lastBattle.power) ||
-        !finite(f.lastBattle.enemy) ||
+        !finite(f.lastBattle.power, 1e13) ||
+        !finite(f.lastBattle.enemy, 1e13) ||
         ['losses', 'ammunition', 'support', 'factories', 'requisitioned', 'reward'].some(
-          (k) => !whole(f.lastBattle[k]),
+          (k) => !reportCount(f.lastBattle[k]),
         )))
   )
     throw Error('Front invalide');
+  if (f.lastBattle) {
+    const r = f.lastBattle;
+    if (
+      (r.draw !== undefined && typeof r.draw !== 'boolean') ||
+      (r.overwhelming !== undefined && typeof r.overwhelming !== 'boolean') ||
+      (r.enemyLosses !== undefined && !reportCount(r.enemyLosses)) ||
+      (r.destroyed !== undefined &&
+        (!r.destroyed ||
+          typeof r.destroyed !== 'object' ||
+          Object.entries(r.destroyed).some(([id, n]) => !FRONT_ITEMS.includes(id) || !whole(n)))) ||
+      (r.phases !== undefined &&
+        (!Array.isArray(r.phases) ||
+          r.phases.length > 4 ||
+          r.phases.some(
+            (p) =>
+              !p ||
+              ![
+                'Engagement aérien',
+                'Bombardement',
+                'Tirs d’artillerie',
+                'Engagement terrestre',
+              ].includes(p.name) ||
+              !whole(p.playerLosses) ||
+              !reportCount(p.enemyLosses),
+          )))
+    )
+      throw Error('Rapport de combat invalide');
+  }
   if (state.campaignId === undefined)
     state.campaignId = `legacy-${state.country}-${state.lastSaved}`;
   if (typeof state.campaignId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(state.campaignId))
@@ -9252,13 +9744,22 @@ function storage() {
 function battleReport() {
   const r = state.front.lastBattle;
   if (!r) return '<p>Aucun assaut pour le moment.</p>';
-  return `<h3>${r.won ? (r.overwhelming ? 'VICTOIRE ÉCRASANTE' : 'VICTOIRE') : state.front.status === 'ended' ? 'CAPITULATION' : r.overwhelming ? 'ENNEMI ÉCRASANT' : 'DÉFAITE'} · Vague ${fmt(r.wave)}</h3>
-    <p>Puissance engagée : ${recipeAmount(r.power)} / ${fmt(r.enemy)}</p>
-    <p>${fmt(r.losses)} soldats perdus · ${fmt(r.ammunition)} munitions consommées · ${fmt(r.support)} soutiens utilisés</p>
+  return `<h3>${r.won ? (r.overwhelming ? 'VICTOIRE ÉCRASANTE' : r.draw ? 'ASSAUT REPOUSSÉ' : 'VICTOIRE') : state.front.status === 'ended' ? 'CAPITULATION' : r.overwhelming ? 'ENNEMI ÉCRASANT' : 'DÉFAITE'} · Vague ${fmt(r.wave)}</h3>
+    <p>Puissance engagée : ${recipeAmount(r.power)} / ${recipeAmount(r.enemy)}</p>
+    <p>${fmt(r.losses)} hommes perdus · ${fmt(r.ammunition)} munitions consommées · ${fmt(r.support)} soutiens utilisés</p>
+    ${
+      r.destroyed && Object.values(r.destroyed).some(Boolean)
+        ? `<p>Matériel perdu : ${Object.keys(COMBAT_UNITS)
+            .filter((id) => r.destroyed[id])
+            .map((id) => `${PRODUCTS.find((p) => p.id === id).name} : ${fmt(r.destroyed[id])}`)
+            .join(' · ')}</p>`
+        : ''
+    }
+    ${r.phases ? `<details class="battle-phases"><summary>Déroulement de l’assaut</summary>${r.phases.map((p) => `<p>${p.name} : ${fmt(p.playerLosses)} pertes alliées · ${fmt(p.enemyLosses)} pertes ennemies</p>`).join('')}</details>` : ''}
     <p>${fmt(r.factories)} usines détruites · ${fmt(r.requisitioned)} ouvriers réquisitionnés</p>
     ${r.won ? `<p>Récompense : ${money(r.reward)} or</p>` : ''}`;
 }
-// Prototype français : un pictogramme par dizaine commencée, avec des plafonds visuels.
+// Garnison : un pictogramme par dizaine commencée, avec des plafonds visuels.
 function frontSceneCounts() {
   const e = state.front.equipment;
   const count = (n, max) => Math.min(max, Math.ceil(n / 10));
@@ -9320,9 +9821,10 @@ function front() {
     <div class="front-stats">
       <p>Vague <strong id="front-wave"></strong></p><p>Prochain assaut <strong id="front-timer"></strong></p>
       <p>Notre puissance <strong id="front-power"></strong></p><p>Menace ennemie <strong id="front-enemy"></strong></p>
-      <p>Soldats <strong id="front-soldiers"></strong></p>
+      <p>Effectif total <strong id="front-soldiers"></strong></p>
       <p>Défaites consécutives <strong id="front-defeats"></strong></p><p>Moral <strong id="front-morale"></strong></p>
     </div>
+    <p id="front-threat" class="front-threat"></p>
     <div class="front-actions">
       <button class="primary" id="front-assault" data-action="front-assault">Déclencher l’assaut</button>
       ${f.status === 'paused' ? '<button class="secondary" data-action="front-resume">Reprendre la préparation · 10 min</button>' : ''}
@@ -9330,6 +9832,7 @@ function front() {
     ${f.status === 'ended' ? '<p>Votre industrie est arrêtée. La sauvegarde et le bilan restent disponibles.</p><button class="secondary" data-action="home">Retour à l’écran titre</button>' : ''}
   </section>
   <section class="storage-panel front-log">${battleReport()}</section>
+  <section class="storage-panel front-composition"><h2>COMPOSITION DE L’ARMÉE</h2><div id="front-composition"></div></section>
   ${frontBase()}
   <section class="storage-panel front-supply"><h2>APPROVISIONNER L’ARMÉE</h2>
     <p>Seuls les équipements que vous livrez ici sont envoyés au front.</p>
@@ -9344,7 +9847,7 @@ function front() {
       .map((id) => {
         const p = PRODUCTS.find((p) => p.id === id);
         return `<div class="front-supply-row"><div><h3>${p.name}</h3><p>${productName(state, p)}</p>
-        <p>En stock : <strong id="front-stock-${id}"></strong> ${id === 'uniform' ? '· 1 uniforme = 1 soldat' : `· Au front : <strong id="front-equipped-${id}"></strong>`}</p></div>
+        <p>En stock : <strong id="front-stock-${id}"></strong> ${id === 'uniform' ? '· 1 uniforme = 1 homme' : `· Au front : <strong id="front-equipped-${id}"></strong>`}</p></div>
         <div class="front-delivery"><label for="front-quantity-${id}">Quantité</label>
         <div class="market-number-field">
           <input type="number" id="front-quantity-${id}" min="1" step="1" value="1" inputmode="numeric" />
@@ -9358,11 +9861,33 @@ function front() {
       .join('')}
   </section>`;
 }
+// Même composition que le moteur : aucun effectif reconstitué à partir des stocks.
+function updateArmyComposition(stats) {
+  const rows = stats.groups.map((g) => {
+    const u = COMBAT_UNITS[g.id];
+    const status = g.dry ? ' — sans munitions' : u.family === 'infantry' ? ' — approvisionnés' : '';
+    return `<div class="army-composition-row"><span>${u.name}${status}</span><strong>${fmt(g.count)}${u.crew > 1 || u.family === 'logistics' ? ` — ${fmt(g.men)} hommes` : ''}</strong></div>`;
+  });
+  if (stats.idle)
+    rows.push(
+      `<div class="army-composition-row"><span>Hommes sans affectation</span><strong>${fmt(stats.idle)}</strong></div>`,
+    );
+  const reserves = stats.reserves
+    .map(
+      (r) =>
+        `${PRODUCTS.find((p) => p.id === r.id).name} : ${fmt(r.count)} (${[r.withoutCrew ? `${fmt(r.withoutCrew)} sans équipage disponible` : '', r.withoutAmmo ? `${fmt(r.withoutAmmo)} sans munitions disponibles` : ''].filter(Boolean).join(', ')})`,
+    )
+    .join(' · ');
+  const html = `<p class="army-total">Effectif total : <strong>${fmt(state.front.soldiers)} hommes</strong></p><div class="army-composition-list">${rows.join('') || '<p>Aucun homme au front.</p>'}</div>${reserves ? `<p class="army-reserves"><strong>En réserve :</strong> ${reserves}</p>` : ''}`;
+  const el = document.getElementById('front-composition');
+  if (el && el.innerHTML !== html) el.innerHTML = html;
+}
 function updateFrontNumbers() {
   if (view !== 'front') return;
   updateFrontBase();
   const f = state.front,
-    stats = armyStats(state);
+    preview = battlePreview(state),
+    stats = preview.army;
   text(
     'front-status',
     f.status === 'ended'
@@ -9373,8 +9898,16 @@ function updateFrontNumbers() {
   );
   text('front-wave', f.wave);
   text('front-timer', f.status === 'preparing' ? clock(f.remaining) : '—');
-  text('front-power', recipeAmount(stats.power));
-  text('front-enemy', fmt(enemyPower(state)));
+  text('front-power', recipeAmount(preview.power));
+  text('front-enemy', recipeAmount(preview.enemyPower));
+  updateArmyComposition(stats);
+  const details = stats.used.recon
+    ? Object.entries(preview.enemy.stats.used)
+        .filter(([id, n]) => n && COMBAT_UNITS[id])
+        .map(([id, n]) => `${fmt(n)} ${COMBAT_UNITS[id].name.toLowerCase()}`)
+        .join(' · ')
+    : '';
+  text('front-threat', `Menace : ${preview.enemy.name}${details ? ' — ' + details : ''}`);
   text('front-soldiers', fmt(f.soldiers));
   text('front-defeats', `${f.defeats} / 3`);
   text('front-morale', `${Math.round(stats.morale * 100)} %`);

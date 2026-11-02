@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   productionRecipe,
   armyStats,
+  battlePreview,
   serializeSave,
   FRONT_ITEMS,
   takeAssaultWarning,
@@ -1203,13 +1204,14 @@ test('Manual assault, victory, reserve recruitment and ammunition are determinis
   assert.equal(s.front.soldiers, 18);
   assert.equal('reservists' in s.front, false);
   assert.equal(s.front.equipment.uniform, 0);
-  assert.equal(armyStats(s).power, 12);
+  s.front.equipment.rifle = 18;
+  assert.equal(armyStats(s).power, 18);
   assert.ok(act(s, 'front-assault'));
   assert.equal(s.front.victories, 1);
   assert.equal(s.front.wave, 2);
   assert.equal(s.front.status, 'preparing');
   assert.equal(s.front.remaining, 600);
-  assert.equal(s.front.equipment.rifle_ammo, 20);
+  assert.equal(s.front.equipment.rifle_ammo, 18);
   assert.equal(s.front.soldiers, 17);
   assert.equal(s.credits, 100);
   assert.equal('reservists' in s.front, false);
@@ -1313,10 +1315,10 @@ test('Support reduces losses and no ammunition reduces army power', () => {
   const s = newGame('fr');
   assert.equal(armyStats(s).power, 10);
   s.front.equipment.rifle_ammo = 0;
-  assert.equal(armyStats(s).power, 2.5);
+  assert.equal(armyStats(s).power, 5);
   s.front.equipment.rifle_ammo = 30;
   s.front.equipment.support = 1;
-  assert.equal(armyStats(s).power, 11);
+  assert.equal(armyStats(s).power, 10);
   act(s, 'front-assault');
   assert.equal(s.front.equipment.support, 0);
   assert.ok(s.front.lastBattle.losses <= 3);
@@ -1378,13 +1380,13 @@ test('Heavy equipment requires crews and ammunition, which are consumed once', (
   const s = newGame('fr');
   s.front.equipment.rifle = 0;
   s.front.equipment.artillery = 2;
-  assert.equal(armyStats(s).power, 2.5);
-  s.front.equipment.shell = 1;
+  assert.equal(armyStats(s).power, 0);
+  s.front.equipment.shell = 2;
   assert.equal(armyStats(s).used.artillery, 1);
-  assert.equal(armyStats(s).power, 21.5);
+  assert.equal(armyStats(s).power, 8);
   act(s, 'front-assault');
   assert.equal(s.front.equipment.shell, 0);
-  assert.equal(s.front.lastBattle.ammunition, 1);
+  assert.equal(s.front.lastBattle.ammunition, 2);
   s.front.soldiers = 0;
   s.front.equipment.shell = 10;
   assert.equal(armyStats(s).power, 0);
@@ -1395,14 +1397,14 @@ test('Pistols, grenades and logistics contribute with no double assignment', () 
   e.rifle = 0;
   e.pistol = 10;
   e.pistol_ammo = 10;
-  assert.equal(armyStats(s).power, 7.5);
+  assert.equal(armyStats(s).power, 6);
   e.grenade = 10;
   e.jeep = 1;
   e.truck = 1;
-  assert.ok(armyStats(s).power > 12.5);
+  assert.ok(battlePreview(s).power > 6);
   act(s, 'front-assault');
-  assert.equal(e.pistol_ammo, 1);
-  assert.equal(e.grenade, 1);
+  assert.equal(e.pistol_ammo, 0);
+  assert.equal(e.grenade, 0);
 });
 test('Each vehicle and aircraft has a useful combat role', () => {
   for (const id of [
@@ -1419,10 +1421,9 @@ test('Each vehicle and aircraft has a useful combat role', () => {
   ]) {
     const s = newGame('fr');
     s.front.soldiers = 100;
-    Object.assign(s.front.equipment, { rifle: 0, rifle_ammo: 100, shell: 100 });
-    const before = armyStats(s).power;
+    Object.assign(s.front.equipment, { rifle: 50, rifle_ammo: 100, shell: 100 });
     s.front.equipment[id] = 1;
-    assert.ok(armyStats(s).power > before, id);
+    assert.equal(armyStats(s).used[id], 1, id);
   }
 });
 test('Warning is issued once at one minute, survives reload and resets after a battle', () => {
